@@ -338,9 +338,9 @@ void main() {
       expect(stop.onPressed, isNull);
       await tester.enterText(find.byType(TextField).first, '保留这条草稿');
       await tester.pump();
-      // 停止请求没回来时写了东西，按钮也是发送，草稿不丢。
+      // 停止请求未返回时仍可写草稿，停止状态保持可见但不能重复提交。
       expect(find.byTooltip('Send').hitTestable(), findsOneWidget);
-      expect(find.byTooltip('Stopping…'), findsNothing);
+      expect(find.byTooltip('Stopping…'), findsOneWidget);
       expect(find.text('保留这条草稿'), findsOneWidget);
       expect(
         state.calls.where((call) => call.$1 == LinkMethods.stop),
