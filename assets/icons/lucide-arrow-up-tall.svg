@@ -1,0 +1,16 @@
+<!-- Lucide arrow-up (lucide-static v1.66.0 - ISC), lengthened to the 18/24 height of pencil and trash-2 for the queue actions row -->
+<svg
+  class="lucide lucide-arrow-up"
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.75"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m5 10 7-7 7 7" />
+  <path d="M12 21V3" />
+</svg>

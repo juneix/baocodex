@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- YCode 图标（assets/icons/ycode.svg）：深底、绿色 Y、白色光标。
+     Android 8 起用 drawable-anydpi-v26 里的自适应图标，这份给更老的系统。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="512" android:viewportHeight="512">
+    <path android:fillColor="#17191E"
+        android:pathData="M116,0 L396,0 Q512,0 512,116 L512,396 Q512,512 396,512 L116,512 Q0,512 0,396 L0,116 Q0,0 116,0 Z" />
+    <path android:fillColor="@android:color/transparent" android:strokeColor="#07C160"
+        android:strokeWidth="60" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M150,132 L256,262 L362,132 M256,262 L256,390" />
+    <path android:fillColor="#F5F5F2"
+        android:pathData="M314,362 L370,362 A14,14 0 0 1 370,390 L314,390 A14,14 0 0 1 314,362 Z" />
+</vector>

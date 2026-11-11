@@ -1,0 +1,27 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+android/.gradle/
+android/.kotlin/
+android/local.properties
+android/captures/
+android/key.properties
+*.jks
+*.keystore
+**/*release.properties
+**/*-signing.zip
+.env
+.env.*
+.idea/
+*.iml
+.DS_Store
+vendor/**/.dart_tool/
+vendor/**/build/
+
+# Release outputs
+dist/
+*.idsig
+__pycache__/

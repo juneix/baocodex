@@ -1,0 +1,53 @@
+name: baocode_mobile
+description: YCode, an unofficial Android client for BaoCode desktops.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.4
+
+workspace:
+  - vendor/bao_link
+  - vendor/bao_iroh
+  - vendor/bao_editor
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  bao_link:
+    path: vendor/bao_link
+  bao_editor:
+    path: vendor/bao_editor
+  image_picker: ^1.2.0
+  url_launcher: ^6.3.2
+  flutter_math_fork: ^0.7.4
+  markdown: ^7.3.1
+  mermaid_core: 0.3.0
+  mermaid_flutter: 0.3.0
+  path: ^1.9.1
+  clock: ^1.1.2
+  crypto: ^3.0.8
+  gal: ^2.3.1
+  flutter_svg: ^2.3.0
+  mobile_scanner: ^7.5.0
+
+dev_dependencies:
+  bao_iroh:
+    path: vendor/bao_iroh
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/LICENSE-GPL-3.0.txt
+    - assets/licenses/
+    - assets/icons/
+    - assets/model_icons/
+    - assets/material_icons/
+    - assets/material_icons/icons/

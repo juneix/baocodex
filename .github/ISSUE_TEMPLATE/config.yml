@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全问题（私下报告）
+    url: https://github.com/shuishani/ycode/security/advisories/new
+    about: 安全问题请不要公开提交
+  - name: BaoCode 电脑端问题
+    url: https://github.com/baocode-dev/baocode/issues
+    about: 电脑端本身的问题请提交给官方仓库
