@@ -13,7 +13,7 @@
 ## 提交代码
 
 - 从 `main` 创建分支，一个 Pull Request 只做一件事。
-- 开发环境见 [README](README.md)，构建和签名见 [docs/release-android.md](docs/release-android.md)。
+- 开发环境见 [README](README_CN.md)，构建和签名见 [docs/release-android.md](docs/release-android.md)。
 - 提交前运行 `flutter analyze --no-pub` 和 `flutter test --no-pub`。新增或修改的行为要有测试，测试名用中文。
 - 界面文案中英双语：有 `AppState` 时用 `state.tr`，否则用 `AppState.phrase`；错误提示不显示异常原文。
 - 不要直接修改 `vendor/` 下的协议包，协议同步规则见 [docs/upstream-sync.md](docs/upstream-sync.md)。

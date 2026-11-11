@@ -47,6 +47,8 @@ import 'composer_banners.dart';
 import 'session_sync_notice.dart';
 import 'slash_commands.dart';
 import 'chat_activity_card.dart';
+import 'context_usage.dart';
+import 'rewind_files.dart';
 import 'running_agents.dart';
 import '../devices/device_menu.dart' show linkStatusLabel;
 import '../conversations/chats_tab.dart' show newConversation;
@@ -540,28 +542,51 @@ class _ChatPageState extends State<ChatPage> {
       _queueDraft();
       return;
     }
-    // The notice above says so while editing; it is asked once, as it is sent.
-    if (_editIndex != null &&
-        !await confirmAction(
-          context,
-          widget.state,
-          tr('重新发送？', 'Resend?'),
-          _buffer.live
-              ? tr(
-                  '之后的对话将被丢弃，当前这一轮也会停止。',
-                  'What follows is discarded and the running turn stops.',
-                )
-              : tr('之后的对话将被丢弃。', 'What follows is discarded.'),
-          action: tr('丢弃并发送', 'Discard and send'),
-          destructive: true,
-        )) {
-      return;
+    // The notice above says so while editing; it is asked once, as it is sent,
+    // with what becomes of the files the agent changed after the message.
+    int? planIndex;
+    var revertFiles = false;
+    if (_editIndex != null) {
+      planIndex = _editAnchor?.locate(_buffer);
+      var plan = RewindPlan.none;
+      if (planIndex != null && !_buffer.loading) {
+        setState(() {
+          _sending = true;
+          _error = null;
+        });
+        try {
+          plan = await loadRewindPlan(
+            widget.state,
+            widget.desktopId,
+            session: _sessionId,
+            index: planIndex,
+          );
+        } catch (error) {
+          if (mounted) {
+            setState(() => _error = userMessage(widget.state, error));
+          }
+          return;
+        } finally {
+          if (mounted) setState(() => _sending = false);
+        }
+        if (!mounted) return;
+      }
+      final answer = await askResend(
+        context,
+        widget.state,
+        live: _buffer.live,
+        plan: plan,
+      );
+      if (answer == null) return;
+      revertFiles = answer;
     }
     if (!mounted || _sending) return;
     final editIndex = _editAnchor?.locate(_buffer);
-    if (_editIndex != null && (editIndex == null || _buffer.loading)) {
+    // What was asked of the files is for the message as it was then.
+    final moved = revertFiles && editIndex != planIndex;
+    if (_editIndex != null && (editIndex == null || moved || _buffer.loading)) {
       setState(
-        () => _error = editIndex == null
+        () => _error = editIndex == null || moved
             ? tr(
                 '编辑的消息已变化，请取消后重新选择。',
                 'The message changed. Cancel and select it again.',
@@ -592,6 +617,7 @@ class _ChatPageState extends State<ChatPage> {
           'text': text,
           'images': images,
           'mentions': mentions,
+          if (revertFiles) 'revertFiles': true,
         });
         if (!mounted) return;
         if (_binding.generation != operationGeneration) {

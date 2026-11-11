@@ -54,6 +54,13 @@ void main() {
       expect(release.version, '0.3.1');
       expect(release.notes, '修了几个问题');
       expect(release.url, contains('/releases/tag/v0.3.1'));
+      expect(release.notesZh, isNull);
+
+      final both = parseRelease(
+        releaseJson(notes: '- Faster\n\n<!-- zh -->\n\n- 更快了\n'),
+      );
+      expect(both.notes, '- Faster');
+      expect(both.notesZh, '- 更快了');
     });
 
     test('没有说明正文时为空', () {
@@ -220,7 +227,8 @@ void main() {
       expect(await checker.check(), isNull);
       fail = false;
       expect((await checker.check())?.latest.version, '0.3.0');
-      expect(fetches, 2);
+      // 失败那次先问 latest.json 再问接口。
+      expect(fetches, 3);
     });
 
     test('dev 构建不检查', () async {
@@ -318,16 +326,31 @@ void main() {
       );
     });
 
-    test('问的是 GitHub 上 YCode 的 release 接口', () async {
-      Uri? asked;
-      await checkForUpdate(
-        currentVersion: '0.2.0',
-        fetcher: (url) async {
-          asked = url;
-          return releaseJson();
-        },
+    test('先读 Release 附带的 latest.json，读不到或读不懂再问接口', () async {
+      for (final (manifest, version) in [
+        (releaseJson(tag: 'v0.4.0'), '0.4.0'),
+        (null, '0.3.0'),
+        ('{', '0.3.0'),
+      ]) {
+        final asked = <String>[];
+        final check = await checkForUpdate(
+          currentVersion: '0.2.0',
+          fetcher: (url) async {
+            asked.add('$url');
+            if ('$url' == updateReleaseApi) return releaseJson();
+            return manifest ?? (throw Exception('404'));
+          },
+        );
+        expect(check.latest.version, version, reason: manifest);
+        expect(asked, [
+          updateManifestUrl,
+          if (version == '0.3.0') updateReleaseApi,
+        ], reason: manifest);
+      }
+      expect(
+        updateManifestUrl,
+        'https://github.com/shuishani/ycode/releases/latest/download/latest.json',
       );
-      expect(asked.toString(), updateReleaseApi);
       expect(
         updateReleaseApi,
         contains('/repos/shuishani/ycode/releases/latest'),

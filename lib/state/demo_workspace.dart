@@ -126,6 +126,17 @@ class DemoWorkspace {
           ],
           'tasks': [],
           'changes': [],
+          'context': {
+            'window': 200000,
+            'used': 38600,
+            'parts': [
+              {'part': 'system', 'tokens': 3200},
+              {'part': 'tools', 'tokens': 14800},
+              {'part': 'memory', 'tokens': 2600},
+              {'part': 'messages', 'tokens': 18000},
+            ],
+            'compactAt': 167000,
+          },
         };
       case LinkMethods.close:
         return null;
@@ -162,6 +173,9 @@ class DemoWorkspace {
           'text': '演示消息已保留。没有调用模型或执行代码。',
         });
         return {'session': session};
+      case LinkMethods.rewindPlan:
+        // 演示不改文件，重新发送时没有要撤回的。
+        return {'files': [], 'setting': 'ask'};
       case LinkMethods.edit:
         final items = _history[id] ?? [];
         final index = params['index'] as int? ?? -1;

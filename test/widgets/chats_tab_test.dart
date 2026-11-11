@@ -444,4 +444,47 @@ void main() {
     );
     expect(pin, findsOneWidget);
   });
+
+  testWidgets('筛选里选了项目就收起面板，首页直接平铺它的对话，不再是项目文件夹', (tester) async {
+    final state = _State();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(MaterialApp(home: ChatsTab(state: state)));
+    expect(find.text('项目甲（2）'), findsOneWidget);
+    expect(find.text('审批任务'), findsNothing);
+    await tester.tap(find.byTooltip('筛选对话'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('项目甲'));
+    await tester.pumpAndSettle();
+    expect(find.text('全部项目'), findsNothing, reason: '选完自动收起');
+    expect(find.text('项目甲（2）'), findsNothing);
+    expect(find.byKey(const ValueKey('session-在线-会话甲')), findsOneWidget);
+    expect(find.byKey(const ValueKey('session-在线-会话乙')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('session-在线-会话乙')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<ChatPage>(find.byType(ChatPage)).sessionId, '会话乙');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('点项目行尾的箭头在首页展开它的对话，再点收起，不进入项目', (tester) async {
+    final state = _State();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(MaterialApp(home: ChatsTab(state: state)));
+    expect(find.byKey(const ValueKey('session-在线-会话乙')), findsNothing);
+    expect(find.bySemanticsLabel('展开对话'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('unfold-在线-p')));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('收起对话'), findsOneWidget);
+    expect(find.byType(ProjectChatsPage), findsNothing);
+    expect(find.text('项目甲（2）'), findsOneWidget);
+    expect(find.byKey(const ValueKey('session-在线-会话甲')), findsOneWidget);
+    expect(find.byKey(const ValueKey('session-在线-会话乙')), findsOneWidget);
+    // 右下角一整块都算点箭头：离图标远一点也只收起，不进项目。
+    final corner = tester.getBottomRight(
+      find.byKey(const ValueKey('project-在线-p')),
+    );
+    await tester.tapAt(corner - const Offset(64, 6));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProjectChatsPage), findsNothing);
+    expect(find.byKey(const ValueKey('session-在线-会话乙')), findsNothing);
+  });
 }

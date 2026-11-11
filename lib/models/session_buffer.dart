@@ -14,6 +14,7 @@ class SessionBuffer {
   String? error;
   Map<String, Object?>? interaction;
   Map<String, Object?>? goal;
+  Map<String, Object?>? context;
   List<LinkChoice> choices = [];
   List<LinkTask> tasks = [];
   List<Map<String, Object?>> changes = [];
@@ -42,6 +43,7 @@ class SessionBuffer {
     tasks = update.tasks;
     changes = update.changes;
     goal = update.goal;
+    context = update.context;
     error = null;
     revision++;
   }

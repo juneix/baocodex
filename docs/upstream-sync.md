@@ -4,11 +4,11 @@ YCode 是独立的非官方 Android 客户端，不是官方手机端的分支�
 
 ## 协议
 
-- `vendor/bao_link`、`vendor/bao_iroh` 来自 [BaoCode](https://github.com/baocode-dev/baocode) 官方提交 `37ea9184`（1.9.2）的 `packages/` 目录，Dart 与 Rust 绑定成对同步。
+- `vendor/bao_link`、`vendor/bao_iroh` 来自 [BaoCode](https://github.com/baocode-dev/baocode) 官方提交 `4ba7d951`（1.9.4 之后）的 `packages/` 目录，Dart 与 Rust 绑定成对同步。
 - 只多一个可选方法 `quota`（额度查询），声明在 `vendor/bao_link/lib/src/protocol.dart`。官方电脑端不支持时，手机端只显示「此电脑不支持额度查询」，不影响聊天、文件和 Bot；超时、断线这类真实错误照常报失败。
 - 排队消息由手机端在本地保存和发送，不需要协议扩展。
 
-官方改了 `packages/bao_link`、`packages/bao_iroh` 或 `lib/link/` 时：先比较 `37ea9184` 和新提交的差异，有选择地同步，保留 `quota`，再更新本文记录的提交；不要直接覆盖整个 `vendor`。
+官方改了 `packages/bao_link`、`packages/bao_iroh` 或 `lib/link/` 时：先比较 `4ba7d951` 和新提交的差异，有选择地同步，保留 `quota`，再更新本文记录的提交；不要直接覆盖整个 `vendor`。
 
 ## 兼容约定
 

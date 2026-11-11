@@ -17,6 +17,7 @@ import '../widgets/lucide_icon.dart';
 import '../widgets/mobile_widgets.dart';
 import '../widgets/scale_slider.dart';
 import '../user_message.dart';
+import 'changelog_page.dart';
 import 'update_dialog.dart';
 
 export 'update_dialog.dart' show UpdateDialog;
@@ -1407,7 +1408,6 @@ class AboutPage extends StatelessWidget {
   final String appVersion;
 
   static const _site = projectUrl;
-  static const _releases = '$_site/releases';
 
   @override
   Widget build(BuildContext context) {
@@ -1465,7 +1465,8 @@ class AboutPage extends StatelessWidget {
               ),
               SettingsRow(
                 state.tr('更新日志', 'Changelog'),
-                onTap: () => confirmExternalLink(context, state, _releases),
+                onTap: () =>
+                    openPage<void>(context, ChangelogPage(state: state)),
               ),
               SettingsRow(
                 state.tr('开源许可', 'Open-source licenses'),

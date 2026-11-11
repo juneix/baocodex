@@ -1,54 +1,61 @@
 # YCode
 
-[下载 Android 安装包](https://github.com/shuishani/ycode/releases/latest) · [更新日志](https://github.com/shuishani/ycode/releases) · [问题反馈](https://github.com/shuishani/ycode/issues)
+**English** · [简体中文](README_CN.md)
 
-YCode 是 BaoCode 电脑版的独立、非官方 Android 客户端，由 shuishan 维护，使用 Flutter 开发。通过官方 link v2 协议（iroh/QUIC、Ed25519、端到端加密）配对电脑，在手机上查看和继续电脑上的对话。
+[Download for Android](https://github.com/shuishani/ycode/releases/latest) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/shuishani/ycode/issues)
 
-本项目不属于 BaoCode 官方产品，不代表官方提供支持。电脑上的模型调用、凭据与任务执行仍由电脑端管理。请只连接自己信任的电脑。
+YCode is an independent, unofficial Android client for the BaoCode desktop app, maintained by shuishan and built with Flutter. It pairs with your computer over BaoCode's official link v2 protocol (iroh/QUIC, Ed25519, end-to-end encrypted), so you can follow and continue your desktop conversations from your phone.
 
-## 安装与更新
+| Home | Conversation |
+| :---: | :---: |
+| ![Home](docs/screenshots/home.jpg) | ![Conversation](docs/screenshots/chat.jpg) |
 
-- **先在电脑上安装 BaoCode**：官网 <https://baocode.dev>，下载 <https://baocode.dev/download>。在电脑端「设置 → 手机」显示二维码，用 YCode 扫码配对。
-- **安装 YCode**：从 [GitHub Releases](https://github.com/shuishani/ycode/releases) 下载 APK，支持 Android 7.0 及以上的 arm64 设备，暂不支持 iOS。
-- **更新**：打开应用时会自动检查，有新版本就弹窗，可在应用内下载安装；也可以在「设置 → 当前版本」手动检查。首次更新时需要允许 YCode「安装未知应用」。覆盖安装会保留配对和数据，不要为了更新而卸载。
+YCode is not an official BaoCode product and is not supported by the BaoCode team. Model calls, credentials and task execution stay on the desktop. Only connect to computers you trust.
 
-## 功能
+## Install and update
 
-- 对话、Bot、文件、设置四栏；中英文，跟随系统或浅色/深色主题。
-- 扫码、粘贴或局域网发现配对，多台电脑，断线重连。
-- 项目和对话的搜索、筛选、置顶、归档；流式消息、编辑重发、排队与立即插入、图片和 @ 文件、/ 命令。
-- Markdown、代码高亮、数学公式、离线 Mermaid；工具与思考折叠、审批与提问、计划、子代理。
-- 切换模型、模式和权限，显示厂商图标；额度查询需要电脑端支持，官方电脑端会显示不支持。
-- Bot 的添加、编辑、头像、记忆和聊天。
-- 文件树、搜索、预览、改动对比，以及保留或撤回改动。
+- **Install BaoCode on your computer first**: website <https://baocode.dev>, download <https://baocode.dev/download>. In the desktop app, open Settings → Mobile to show a QR code, then scan it with YCode to pair.
+- **Install YCode**: download the APK from [GitHub Releases](https://github.com/shuishani/ycode/releases). It runs on arm64 devices with Android 7.0 or later. iOS is not supported yet.
+- **Updates**: YCode checks for updates every time it opens, offers new versions in a dialog, and downloads and installs them in the app. You can also check under Settings → Current version. The first update asks you to allow YCode to install unknown apps. Updating in place keeps your pairings and data; don't uninstall to update.
 
-## 开发
+## Features
 
-需要 Flutter 3.47 / Dart 3.13、JDK 21、Android SDK/NDK，以及 Rust 1.97.1（由 `vendor/bao_iroh/rust/rust-toolchain.toml` 固定）。当前仅提供 Android 工程，没有 iOS 工程。
+- Conversations, Bots, Files and Settings tabs; Chinese and English; follows the system theme or light/dark.
+- Pair by QR code, pasted link or LAN discovery; multiple computers; reconnects after drops.
+- Search, filter, pin and archive projects and conversations, and unfold a project's conversations right on the home list; streaming messages, queued and immediate sends, images and @ files, / commands.
+- Edit and resend an earlier message, optionally undoing the files the agent changed after it; a context usage ring in the composer (both need BaoCode desktop 1.9.3 or later).
+- Markdown, code highlighting, math and offline Mermaid; folded tools and thinking, approvals and questions, plans, subagents.
+- Switch models, modes and permissions with provider icons; quota checks need desktop support, and the official desktop shows them as unsupported.
+- Add, edit and chat with Bots, with avatars and memory.
+- File tree, search, preview and diffs, with keeping or undoing changes.
 
-Android SDK 和 Flutter 路径放在本机的 `android/local.properties` 中，不提交。Windows 可使用 `tool/prepare_android.ps1`；也可以参考 [构建说明](docs/release-android.md) 配置。
+## Development
+
+Requires Flutter 3.47 / Dart 3.13, JDK 21, the Android SDK/NDK and Rust 1.97.1 (pinned by `vendor/bao_iroh/rust/rust-toolchain.toml`). Only the Android project exists; there is no iOS project.
+
+Keep the Android SDK and Flutter paths in your local `android/local.properties`, which is not committed. On Windows you can use `tool/prepare_android.ps1`, or follow the [build guide](docs/release-android.md).
 
 ```sh
 flutter pub get
 flutter analyze --no-pub
-# 运行与当前改动相关的测试，例如：
+# Run the tests related to your change, for example:
 flutter test --no-pub test/state/update_check_test.dart test/state/apk_download_test.dart test/widgets/update_check_test.dart
-flutter run --dart-define=DEMO=true   # 演示数据，不连电脑
+flutter run --dart-define=DEMO=true   # demo data, no desktop needed
 ```
 
-打包、签名、安装与发布见 [docs/release-android.md](docs/release-android.md)。`tool/fixture_desktop.dart` 是测试用的合成电脑，不碰真实仓库和模型。
+Packaging, signing, installing and releasing are described in [docs/release-android.md](docs/release-android.md) (Chinese). `tool/fixture_desktop.dart` is a synthetic desktop for tests that never touches real repositories or models.
 
-## 来源与许可
+## Origin and license
 
-Copyright (C) 2026 shuishan。整体项目按 **GPL-3.0-only** 发布，见 [LICENSE](LICENSE)。
+Copyright (C) 2026 shuishan. The project as a whole is released under **GPL-3.0-only**; see [LICENSE](LICENSE).
 
-- 来自 BaoCode 的协议包 `vendor/bao_link` 以及复制、改编的文件适用 GPL-3.0-only，版权归 BaoCode 作者。`vendor/bao_iroh`、`vendor/bao_editor` 保留各自的 MIT 许可及第三方许可。
-- 图标来自 Lucide、Remix Icon 4.8.0、theSVG、Simple Icons 和 Material Icon Theme，许可全文与对应文件见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。应用内「设置 → 关于 YCode → 开源许可」也会列出。
-- 界面参考官方 BaoCode 手机 App 的截图自行设计与实现，不包含官方 App 的代码或图片素材。协议来源、扩展和来自 BaoCode 的文件清单见 [docs/upstream-sync.md](docs/upstream-sync.md)。
-- BaoCode 名称与标识、各模型服务商的标志均归各自权利人所有。
+- The protocol package `vendor/bao_link` and the files copied or adapted from BaoCode are GPL-3.0-only, copyright the BaoCode authors. `vendor/bao_iroh` and `vendor/bao_editor` keep their MIT licenses and third-party licenses.
+- Icons come from Lucide, Remix Icon 4.8.0, theSVG, Simple Icons and Material Icon Theme; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the license texts and files. They are also listed in the app under Settings → About YCode → Open-source licenses.
+- The interface was designed and built independently from screenshots of the official BaoCode mobile app, and contains none of its code or image assets. The protocol's origin, our extension and the list of files from BaoCode are in [docs/upstream-sync.md](docs/upstream-sync.md).
+- The BaoCode name and logo, and the model providers' logos, belong to their respective owners.
 
-## 参与贡献
+## Contributing
 
-欢迎提交 Issue 和 Pull Request，见 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Please report security issues privately as described in [SECURITY.md](SECURITY.md).
 
-请勿提交或通过公开问题附带模型凭据、配对信息、真实聊天记录、签名密钥和签名口令。
+Never include model credentials, pairing details, real chat logs, signing keys or signing passwords in commits or public issues.

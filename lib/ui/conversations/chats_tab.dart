@@ -198,6 +198,9 @@ class ChatsTab extends StatefulWidget {
 class _ChatsTabState extends State<ChatsTab> {
   ConversationFilters _filters = const ConversationFilters();
   final _search = TextEditingController();
+
+  /// Projects unfolded in place, their conversations listed under them.
+  final _unfolded = <(String, String)>{};
   @override
   void dispose() {
     _search.dispose();
@@ -218,6 +221,16 @@ class _ChatsTabState extends State<ChatsTab> {
       state.sessions,
       state.desktopName,
     );
+    // One project picked: its conversations straight away, not its folder.
+    final picked = _filters.projectKey == null
+        ? null
+        : projects
+              .where(
+                (item) =>
+                    (item.ref.desktopId, item.ref.project.id) ==
+                    _filters.projectKey,
+              )
+              .firstOrNull;
     // Conversations put on the home list stand beside the projects; being
     // pinned only lifts one within its project (and, on the home list, to
     // the top).
@@ -292,7 +305,12 @@ class _ChatsTabState extends State<ChatsTab> {
                 if (!context.mounted) return;
                 switch (value) {
                   case 'conversation':
-                    await newConversation(context, state, desktopId: desktopId);
+                    await newConversation(
+                      context,
+                      state,
+                      desktopId: desktopId,
+                      project: picked?.ref,
+                    );
                   case 'bot':
                     await openPage<void>(context, BotEditPage(state: state));
                   case 'pair':
@@ -342,8 +360,14 @@ class _ChatsTabState extends State<ChatsTab> {
                   )
                 : ListView(
                     children: [
-                      for (final row in _merged(projects, bots, home)) row,
-                      if (projects.isEmpty && home.isEmpty && bots.isEmpty)
+                      if (picked != null)
+                        for (final ref in picked.sessions)
+                          projectSessionRow(context, state, ref)
+                      else
+                        for (final row in _merged(projects, bots, home)) row,
+                      if (picked != null
+                          ? picked.sessions.isEmpty
+                          : projects.isEmpty && home.isEmpty && bots.isEmpty)
                         _emptyNote(state, desktopId),
                     ],
                   ),
@@ -409,41 +433,136 @@ class _ChatsTabState extends State<ChatsTab> {
           ),
         ) ??
         latest;
-    return ProjectActionRow(
+    final key = (ref.desktopId, ref.project.id);
+    final unfolded = _unfolded.contains(key);
+    void toggle() =>
+        setState(() => unfolded ? _unfolded.remove(key) : _unfolded.add(key));
+    final listRow = ListRow(
+      leading: waitingAvatar(
+        state,
+        ProjectIconView(state: state, ref: ref),
+        counted,
+      ),
+      title:
+          '${ref.project.name}${sessions.isEmpty ? '' : '（${sessions.length}）'}',
+      flags: statusFlags(context, state, counted),
+      subtitle: [
+        if (projectSource(ref.project.id) == ConversationSource.unknown)
+          state.tr('未知来源', 'Unknown location'),
+        focus == null
+            ? state.tr('没有对话', 'No conversations')
+            : '${focus.session.title}${switch (lastLine(state, focus)) {
+                null => '',
+                final line => '：$line',
+              }}',
+      ].join(' · '),
+      time: latest == null ? null : _time(latest.session.updatedAt),
+      // 图钉和展开箭头都在时间下面，不另占一列，标题不被挤窄。
+      status: ref.project.pinned == true || sessions.isNotEmpty
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 和对话、Bot 一样标出置顶的项目。
+                if (ref.project.pinned == true)
+                  const LucideIcon('pin', size: 16),
+                if (sessions.isNotEmpty) ...[
+                  if (ref.project.pinned == true) const SizedBox(width: 10),
+                  AnimatedRotation(
+                    turns: unfolded ? .5 : 0,
+                    duration: _unfoldDuration,
+                    curve: _unfoldCurve,
+                    child: const LucideIcon('chevron-down', size: 16),
+                  ),
+                ],
+              ],
+            )
+          : null,
+      onTap: () => openPage<void>(
+        context,
+        ProjectChatsPage(state: state, project: ref, filters: _filters),
+      ),
+    );
+    final row = ProjectActionRow(
       key: ValueKey('project-${ref.desktopId}-${ref.project.id}'),
       state: state,
       project: ref,
-      child: ListRow(
-        leading: waitingAvatar(
-          state,
-          ProjectIconView(state: state, ref: ref),
-          counted,
+      child: sessions.isEmpty
+          ? listRow
+          : Stack(
+              children: [
+                listRow,
+                // 箭头只有 16px：右下角一整块都算点箭头，只展开不进项目。
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  width: 72,
+                  height: 44,
+                  // 不用 Tooltip：它会抢走长按，这里长按仍是项目菜单。
+                  child: Semantics(
+                    button: true,
+                    label: unfolded
+                        ? state.tr('收起对话', 'Hide conversations')
+                        : state.tr('展开对话', 'Show conversations'),
+                    child: GestureDetector(
+                      key: ValueKey(
+                        'unfold-${ref.desktopId}-${ref.project.id}',
+                      ),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: toggle,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+    if (sessions.isEmpty) return row;
+    final colors = Theme.of(context).colorScheme;
+    return Column(
+      key: ValueKey('project-group-${ref.desktopId}-${ref.project.id}'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        row,
+        ClipRect(
+          child: AnimatedSize(
+            duration: _unfoldDuration,
+            curve: _unfoldCurve,
+            alignment: Alignment.topCenter,
+            child: !unfolded
+                ? const SizedBox(width: double.infinity)
+                : ColoredBox(
+                    color: colors.surfaceContainerLowest,
+                    child: Stack(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: _unfoldIndent),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final session in sessions)
+                                projectSessionRow(context, state, session),
+                            ],
+                          ),
+                        ),
+                        // 竖线对着项目头像的中线：这些对话属于上面那个项目。
+                        Positioned(
+                          left: MobileSpace.lg + MobileSizes.avatar / 2,
+                          top: 0,
+                          bottom: MobileSpace.md,
+                          width: 1,
+                          child: ColoredBox(color: colors.outlineVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
         ),
-        title:
-            '${ref.project.name}${sessions.isEmpty ? '' : '（${sessions.length}）'}',
-        flags: statusFlags(context, state, counted),
-        subtitle: [
-          if (projectSource(ref.project.id) == ConversationSource.unknown)
-            state.tr('未知来源', 'Unknown location'),
-          focus == null
-              ? state.tr('没有对话', 'No conversations')
-              : '${focus.session.title}${switch (lastLine(state, focus)) {
-                  null => '',
-                  final line => '：$line',
-                }}',
-        ].join(' · '),
-        time: latest == null ? null : _time(latest.session.updatedAt),
-        // 和对话、Bot 一样标出置顶的项目。
-        status: ref.project.pinned == true
-            ? const LucideIcon('pin', size: 16)
-            : null,
-        onTap: () => openPage<void>(
-          context,
-          ProjectChatsPage(state: state, project: ref, filters: _filters),
-        ),
-      ),
+      ],
     );
   }
+
+  static const _unfoldDuration = Duration(milliseconds: 200);
+  static const _unfoldCurve = Curves.easeOutCubic;
+  static const _unfoldIndent = 28.0;
 
   /// Projects, bots and the conversations put on the home list by their
   /// latest activity, as a chat app orders its chats: pinned conversations
@@ -673,65 +792,54 @@ class ProjectChatsPage extends StatelessWidget {
                     )
                   : ListView.builder(
                       itemCount: sessions.length,
-                      itemBuilder: (context, index) {
-                        final ref = sessions[index];
-                        // 放到首页的：提醒在首页那行，这里只灰着标出来。
-                        final home = state.onHome(ref);
-                        final flags = statusFlags(context, state, [
-                          ref,
-                        ], counted: false);
-                        return SessionPressRow(
-                          key: ValueKey(
-                            'session-${ref.desktopId}-${ref.session.id}',
-                          ),
-                          state: state,
-                          session: ref,
-                          child: ListRow(
-                            leading: home
-                                ? homeWaitingDot(
-                                    context,
-                                    state,
-                                    ref,
-                                    LetterAvatar(ref.session.title),
-                                  )
-                                : waitingAvatar(
-                                    state,
-                                    LetterAvatar(ref.session.title),
-                                    [ref],
-                                  ),
-                            title: ref.session.title,
-                            note: home ? state.tr('首页', 'Home') : null,
-                            aside: modelTag(context, state, ref),
-                            flags: home
-                                ? [
-                                    for (final (label, _) in flags)
-                                      (label, Theme.of(context).hintColor),
-                                  ]
-                                : flags,
-                            subtitle: lastLine(state, ref),
-                            time: _sessionTime(state, ref.session.updatedAt),
-                            status: ref.session.pinned
-                                ? const LucideIcon('pin', size: 16)
-                                : null,
-                            onTap: () => openPage<void>(
-                              context,
-                              ChatPage(
-                                state: state,
-                                desktopId: ref.desktopId,
-                                sessionId: ref.session.id,
-                                title: ref.session.title,
-                                projectId: project.project.id,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+                      itemBuilder: (context, index) =>
+                          projectSessionRow(context, state, sessions[index]),
                     ),
             ),
           ],
         ),
       );
     },
+  );
+}
+
+/// A conversation in a project's list: in the project's page, the home list
+/// filtered to the project, and under a project unfolded there.
+Widget projectSessionRow(BuildContext context, AppState state, SessionRef ref) {
+  // 放到首页的：提醒在首页那行，这里只灰着标出来。
+  final home = state.onHome(ref);
+  final flags = statusFlags(context, state, [ref], counted: false);
+  return SessionPressRow(
+    key: ValueKey('session-${ref.desktopId}-${ref.session.id}'),
+    state: state,
+    session: ref,
+    child: ListRow(
+      leading: home
+          ? homeWaitingDot(context, state, ref, LetterAvatar(ref.session.title))
+          : waitingAvatar(state, LetterAvatar(ref.session.title), [ref]),
+      title: ref.session.title,
+      note: home ? state.tr('首页', 'Home') : null,
+      aside: modelTag(context, state, ref),
+      flags: home
+          ? [
+              for (final (label, _) in flags)
+                (label, Theme.of(context).hintColor),
+            ]
+          : flags,
+      subtitle: lastLine(state, ref),
+      time: _sessionTime(state, ref.session.updatedAt),
+      status: ref.session.pinned ? const LucideIcon('pin', size: 16) : null,
+      onTap: () => openPage<void>(
+        context,
+        ChatPage(
+          state: state,
+          desktopId: ref.desktopId,
+          sessionId: ref.session.id,
+          title: ref.session.title,
+          projectId: ref.session.project,
+        ),
+      ),
+    ),
   );
 }
 

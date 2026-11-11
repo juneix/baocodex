@@ -22,16 +22,17 @@ class FileLink {
       if (match[1]!.toLowerCase() != 'file') return null;
       final uri = Uri.tryParse(text);
       if (uri == null) return null;
-      var path = _decode(uri.path);
       // `file:///C:/a.dart`.
-      if (RegExp(r'^/[A-Za-z]:[/\\]').hasMatch(path)) path = path.substring(1);
+      final path = _driveOf(_decode(uri.path));
       if (path.isEmpty) return null;
       return _isFragment(uri.hasFragment ? uri.fragment : null)
           ? FileLink(path)
           : _withSuffix(path);
     }
     final hash = text.indexOf('#');
-    final path = _decode(hash < 0 ? text : text.substring(0, hash));
+    // `/C:/a.dart`, as a URL's path would be: a Windows model's, told to
+    // write the absolute path after a slash.
+    final path = _driveOf(_decode(hash < 0 ? text : text.substring(0, hash)));
     if (path.isEmpty) return null;
     // `a.md#usage`: the file, its heading not followed.
     if (hash >= 0) return FileLink(path);
@@ -63,6 +64,12 @@ class FileLink {
   /// A scheme (`https:`, `vscode:`); a drive (`C:`) is not one.
   static final _scheme = RegExp(r'^([A-Za-z][A-Za-z0-9+.-]*):');
   static final _drive = RegExp(r'^[A-Za-z]:([/\\]|$)');
+
+  /// [path] without the slash before a drive (`/C:/a.dart`, a URL's way
+  /// of writing `C:/a.dart`): the path itself.
+  static String _driveOf(String path) =>
+      _slashedDrive.hasMatch(path) ? path.substring(1) : path;
+  static final _slashedDrive = RegExp(r'^/[A-Za-z]:([/\\]|$)');
 
   /// Whether [fragment] is a line's: `L12`, `L12-L20`, `L12-20`, `L12C5`,
   /// `12`; not a heading's.

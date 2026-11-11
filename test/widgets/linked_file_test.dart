@@ -1,5 +1,6 @@
 import 'package:bao_link/bao_link.dart';
 import 'package:baocode_mobile/chat/chat_links.dart';
+import 'package:baocode_mobile/chat/markdown/file_link.dart';
 import 'package:baocode_mobile/state/app_state.dart';
 import 'package:baocode_mobile/ui/files/files_tab.dart';
 import 'package:flutter/material.dart';
@@ -74,5 +75,21 @@ void main() {
     await open(tester, state, 'nowhere.md');
     expect(find.byType(FileViewerPage), findsNothing);
     expect(find.text('项目里没有找到 nowhere.md。'), findsOneWidget);
+  });
+
+  test('Windows 模型写的 /D:/路径 去掉盘符前的斜杠', () {
+    expect(
+      FileLink.parseHref('/D:/Desktop/ctf/a.svg'),
+      const FileLink('D:/Desktop/ctf/a.svg'),
+    );
+    expect(
+      FileLink.parseHref(r'/D:\p\a.dart#L4'),
+      const FileLink(r'D:\p\a.dart'),
+    );
+    expect(
+      FileLink.parseHref('file:///C:/p/a.dart'),
+      const FileLink('C:/p/a.dart'),
+    );
+    expect(FileLink.parseHref('/home/a.dart'), const FileLink('/home/a.dart'));
   });
 }

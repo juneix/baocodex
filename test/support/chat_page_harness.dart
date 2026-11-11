@@ -15,6 +15,9 @@ import 'package:baocode_mobile/models/user_facing_error.dart';
 class ChatPageState extends ChatTestState {
   ChatPageState() : super(zh: false, demo: true);
   final calls = <(String, Map<String, Object?>)>[];
+
+  /// 按方法定制电脑的回答；可以抛错。
+  final answers = <String, Object? Function(Map<String, Object?> params)>{};
   final opened = <String>[], closed = <String>[];
   String savedDraft = '';
   bool failSend = false;
@@ -55,6 +58,7 @@ class ChatPageState extends ChatTestState {
     Map<String, Object?> params = const {},
   ]) async {
     calls.add((method, params));
+    if (answers[method] case final answer?) return answer(params);
     if (method == LinkMethods.stop) {
       await stopping?.future;
       if (failStop) throw const UserFacingError('stop rejected');

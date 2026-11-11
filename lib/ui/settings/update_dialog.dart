@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../chat/markdown/markdown_view.dart';
 import '../../state/apk_download.dart';
 import '../../state/app_state.dart';
 import '../../state/update_check.dart';
@@ -155,6 +156,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
     final apk = release.apk;
     final theme = Theme.of(context);
     final downloading = _busy && _file == null;
+    final notes = state.tr(release.notesZh ?? release.notes, release.notes);
     return AlertDialog(
       title: Text(
         state.tr(
@@ -167,7 +169,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (release.notes.isNotEmpty) ...[
+            if (notes.isNotEmpty) ...[
               Text(
                 state.tr('更新说明', 'Release notes'),
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -175,7 +177,17 @@ class _UpdateDialogState extends State<UpdateDialog> {
                 ),
               ),
               const SizedBox(height: MobileSpace.sm),
-              SelectableText(release.notes, style: theme.textTheme.bodySmall),
+              SelectionArea(
+                child: MarkdownView(
+                  notes,
+                  style: theme.textTheme.bodySmall!,
+                  options: MarkdownOptions(
+                    colors: theme.colorScheme,
+                    headingSizes: MobileTheme.headingSizesOf(context),
+                    gap: MobileTheme.markdownGap,
+                  ),
+                ),
+              ),
             ] else
               Text(
                 state.tr('这次没有附带更新说明。', 'This release has no notes.'),

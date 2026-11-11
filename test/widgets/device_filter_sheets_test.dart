@@ -381,9 +381,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(filters.projectKey, ('online', '/p29'));
     expect(filters.query, '保留搜索');
-    await tester.tapAt(const Offset(2, 2));
-    await tester.pumpAndSettle();
-    expect(panel, findsNothing);
+    expect(panel, findsNothing, reason: '选完项目面板自动收起');
     expect(filters.status, ConversationStatus.active);
     expect(state.requests, isEmpty);
     expect(tester.takeException(), isNull);
@@ -419,14 +417,17 @@ void main() {
     await tester.tap(find.text('远程项目'));
     await tester.pumpAndSettle();
     expect(filters.projectKey, ('online', 'ssh://devbox/home/app'));
+    expect(find.text('远程项目'), findsNothing, reason: '选完项目面板自动收起');
 
+    await tester.tap(find.text('打开筛选'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('本机'));
     await tester.pumpAndSettle();
     expect(find.text('远程项目'), findsNothing);
     expect(find.text('项目 0'), findsOneWidget);
     expect(filters.source, ConversationSource.local);
     expect(filters.projectKey, isNull);
-    await tester.tapAt(const Offset(2, 2));
+    await tester.tapAt(const Offset(790, 590));
     await tester.pumpAndSettle();
   });
 }

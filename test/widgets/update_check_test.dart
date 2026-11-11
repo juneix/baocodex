@@ -20,7 +20,7 @@ Widget host(Widget home) =>
 
 String releaseJson({
   String tag = 'v0.3.0',
-  String notes = '修了几个问题\n也更稳了',
+  String notes = '- Fixed a few things\n\n<!-- zh -->\n\n- 修了几个问题\n- 也更稳了',
 }) => jsonEncode({
   'tag_name': tag,
   'body': notes,
@@ -108,6 +108,8 @@ void main() {
     expect(find.text('发现新版本 0.3.0'), findsOneWidget);
     expect(find.text('更新说明'), findsOneWidget);
     expect(find.textContaining('修了几个问题'), findsOneWidget);
+    expect(find.textContaining('Fixed', findRichText: true), findsNothing);
+    expect(find.textContaining('<!--', findRichText: true), findsNothing);
     expect(find.byType(SingleChildScrollView), findsWidgets);
     expect(find.text('下载并安装'), findsOneWidget);
 

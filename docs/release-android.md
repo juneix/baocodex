@@ -54,14 +54,16 @@ build-tools 从 `ANDROID_HOME` / `ANDROID_SDK_ROOT` 或系统标准目录查找�
 
 发布到 `https://github.com/shuishani/ycode` 的 GitHub Releases：
 
-1. 提升版本名和构建号，运行相关测试、静态检查并打包。
+1. 提升版本名和构建号，在 `CHANGELOG.md`（英文）和 `CHANGELOG_CN.md`（中文）顶部写上这一版（应用内「关于 YCode → 更新日志」按界面语言显示，测试会检查两份都有这一节），运行相关测试、静态检查并打包。
 2. 确认 APK 的包名、版本、构建号和签名与预期一致。
-3. 为对应源码提交创建稳定版本标签，如 `v0.1.0`，写清更新说明。
-4. 上传正式签名的 `ycode-0.1.0-1.apk`（也接受 `ycode-0.1.0.apk`），不要上传 debug 或其他架构文件冒充正式包。
+3. 为对应源码提交创建稳定版本标签，如 `v0.1.0`。
+4. 上传正式签名的 `ycode-0.1.0-1.apk`（也接受 `ycode-0.1.0.apk`），不要上传 debug 或其他架构文件冒充正式包。再运行 `dart run tool/release_manifest.dart`，把生成的 `build/app/outputs/flutter-apk/latest.json` 一起上传；它按 pubspec 的版本、这个 APK 和两份更新日志生成，不要手改。Release 的说明直接用它的 `body`（`jq -r .body latest.json`）：英文在前，`<!-- zh -->` 一行之后是中文，应用按界面语言只显示一半；不另写 APK 名和 SHA，GitHub 的附件列表自带。
 5. 上传完成后再公开发布 Release，避免用户看到只有说明、没有 APK 的版本。公开仓库和公开的非预发布 Release 才能供应用匿名查询。
 6. 用较低版本实际检查更新，确认下载进度、取消、安装来源授权和系统安装器；完成覆盖安装后确认版本、配对和本地数据。
 
-应用在冷启动和每次回到前台时自动检查，只在最新 Release 比当前版本新、且附带可用 APK 时弹窗；更新窗口已经开着时不重复弹出。30 分钟内复用上次的检查结果，避免用完 GitHub 匿名接口每小时 60 次的额度；检查失败不提示，下次打开再试。用户也可以在「设置 → 当前版本」手动检查。
+应用先读最新 Release 的 `latest.json`：`releases/latest/download/latest.json` 跳转到 CDN，不占 GitHub 匿名接口每个出口 IP 每小时 60 次的额度，多人共用出口的网络里也能查。读不到或读不懂再问 `releases/latest` 接口。`latest.json` 是接口返回 JSON 的子集，两者用同一套校验。
+
+应用在冷启动和每次回到前台时自动检查，只在最新 Release 比当前版本新、且附带可用 APK 时弹窗；更新窗口已经开着时不重复弹出。30 分钟内复用上次的检查结果；检查失败不提示，下次打开再试。用户也可以在「设置 → 当前版本」手动检查。
 
 应用只接受本仓库、本 Release 标签下的 GitHub APK 地址，优先选择 arm64 附件。下载使用流式写入，检查大小及可用的 SHA-256；安装前再次校验本应用包名、同一签名、Release 版本名及更高构建号。没有合适 APK 时不提供下载按钮。
 

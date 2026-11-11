@@ -63,6 +63,12 @@ Future<void> showConversationFilters(
           onChanged(next);
         }
 
+        // 选项目是要去看它的对话：选完就收起，不用再点一次关闭。
+        void pickProject(ConversationFilters next) {
+          onChanged(next);
+          Navigator.of(context).pop();
+        }
+
         return AnimatedBuilder(
           animation: state,
           builder: (context, _) => Padding(
@@ -116,7 +122,8 @@ Future<void> showConversationFilters(
                   _ProjectOption(
                     title: state.tr('全部项目', 'All projects'),
                     selected: draft.projectKey == null,
-                    onTap: () => pick(draft.copyWith(clearProject: true)),
+                    onTap: () =>
+                        pickProject(draft.copyWith(clearProject: true)),
                   ),
                   if (draft.projectKey != null &&
                       !state.projects.any(
@@ -128,7 +135,8 @@ Future<void> showConversationFilters(
                         'Selected project unavailable',
                       ),
                       selected: true,
-                      onTap: () => pick(draft.copyWith(clearProject: true)),
+                      onTap: () =>
+                          pickProject(draft.copyWith(clearProject: true)),
                     ),
                   // Only the projects in the chosen 范围.
                   for (final ref in state.projects.where(
@@ -145,7 +153,7 @@ Future<void> showConversationFilters(
                       },
                       selected:
                           draft.projectKey == (ref.desktopId, ref.project.id),
-                      onTap: () => pick(
+                      onTap: () => pickProject(
                         draft.copyWith(
                           projectKey: (ref.desktopId, ref.project.id),
                         ),

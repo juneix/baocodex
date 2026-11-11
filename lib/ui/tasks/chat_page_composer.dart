@@ -957,6 +957,14 @@ extension _Composer on _ChatPageState {
                           _choiceIconButton(choice, ready),
                         _clearButton(),
                         const Spacer(),
+                        if (ContextUsage.parse(buffer.context)
+                            case final usage?)
+                          ContextRing(
+                            state: widget.state,
+                            usage: usage,
+                            onPressed: () =>
+                                showContextUsage(context, widget.state, usage),
+                          ),
                         // 只有一个按钮：工作中没写东西时是停止，写了就是发送。
                         ValueListenableBuilder<TextEditingValue>(
                           valueListenable: _composer,

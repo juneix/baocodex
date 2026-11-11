@@ -9,7 +9,11 @@ import 'app_state.dart';
 
 const projectUrl = 'https://github.com/shuishani/ycode';
 
-/// 最新版本从 GitHub Releases 取：YCode 只在那里发布。
+/// 最新版本从 GitHub Releases 取：YCode 只在那里发布。先读最新 Release 附带的
+/// `latest.json`（跳转到 CDN，不占匿名接口每个出口 IP 每小时 60 次的额度），
+/// 读不到再问 [updateReleaseApi]。
+const updateManifestUrl =
+    'https://github.com/shuishani/ycode/releases/latest/download/latest.json';
 const updateReleaseApi =
     'https://api.github.com/repos/shuishani/ycode/releases/latest';
 
@@ -38,6 +42,7 @@ class ReleaseInfo {
     required this.version,
     required this.notes,
     required this.url,
+    this.notesZh,
     this.apk,
   });
 
@@ -46,8 +51,11 @@ class ReleaseInfo {
   /// 去掉 `v` 的标签，如 `0.2.0`。
   final String version;
 
-  /// release 的说明正文，可能为空。
+  /// release 的说明正文，可能为空；分了中英文时是英文那半。
   final String notes;
+
+  /// 说明里 [releaseNotesZhMarker] 之后的中文；没分时为 null。
+  final String? notesZh;
 
   /// release 页面，在浏览器里打开。
   final String url;
@@ -91,7 +99,8 @@ int? compareVersions(String a, String b) {
   return 0;
 }
 
-/// GitHub 的 release JSON：标签、说明正文和页面地址。
+/// GitHub 的 release JSON：标签、说明正文和页面地址。`latest.json` 是它的子集，
+/// 同样解析。
 ReleaseInfo parseRelease(String body) {
   final decoded = jsonDecode(body);
   if (decoded is! Map<String, Object?>) {
@@ -113,14 +122,22 @@ ReleaseInfo parseRelease(String body) {
       !page.path.startsWith('/shuishani/ycode/releases/tag/')) {
     throw const FormatException('release is unreadable');
   }
-  final notes = decoded['body'];
+  final text = decoded['body'];
+  final notes = text is String ? text : '';
+  final zh = notes.indexOf(releaseNotesZhMarker);
   return ReleaseInfo(
     version: version,
-    notes: notes is String ? notes.trim() : '',
+    notes: (zh < 0 ? notes : notes.substring(0, zh)).trim(),
+    notesZh: zh < 0
+        ? null
+        : notes.substring(zh + releaseNotesZhMarker.length).trim(),
     url: url,
     apk: _releaseApk(decoded['assets'], tag),
   );
 }
+
+/// 发布说明英文在前、中文在后，中间隔这一行：GitHub 页面上看不见。
+const releaseNotesZhMarker = '<!-- zh -->';
 
 ReleaseApk? _releaseApk(Object? assets, String tag) {
   if (assets is! List) return null;
@@ -220,6 +237,12 @@ Future<UpdateCheck> checkForUpdate({
   required String currentVersion,
   ReleaseFetcher fetcher = fetchLatestRelease,
 }) async {
+  try {
+    final latest = parseRelease(await fetcher(Uri.parse(updateManifestUrl)));
+    return _compared(currentVersion, latest);
+  } on Object {
+    // 没附 `latest.json` 的旧 Release 或 CDN 一时不通：改问接口。
+  }
   final String body;
   try {
     body = await fetcher(Uri.parse(updateReleaseApi));
@@ -244,6 +267,10 @@ Future<UpdateCheck> checkForUpdate({
       ),
     );
   }
+  return _compared(currentVersion, latest);
+}
+
+UpdateCheck _compared(String currentVersion, ReleaseInfo latest) {
   final order = compareVersions(currentVersion, latest.version);
   return UpdateCheck(
     latest: latest,
