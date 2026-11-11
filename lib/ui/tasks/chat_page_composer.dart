@@ -597,7 +597,7 @@ extension _Composer on _ChatPageState {
     ),
   );
 
-  /// 工作时没写东西，发送键就是停止：两个输入栏都用这一个。
+  /// 运行中的独立停止操作，不因输入或排队消息而消失。
   Widget _stopAction({required double size}) => StopActionButton(
     busy: _commandBusy,
     size: size,
@@ -646,6 +646,16 @@ extension _Composer on _ChatPageState {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: notices,
+                  ),
+                ),
+              if (working)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(tr('运行中', 'Running'))),
+                      _stopAction(size: 44),
+                    ],
                   ),
                 ),
               if (_images.isNotEmpty) _draftImages(),
@@ -710,14 +720,11 @@ extension _Composer on _ChatPageState {
                       const Icon(Icons.add_circle_outline),
                       ready ? _toggleAdd : null,
                     ),
-                    // 和普通对话一样只有一个按钮：工作中没写东西时是停止，写了就是发送。
                     ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _composer,
                       builder: (context, value, _) =>
                           value.text.trim().isEmpty && _images.isEmpty
-                          ? working && !_sending
-                                ? _stopAction(size: 44)
-                                : const SizedBox.shrink()
+                          ? const SizedBox.shrink()
                           : Padding(
                               padding: const EdgeInsets.fromLTRB(4, 4, 6, 4),
                               child: Tooltip(
@@ -888,8 +895,8 @@ extension _Composer on _ChatPageState {
             mainAxisSize: MainAxisSize.min,
             children: [
               ..._composerNotices(),
-              // As the desktop's strip: over the composer, not over the chat.
-              ChatActivityCard(
+              // 只有真实会话才有任务与改动，不把本地草稿键交给电脑。
+              if (_hasSession) ChatActivityCard(
                 key: ValueKey((widget.desktopId, _sessionId)),
                 state: widget.state,
                 desktopId: widget.desktopId,
@@ -942,21 +949,29 @@ extension _Composer on _ChatPageState {
                     ),
                     Row(
                       children: [
-                        TapRegion(
-                          groupId: _addRegion,
-                          child: IconButton(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant,
-                            tooltip: tr('添加附件', 'Add attachment'),
-                            onPressed: _sending || _picking ? null : _toggleAdd,
-                            icon: const LucideIcon('plus', size: 22),
+                        Expanded(
+                          child: Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              TapRegion(
+                                groupId: _addRegion,
+                                child: IconButton(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                  tooltip: tr('添加附件', 'Add attachment'),
+                                  onPressed: _sending || _picking
+                                      ? null
+                                      : _toggleAdd,
+                                  icon: const LucideIcon('plus', size: 22),
+                                ),
+                              ),
+                              for (final choice in _composerChoices(buffer))
+                                _choiceIconButton(choice, ready),
+                              _clearButton(),
+                            ],
                           ),
                         ),
-                        for (final choice in _composerChoices(buffer))
-                          _choiceIconButton(choice, ready),
-                        _clearButton(),
-                        const Spacer(),
                         if (ContextUsage.parse(buffer.context)
                             case final usage?)
                           ContextRing(
@@ -965,7 +980,7 @@ extension _Composer on _ChatPageState {
                             onPressed: () =>
                                 showContextUsage(context, widget.state, usage),
                           ),
-                        // 只有一个按钮：工作中没写东西时是停止，写了就是发送。
+                        // 停止和发送分别可达；窄屏时左侧选项自动换行。
                         ValueListenableBuilder<TextEditingValue>(
                           valueListenable: _composer,
                           builder: (context, value, _) {
@@ -978,11 +993,17 @@ extension _Composer on _ChatPageState {
                                 hasDraft &&
                                 !_imagesMissing &&
                                 _editReady;
-                            return Padding(
-                              padding: const EdgeInsets.only(left: 4, right: 8),
-                              child: live && !hasDraft && !_sending
-                                  ? _stopAction(size: 48)
-                                  : ChatComposerAction(
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (live) _stopAction(size: 48),
+                                if (!live || hasDraft || _sending)
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      left: 4,
+                                      right: 8,
+                                    ),
+                                    child: ChatComposerAction(
                                       busy: _sending,
                                       enabled: canSend,
                                       tooltip: _editIndex != null
@@ -990,6 +1011,8 @@ extension _Composer on _ChatPageState {
                                           : tr('发送', 'Send'),
                                       onSend: _send,
                                     ),
+                                  ),
+                              ],
                             );
                           },
                         ),

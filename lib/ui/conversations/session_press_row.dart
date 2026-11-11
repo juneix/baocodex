@@ -6,7 +6,7 @@ import '../widgets/mobile_widgets.dart';
 import '../widgets/press_menu.dart';
 import 'delete_conversation.dart';
 
-/// 首页独立对话与项目内对话共用的长按菜单。
+/// 常用对话与项目内对话共用的长按菜单。
 class SessionPressRow extends StatefulWidget {
   const SessionPressRow({
     super.key,
@@ -74,8 +74,8 @@ class _SessionPressRowState extends State<SessionPressRow> {
         // 只是手机自己的选择，离线也能改。
         PressMenuItem(
           state.onHome(ref)
-              ? state.tr('从首页移除', 'Remove from home')
-              : state.tr('放到首页', 'Show on home'),
+              ? state.tr('从常用移除', 'Remove from favorites')
+              : state.tr('加入常用', 'Add to favorites'),
           () => _run(() => state.setOnHome(ref, !state.onHome(ref))),
         ),
         if (online) ...[

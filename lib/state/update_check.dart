@@ -7,15 +7,19 @@ import 'package:clock/clock.dart';
 import '../models/user_facing_error.dart';
 import 'app_state.dart';
 
-const projectUrl = 'https://github.com/shuishani/ycode';
+const updateRepository = String.fromEnvironment(
+  'YCODE_REPOSITORY',
+  defaultValue: 'shuishani/ycode',
+);
+const projectUrl = 'https://github.com/$updateRepository';
+final _repositoryPattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_.-]+$');
 
 /// 最新版本从 GitHub Releases 取：YCode 只在那里发布。先读最新 Release 附带的
 /// `latest.json`（跳转到 CDN，不占匿名接口每个出口 IP 每小时 60 次的额度），
 /// 读不到再问 [updateReleaseApi]。
-const updateManifestUrl =
-    'https://github.com/shuishani/ycode/releases/latest/download/latest.json';
+const updateManifestUrl = '$projectUrl/releases/latest/download/latest.json';
 const updateReleaseApi =
-    'https://api.github.com/repos/shuishani/ycode/releases/latest';
+    'https://api.github.com/repos/$updateRepository/releases/latest';
 
 class ReleaseApk {
   const ReleaseApk({
@@ -101,7 +105,10 @@ int? compareVersions(String a, String b) {
 
 /// GitHub 的 release JSON：标签、说明正文和页面地址。`latest.json` 是它的子集，
 /// 同样解析。
-ReleaseInfo parseRelease(String body) {
+ReleaseInfo parseRelease(String body, {String repository = updateRepository}) {
+  if (!_repositoryPattern.hasMatch(repository)) {
+    throw const FormatException('release repository is invalid');
+  }
   final decoded = jsonDecode(body);
   if (decoded is! Map<String, Object?>) {
     throw const FormatException('release is not an object');
@@ -119,7 +126,7 @@ ReleaseInfo parseRelease(String body) {
       page.host != 'github.com' ||
       page.userInfo.isNotEmpty ||
       page.hasPort ||
-      !page.path.startsWith('/shuishani/ycode/releases/tag/')) {
+      !page.path.startsWith('/$repository/releases/tag/')) {
     throw const FormatException('release is unreadable');
   }
   final text = decoded['body'];
@@ -132,14 +139,14 @@ ReleaseInfo parseRelease(String body) {
         ? null
         : notes.substring(zh + releaseNotesZhMarker.length).trim(),
     url: url,
-    apk: _releaseApk(decoded['assets'], tag),
+    apk: _releaseApk(decoded['assets'], tag, repository),
   );
 }
 
 /// 发布说明英文在前、中文在后，中间隔这一行：GitHub 页面上看不见。
 const releaseNotesZhMarker = '<!-- zh -->';
 
-ReleaseApk? _releaseApk(Object? assets, String tag) {
+ReleaseApk? _releaseApk(Object? assets, String tag, String repository) {
   if (assets is! List) return null;
   final candidates = <ReleaseApk>[];
   for (final value in assets) {
@@ -167,7 +174,7 @@ ReleaseApk? _releaseApk(Object? assets, String tag) {
         uri.hasFragment ||
         uri.pathSegments.length != 6 ||
         uri.pathSegments.take(5).join('/') !=
-            'shuishani/ycode/releases/download/$tag' ||
+            '$repository/releases/download/$tag' ||
         !uri.pathSegments.last.toLowerCase().endsWith('.apk')) {
       continue;
     }

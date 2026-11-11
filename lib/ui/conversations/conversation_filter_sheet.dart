@@ -49,8 +49,9 @@ Future<void> showConversationFilters(
   BuildContext anchor,
   AppState state,
   ConversationFilters current,
-  ValueChanged<ConversationFilters> onChanged,
-) {
+  ValueChanged<ConversationFilters> onChanged, {
+  bool projectSelection = true,
+}) {
   var draft = current;
   return showDropdownPanel<void>(
     anchor,
@@ -118,14 +119,16 @@ Future<void> showConversationFilters(
                     },
                     onSelected: (value) => pick(draft.copyWith(status: value)),
                   ),
-                  SectionLabel(state.tr('只看项目', 'Project'), inset: 0),
-                  _ProjectOption(
-                    title: state.tr('全部项目', 'All projects'),
-                    selected: draft.projectKey == null,
-                    onTap: () =>
-                        pickProject(draft.copyWith(clearProject: true)),
-                  ),
-                  if (draft.projectKey != null &&
+                  if (projectSelection) ...[
+                    SectionLabel(state.tr('只看项目', 'Project'), inset: 0),
+                    _ProjectOption(
+                      title: state.tr('全部项目', 'All projects'),
+                      selected: draft.projectKey == null,
+                      onTap: () =>
+                          pickProject(draft.copyWith(clearProject: true)),
+                    ),
+                  ],
+                  if (projectSelection && draft.projectKey != null &&
                       !state.projects.any(
                         (p) => (p.desktopId, p.project.id) == draft.projectKey,
                       ))
@@ -141,6 +144,7 @@ Future<void> showConversationFilters(
                   // Only the projects in the chosen 范围.
                   for (final ref in state.projects.where(
                     (ref) =>
+                        projectSelection &&
                         ref.desktopId == state.selectedDesktopId &&
                         draft.sourceMatches(ref.project.id),
                   ))

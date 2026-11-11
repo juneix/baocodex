@@ -46,6 +46,32 @@ void main() {
     });
   });
 
+  test('个人仓库的版本页和安装包必须使用同一个指定更新源', () {
+    final body = jsonEncode({
+      'tag_name': 'v0.1.2',
+      'html_url': 'https://github.com/personal/ycode/releases/tag/v0.1.2',
+      'assets': [
+        {
+          'name': 'ycode-0.1.2-3.apk',
+          'browser_download_url':
+              'https://github.com/personal/ycode/releases/download/v0.1.2/ycode-0.1.2-3.apk',
+          'size': 1234,
+        },
+      ],
+    });
+    final release = parseRelease(body, repository: 'personal/ycode');
+    expect(release.version, '0.1.2');
+    expect(release.apk?.name, 'ycode-0.1.2-3.apk');
+    expect(() => parseRelease(body), throwsFormatException);
+    expect(() => parseRelease(body, repository: '../personal/ycode'),
+        throwsFormatException);
+    final foreignAsset = body.replaceAll(
+      'personal/ycode/releases/download/',
+      'another/ycode/releases/download/',
+    );
+    expect(parseRelease(foreignAsset, repository: 'personal/ycode').apk, isNull);
+  });
+
   group('解析 release', () {
     test('取出标签、说明和页面，标签去掉 v', () {
       final release = parseRelease(

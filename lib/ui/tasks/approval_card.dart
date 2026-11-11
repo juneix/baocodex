@@ -17,6 +17,7 @@ class ApprovalCard extends StatefulWidget {
     required this.onAnswer,
     this.projectId,
     this.error,
+    this.enabled = true,
   });
 
   final AppState state;
@@ -24,6 +25,7 @@ class ApprovalCard extends StatefulWidget {
   final String? projectId, error;
   final Map<String, Object?> request;
   final bool busy;
+  final bool enabled;
   final ValueChanged<Map<String, Object?>> onAnswer;
 
   @override
@@ -193,7 +195,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
                             child: TextField(
                               key: const ValueKey('approval-deny-reason'),
                               controller: _reason,
-                              enabled: !widget.busy,
+                              enabled: !widget.busy && widget.enabled,
                               autofocus: true,
                               minLines: 1,
                               maxLines: 3,
@@ -223,6 +225,19 @@ class _ApprovalCardState extends State<ApprovalCard> {
                       ),
                     ),
                   ),
+                if (!widget.enabled)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      tr(
+                        '电脑离线，暂不能提交；连接后继续',
+                        'Computer offline. Reconnect to continue.',
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 if (_denying)
                   Wrap(
@@ -230,7 +245,9 @@ class _ApprovalCardState extends State<ApprovalCard> {
                     spacing: 8,
                     children: [
                       OutlinedButton(
-                        onPressed: widget.busy ? null : () => _deny(''),
+                        onPressed: widget.busy || !widget.enabled
+                            ? null
+                            : () => _deny(''),
                         child: Text(tr('直接拒绝', 'Just deny')),
                       ),
                       ListenableBuilder(
@@ -240,7 +257,10 @@ class _ApprovalCardState extends State<ApprovalCard> {
                             backgroundColor: colors.error,
                             foregroundColor: colors.onError,
                           ),
-                          onPressed: widget.busy || _reason.text.trim().isEmpty
+                          onPressed:
+                              widget.busy ||
+                                  !widget.enabled ||
+                                  _reason.text.trim().isEmpty
                               ? null
                               : () => _deny(_reason.text.trim()),
                           child: Text(tr('拒绝并发送', 'Deny and send')),
@@ -254,14 +274,14 @@ class _ApprovalCardState extends State<ApprovalCard> {
                     spacing: 8,
                     children: [
                       OutlinedButton(
-                        onPressed: widget.busy
+                        onPressed: widget.busy || !widget.enabled
                             ? null
                             : () => setState(() => _denying = true),
                         child: Text(tr('拒绝', 'Deny')),
                       ),
                       if (request['always'] is String)
                         OutlinedButton(
-                          onPressed: widget.busy
+                          onPressed: widget.busy || !widget.enabled
                               ? null
                               : () => widget.onAnswer({
                                   't': 'approval',
@@ -270,7 +290,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
                           child: Text(tr('总是允许', 'Always allow')),
                         ),
                       FilledButton(
-                        onPressed: widget.busy
+                        onPressed: widget.busy || !widget.enabled
                             ? null
                             : () => widget.onAnswer({
                                 't': 'approval',

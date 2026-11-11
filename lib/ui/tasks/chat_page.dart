@@ -68,21 +68,28 @@ class ChatPage extends StatefulWidget {
     super.key,
     required this.state,
     required this.desktopId,
-    required this.sessionId,
+    this.sessionId,
     required this.title,
     this.projectId,
     this.botId,
     this.projectUnavailable = false,
+    this.active = true,
     this.onSwitchProject,
+    this.onOpenNavigation,
+    this.onNewConversation,
+    this.onCloseConversation,
+    this.onSessionCreated,
   });
-  final bool projectUnavailable;
+  final bool projectUnavailable, active;
+  final VoidCallback? onOpenNavigation, onNewConversation, onCloseConversation;
+  final ValueChanged<String>? onSessionCreated;
 
   /// A new conversation, not begun yet, may go to another project: this
   /// picks it and opens it in this page's place.
   final Future<void> Function(BuildContext context)? onSwitchProject;
   final AppState state;
-  final String desktopId, sessionId, title;
-  final String? projectId, botId;
+  final String desktopId, title;
+  final String? sessionId, projectId, botId;
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
@@ -143,6 +150,9 @@ class _ChatPageState extends State<ChatPage> {
   /// Bumped as the user starts to scroll: the tray over the composer folds.
   final _trayFold = ValueNotifier<int>(0);
   late final ConversationBinding _binding;
+  late final _entryBuffer = SessionBuffer(widget.desktopId, _draftSession);
+  String? _createdSession;
+  Future<String?>? _creatingSession;
   bool _sawBot = false;
   int _lastRevision = -1;
 
@@ -161,8 +171,11 @@ class _ChatPageState extends State<ChatPage> {
   /// Plans the desktop answered `notFound` to Start for: not pending any
   /// more, whatever the history says (see [pendingPlans]).
   final _lostPlans = <String>{};
-  String get _draftSession =>
-      widget.botId == null ? widget.sessionId : 'bot:${widget.botId}';
+  String get _draftSession => widget.botId != null
+      ? 'bot:${widget.botId}'
+      : _createdSession ??
+            widget.sessionId ??
+            AppState.newConversationDraftKey(widget.projectId ?? '');
   bool get _editValid => _editAnchor?.matches(_buffer) ?? true;
   // 同步途中手机和电脑的序号可能对不上，等它完成再发。
   bool get _editReady => _editValid && !(_editIndex != null && _buffer.loading);
@@ -172,12 +185,11 @@ class _ChatPageState extends State<ChatPage> {
     mentions: Set.of(_mentions),
     imagesMissing: _imagesMissing,
   );
-  String get _sessionId =>
-      _binding.sessionId ??
-      (widget.botId == null ? widget.sessionId : 'bot:${widget.botId}');
+  String get _sessionId => _binding.sessionId ?? _draftSession;
   bool get _hasSession => _binding.sessionId != null;
-  SessionBuffer get _buffer =>
-      widget.state.buffer(widget.desktopId, _sessionId);
+  SessionBuffer get _buffer => widget.botId == null && !_hasSession
+      ? _entryBuffer
+      : widget.state.buffer(widget.desktopId, _sessionId);
   bool get _online =>
       _binding.available && widget.state.isOnline(widget.desktopId);
   ProjectRef? get _project => widget.state.projects
@@ -192,10 +204,13 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    _opened = widget.botId == null && widget.sessionId == null;
     _binding = ConversationBinding(
       // 首帧就用真实会话，已有的消息不必先闪一下加载中。
       sessionId: widget.botId == null
-          ? (widget.sessionId.startsWith('bot:') ? null : widget.sessionId)
+          ? (widget.sessionId?.startsWith('bot:') == true
+                ? null
+                : widget.sessionId)
           : widget.state.bots
                 .where(
                   (ref) =>
@@ -262,9 +277,9 @@ class _ChatPageState extends State<ChatPage> {
   void _workspaceChanged() {
     if (!mounted) return;
     final botId = widget.botId;
-    String? session = widget.sessionId.startsWith('bot:')
+    String? session = widget.sessionId?.startsWith('bot:') == true
         ? null
-        : widget.sessionId;
+        : _createdSession ?? widget.sessionId;
     var available = true;
     if (botId != null) {
       final bot = widget.state.bots
@@ -296,10 +311,92 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _open() => _binding.refresh();
 
+  Future<String?> _ensureSession() async {
+    if (_hasSession) return _binding.sessionId;
+    final pending = _creatingSession;
+    if (pending != null) return pending;
+    final creation = _createSession();
+    setState(() => _creatingSession = creation);
+    try {
+      return await creation;
+    } finally {
+      if (mounted && identical(_creatingSession, creation)) {
+        setState(() => _creatingSession = null);
+      }
+    }
+  }
+
+  Future<String?> _createSession() async {
+    final project = _project;
+    if (!_online || project == null) {
+      throw UserFacingError(
+        tr(
+          '连接电脑并选择可用项目后才能开始。',
+          'Connect a desktop and select an available project first.',
+        ),
+      );
+    }
+    unawaited(widget.state.rememberProject(project).catchError((Object error) {
+      if (mounted) setState(() => _error = userMessage(widget.state, error));
+    }));
+    final result = objectMap(
+      await widget.state.request(widget.desktopId, LinkMethods.draft, {
+        'project': project.project.id,
+      }),
+    );
+    final actual = result['session'];
+    if (actual is! String || actual.isEmpty) {
+      throw const FormatException('The desktop did not return a session');
+    }
+    if (!mounted) return null;
+    final source = _draftSession;
+    final draft = _input;
+    _draftTimer?.cancel();
+    _createdSession = actual;
+    _binding.update(
+      sessionId: actual,
+      online: widget.state.isOnline(widget.desktopId),
+      verified: true,
+    );
+    // 两个内存键先同步迁移，慢写不能阻塞发送或清掉后来输入的新草稿。
+    unawaited(
+      Future.wait([
+        widget.state.saveInputDraft(widget.desktopId, actual, draft),
+        if (source != actual)
+          widget.state.saveInputDraft(
+            widget.desktopId,
+            source,
+            const InputDraft(),
+          ),
+      ]).then<void>((_) {}).catchError((Object error) {
+        if (mounted) {
+          setState(() => _error = userMessage(widget.state, error));
+        }
+      }),
+    );
+    widget.onSessionCreated?.call(actual);
+    return actual;
+  }
+
+  void _closeConversation() {
+    final close = widget.onCloseConversation;
+    if (close != null) {
+      close();
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
   void _draftChanged() {
     if (mounted) setState(() {});
     if (_editIndex != null) return;
     _draftDirty = true;
+    final project = _project;
+    if (!_hasSession && widget.botId == null && project != null) {
+      unawaited(widget.state.rememberProject(project).catchError((Object error) {
+        if (mounted) setState(() => _error = userMessage(widget.state, error));
+      }));
+    }
     _draftTimer?.cancel();
     _draftTimer = Timer(
       const Duration(milliseconds: 350),
@@ -409,8 +506,26 @@ class _ChatPageState extends State<ChatPage> {
 
   /// The chat's ⋯ menu: browse the project's files, pin, rename, archive —
   /// the same session operations the list's long-press offers.
+  void _requireOnline() {
+    if (!_online) {
+      throw UserFacingError(
+        tr('电脑已离线，操作未执行。',
+            'The desktop is offline. No action was performed.'),
+      );
+    }
+  }
+
   Future<void> _sessionMenu(String action) async {
     final session = _sessionId;
+    if (action == 'new') {
+      final start = widget.onNewConversation;
+      if (start != null) {
+        start();
+      } else if (_project case final project?) {
+        await newConversation(context, widget.state, project: project);
+      }
+      return;
+    }
     if (action == 'changes') {
       await openPage<void>(
         context,
@@ -434,12 +549,8 @@ class _ChatPageState extends State<ChatPage> {
       );
       return;
     }
-    if (!_online) return;
+    _requireOnline();
     switch (action) {
-      case 'new':
-        final project = _project;
-        if (project == null) return;
-        await newConversation(context, widget.state, project: project);
       case 'files':
         final ref = widget.state.projects
             .where(
@@ -479,6 +590,7 @@ class _ChatPageState extends State<ChatPage> {
           ),
         );
         if (title == null || title.isEmpty) return;
+        _requireOnline();
         await widget.state.request(widget.desktopId, LinkMethods.rename, {
           'session': session,
           'title': title,
@@ -492,7 +604,7 @@ class _ChatPageState extends State<ChatPage> {
           sessionId: session,
           title: widget.title,
         );
-        if (deleted && mounted) Navigator.of(context).pop();
+        if (deleted && mounted) _closeConversation();
       case 'archive':
         if (!mounted) return;
         final confirmed = await showDialog<bool>(
@@ -513,11 +625,12 @@ class _ChatPageState extends State<ChatPage> {
           ),
         );
         if (confirmed != true) return;
+        _requireOnline();
         await widget.state.request(widget.desktopId, LinkMethods.archive, {
           'session': session,
         });
         if (!mounted) return;
-        Navigator.of(context).pop();
+        _closeConversation();
     }
   }
 
@@ -599,7 +712,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     final submitted = _input;
-    final operationGeneration = _binding.generation;
+    var operationGeneration = _binding.generation;
     final text = _composer.text;
     final images = [for (final image in _images) image.wire];
     final mentions = _mentions
@@ -610,6 +723,19 @@ class _ChatPageState extends State<ChatPage> {
       _error = null;
     });
     try {
+      if (!_hasSession && widget.botId == null) {
+        final created = await _ensureSession();
+        if (!mounted || created == null) return;
+        if (!_online) {
+          throw UserFacingError(
+            tr(
+              '电脑已断开，输入已保留。',
+              'The desktop disconnected. Your input is kept.',
+            ),
+          );
+        }
+        operationGeneration = _binding.generation;
+      }
       if (editIndex != null) {
         await widget.state.request(widget.desktopId, LinkMethods.edit, {
           'session': _sessionId,
@@ -672,7 +798,9 @@ class _ChatPageState extends State<ChatPage> {
       if (mounted) {
         setState(
           () =>
-              _error = error is LinkClosedException || error is TimeoutException
+              _error = error is UserFacingError
+              ? userMessage(widget.state, error)
+              : error is LinkClosedException || error is TimeoutException
               ? tr(
                   '连接中断，不确定电脑是否收到。内容已保留，请看一下对话再决定是否重发。',
                   'The connection dropped; the desktop may not have received it. Content is kept; check the conversation before sending again.',
@@ -754,10 +882,16 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) => PopScope(
-    // The back gesture closes the add panel before it leaves the page.
-    canPop: !_addOpen,
+    // 隐藏的标签页不拦截返回；附件面板先关闭，再回到新对话入口。
+    canPop:
+        !widget.active || (!_addOpen && widget.onCloseConversation == null),
     onPopInvokedWithResult: (didPop, _) {
-      if (!didPop) _closeAdd();
+      if (didPop || !widget.active) return;
+      if (_addOpen) {
+        _closeAdd();
+      } else {
+        widget.onCloseConversation?.call();
+      }
     },
     child: AnimatedBuilder(
       animation: widget.state,
@@ -767,7 +901,11 @@ class _ChatPageState extends State<ChatPage> {
           if (_follow && !buffer.loadingEarlier) _bottom();
           _lastRevision = buffer.revision;
         }
-        final ready = _online && !_sending && !_picking;
+        final ready =
+            _online &&
+            !_sending &&
+            !_picking &&
+            (_hasSession || widget.botId != null || _project != null);
         final error =
             _error ??
             (_binding.error == buffer.error ? null : _binding.error) ??
@@ -862,10 +1000,15 @@ class _ChatPageState extends State<ChatPage> {
                     Padding(
                       padding: const EdgeInsets.all(8),
                       child: Text(
-                        tr(
-                          '项目上下文暂不可用；可以读取会话，依赖项目的文件入口不提供。',
-                          'Project context is unavailable. Conversation reads remain available; project-dependent file actions are hidden.',
-                        ),
+                        _hasSession
+                            ? tr(
+                                '项目上下文暂不可用；可以读取会话，依赖项目的文件入口不提供。',
+                                'Project context is unavailable. Conversation reads remain available; project-dependent file actions are hidden.',
+                              )
+                            : tr(
+                                '所选项目暂不可用，请在侧栏选择项目；输入已保留。',
+                                'The selected project is unavailable. Choose one in the sidebar; your input is kept.',
+                              ),
                       ),
                     ),
                   if (buffer.goal case final goal?) _goalTile(context, goal),
@@ -885,20 +1028,18 @@ class _ChatPageState extends State<ChatPage> {
                         maxHeight: MediaQuery.sizeOf(context).height * .46,
                       ),
                       child: SingleChildScrollView(
-                        child: IgnorePointer(
-                          ignoring: !_online,
-                          child: InteractionPanel(
-                            key: ValueKey((
-                              widget.desktopId,
-                              _sessionId,
-                              request['id'],
-                            )),
-                            state: widget.state,
-                            desktopId: widget.desktopId,
-                            sessionId: _sessionId,
-                            projectId: widget.projectId,
-                            request: request,
-                          ),
+                        child: InteractionPanel(
+                          key: ValueKey((
+                            widget.desktopId,
+                            _sessionId,
+                            request['id'],
+                          )),
+                          state: widget.state,
+                          desktopId: widget.desktopId,
+                          sessionId: _sessionId,
+                          projectId: widget.projectId,
+                          request: request,
+                          enabled: _online,
                         ),
                       ),
                     ),
@@ -961,7 +1102,17 @@ class _ChatPageState extends State<ChatPage> {
             .toDouble(),
     centerTitle: widget.botId != null,
     titleSpacing: 4,
-    leading: widget.botId == null
+    leading: widget.onOpenNavigation != null
+        ? IconButton(
+            tooltip: tr('项目与对话', 'Projects and conversations'),
+            icon: const Icon(Icons.menu, size: 22),
+            onPressed: () {
+              _composerFocus.unfocus();
+              _closeAdd();
+              widget.onOpenNavigation!();
+            },
+          )
+        : widget.botId == null
         ? null
         : IconButton(
             tooltip: tr('返回', 'Back'),
@@ -1006,6 +1157,26 @@ class _ChatPageState extends State<ChatPage> {
             ),
     ),
     actions: [
+      if (widget.onNewConversation != null)
+        IconButton(
+          tooltip: tr('新对话', 'New conversation'),
+          icon: const LucideIcon('square-pen', size: 22),
+          onPressed: _sending ? null : widget.onNewConversation,
+        ),
+      if (widget.botId == null && !_hasSession)
+        IconButton(
+          tooltip: tr('模型与权限', 'Model and permissions'),
+          icon: const LucideIcon('settings', size: 22),
+          onPressed: _online &&
+                  _project != null &&
+                  !_sending &&
+                  _creatingSession == null
+              ? () => runUi(context, () async {
+                  await _ensureSession();
+                  if (mounted) await _binding.settled;
+                })
+              : null,
+        ),
       if (bot != null)
         IconButton(
           tooltip: tr('资料', 'Profile'),
@@ -1015,7 +1186,7 @@ class _ChatPageState extends State<ChatPage> {
             BotProfilePage(state: widget.state, ref: bot, fromChat: true),
           ),
         )
-      else
+      else if (_hasSession)
         PopupMenuButton<String>(
           tooltip: tr('更多', 'More'),
           icon: Badge(
@@ -1046,26 +1217,39 @@ class _ChatPageState extends State<ChatPage> {
               ),
             );
             return [
-              if (_project != null)
+              if (_project != null && widget.onNewConversation == null)
                 entry(
                   'new',
                   tr('新对话', 'New conversation'),
                   'square-pen',
-                  enabled: _online,
+                  enabled: !_sending,
                 ),
               if (widget.projectId != null)
-                entry('files', tr('浏览文件', 'Browse files'), 'folder'),
+                entry(
+                  'files', tr('浏览文件', 'Browse files'), 'folder',
+                  enabled: _online && _project != null,
+                ),
               entry('changes', tr('全部改动', 'All changes'), 'file-diff'),
               entry('tasks', tr('后台任务', 'Background tasks'), 'list-todo'),
               entry(
                 'pin',
                 _pinned ? tr('取消置顶', 'Unpin') : tr('置顶', 'Pin'),
                 'pin',
+                enabled: _online,
               ),
-              entry('rename', tr('重命名', 'Rename'), 'pencil'),
-              entry('archive', tr('归档', 'Archive'), 'archive'),
+              entry('rename', tr('重命名', 'Rename'), 'pencil', enabled: _online),
+              entry('archive', tr('归档', 'Archive'), 'archive', enabled: _online),
               if (_hasSession && widget.botId == null)
-                entry('delete', tr('删除对话', 'Delete conversation'), 'trash-2'),
+                entry(
+                  'delete', tr('删除对话', 'Delete conversation'), 'trash-2',
+                  enabled: _online,
+                ),
+              if (!_online)
+                PopupMenuItem<String>(
+                  enabled: false,
+                  child: Text(tr('电脑离线，写操作暂不可用',
+                      'Computer offline; write actions are unavailable')),
+                ),
             ];
           },
         ),
@@ -1153,12 +1337,15 @@ class _ChatPageState extends State<ChatPage> {
         color: scheme.onSurfaceVariant,
       ),
     };
-    final text = switch (status) {
+    final label = switch (status) {
       DesktopLinkStatus.online when isSyncing => tr('同步中…', 'Syncing…'),
       DesktopLinkStatus.online =>
         _project?.project.name ?? linkStatusLabel(widget.state, status),
       _ => linkStatusLabel(widget.state, status),
     };
+    final text = widget.onOpenNavigation == null
+        ? label
+        : '${widget.state.desktopName(widget.desktopId)} · $label';
     return Semantics(
       label: switch (status) {
         DesktopLinkStatus.online when isSyncing => tr(

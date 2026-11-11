@@ -37,7 +37,7 @@ void main() {
     expect(settings.codeFontSize, 10);
   });
 
-  test('放到首页的对话与置顶的 Bot 按电脑保存并能读回', () {
+  test('旧首页选择仍作为常用对话与置顶 Bot 按电脑读回', () {
     final settings = AppSettings()
       ..homeSessions.add(('desk', 'session'))
       ..pinnedBots.add(('desk', 'bot'));
@@ -50,6 +50,19 @@ void main() {
     expect(back.pinnedBots, {('desk', 'bot')});
     expect(AppSettings.fromJson({}).homeSessions, isEmpty);
     expect(AppSettings.fromJson({}).pinnedBots, isEmpty);
+  });
+
+  test('每台电脑的上次项目独立保存并兼容旧设置', () {
+    final settings = AppSettings()
+      ..lastProjectByDesktop.addAll({'电脑甲': '项目甲', '电脑乙': '项目乙'});
+    final restored = AppSettings.fromJson(settings.toJson());
+    expect(restored.lastProjectByDesktop,
+        {'电脑甲': '项目甲', '电脑乙': '项目乙'});
+    expect(AppSettings.fromJson({}).lastProjectByDesktop, isEmpty);
+    final malformed = AppSettings.fromJson({
+      'lastProjectByDesktop': {'电脑甲': '项目甲', '电脑乙': 7},
+    });
+    expect(malformed.lastProjectByDesktop, {'电脑甲': '项目甲'});
   });
 
   test('通知分三类保存；旧的总开关关闭时三类都关', () {

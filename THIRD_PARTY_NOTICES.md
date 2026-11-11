@@ -25,6 +25,12 @@ YCode 整体按 [GPL-3.0-only](LICENSE) 发布。下面这些部分来自第三�
 
 **Remix Icon 只使用 4.8.0 及更早版本。** 从 4.9.0 起 Remix Icon 改用自定义许可，与本项目的 GPL 许可可能不兼容；更新这些图标时不要从新版本复制。
 
+## CI 工具依赖
+
+| 用途 | 来源 | 许可 |
+|---|---|---|
+| GitHub Actions 初始化签名时加密 Secrets（仅 CI 使用，不打入 APK，也不复制其代码） | [PyNaCl 1.5.0](https://pypi.org/project/PyNaCl/1.5.0/) | Apache-2.0 |
+
 ## 商标
 
 `assets/model_icons/` 中的厂商标志仅用于标明对应的模型服务商，相关商标归各自所有者，不代表这些厂商认可或赞助本项目。BaoCode 名称与标识归其权利人所有；YCode 是独立的非官方客户端。

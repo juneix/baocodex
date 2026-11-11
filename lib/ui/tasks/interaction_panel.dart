@@ -16,11 +16,13 @@ class InteractionPanel extends StatefulWidget {
     required this.sessionId,
     required this.request,
     this.projectId,
+    this.enabled = true,
   });
   final AppState state;
   final String desktopId, sessionId;
   final String? projectId;
   final Map<String, Object?> request;
+  final bool enabled;
   @override
   State<InteractionPanel> createState() => _InteractionPanelState();
 }
@@ -36,7 +38,7 @@ class _InteractionPanelState extends State<InteractionPanel> {
   String? _error;
 
   Future<void> _answer(Map<String, Object?> answer) async {
-    if (_busy) return;
+    if (_busy || !widget.enabled) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -74,6 +76,7 @@ class _InteractionPanelState extends State<InteractionPanel> {
         projectId: widget.projectId,
         request: request,
         busy: _busy,
+        enabled: widget.enabled,
         error: _error,
         onAnswer: _answer,
       );
@@ -144,6 +147,19 @@ class _InteractionPanelState extends State<InteractionPanel> {
             ),
             if (_error != null)
               Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+            if (!widget.enabled)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  tr(
+                    '电脑离线，暂不能提交；连接后继续',
+                    'Computer offline. Reconnect to continue.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             if (_busy) const ThinProgress(),
             if (isQuestion && _skipping)
               Row(
@@ -165,7 +181,7 @@ class _InteractionPanelState extends State<InteractionPanel> {
                   const SizedBox(width: 8),
                   FilledButton(
                     key: const ValueKey('question-skip-confirm'),
-                    onPressed: _busy
+                    onPressed: _busy || !widget.enabled
                         ? null
                         : () => _answer({'t': 'question', 'skipped': true}),
                     child: Text(tr('确认跳过', 'Skip')),
@@ -177,14 +193,14 @@ class _InteractionPanelState extends State<InteractionPanel> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: _busy
+                    onPressed: _busy || !widget.enabled
                         ? null
                         : () => setState(() => _skipping = true),
                     child: Text(tr('跳过', 'Skip')),
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
-                    onPressed: _busy || !ready
+                    onPressed: _busy || !widget.enabled || !ready
                         ? null
                         : () => _answer({
                             't': 'question',

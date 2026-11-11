@@ -27,12 +27,17 @@ class _RecordingState extends AppState {
   }
 }
 
-Widget _question(_RecordingState state, {bool other = false}) => MaterialApp(
+Widget _question(
+  _RecordingState state, {
+  bool other = false,
+  bool enabled = true,
+}) => MaterialApp(
   home: Scaffold(
     body: InteractionPanel(
       state: state,
       desktopId: 'desk-A',
       sessionId: 'session-B',
+      enabled: enabled,
       request: {
         't': 'question',
         'id': 'question-3',
@@ -58,6 +63,7 @@ Widget _approval(
   Map<String, Object?> overrides = const {},
   double scale = 1,
   double keyboard = 0,
+  bool enabled = true,
 }) => MaterialApp(
   builder: (context, child) => MediaQuery(
     data: MediaQuery.of(context).copyWith(
@@ -71,6 +77,7 @@ Widget _approval(
       state: state,
       desktopId: 'desk-A',
       sessionId: 'session-B',
+      enabled: enabled,
       request: {
         't': 'approval',
         'id': 'approval-7',
@@ -188,6 +195,33 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('电脑离线时审批操作全部禁用且不显示提交中', (tester) async {
+    final state = _RecordingState();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(_approval(state, enabled: false));
+    expect(find.text('电脑离线，暂不能提交；连接后继续'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(
+      tester
+          .widget<OutlinedButton>(find.widgetWithText(OutlinedButton, '拒绝'))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(find.widgetWithText(OutlinedButton, '总是允许'))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '允许一次'))
+          .onPressed,
+      isNull,
+    );
+    expect(state.calls, isEmpty);
+  });
+
   testWidgets('点拒绝先展开说明框，不立即拒绝；填写后拒绝并发送带上说明', (tester) async {
     final state = _RecordingState();
     addTearDown(state.dispose);
@@ -255,6 +289,59 @@ void main() {
         ['快速实现'],
       ],
     });
+  });
+
+  testWidgets('电脑离线时提问可保留选择和输入但不能提交，重连后继续', (tester) async {
+    final state = _RecordingState();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(_question(state, other: true, enabled: false));
+    expect(find.text('电脑离线，暂不能提交；连接后继续'), findsOneWidget);
+
+    await tester.tap(find.text('其他'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '离线填写的方案');
+    await tester.pump();
+    expect(
+      tester.widget<CheckboxListTile>(find.byType(CheckboxListTile).last).value,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '回答'))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester.widget<TextButton>(find.widgetWithText(TextButton, '跳过')).onPressed,
+      isNull,
+    );
+    expect(state.calls, isEmpty);
+
+    await tester.pumpWidget(_question(state, other: true));
+    await tester.pump();
+    expect(find.text('离线填写的方案'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '回答'));
+    await tester.pump();
+    expect(state.calls.single.$2['answer'], {
+      't': 'question',
+      'picks': [
+        ['离线填写的方案'],
+      ],
+    });
+  });
+
+  testWidgets('电脑离线时提问跳过不可进入确认且不发请求', (tester) async {
+    final state = _RecordingState();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(_question(state, enabled: false));
+    expect(
+      tester.widget<TextButton>(find.widgetWithText(TextButton, '跳过')).onPressed,
+      isNull,
+    );
+    await tester.tap(find.widgetWithText(TextButton, '跳过'));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('question-skip-confirm')), findsNothing);
+    expect(state.calls, isEmpty);
   });
 
   testWidgets('其他回答可输入自定义内容并提交', (tester) async {

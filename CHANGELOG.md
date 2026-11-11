@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.2
+
+Personal preview for testing, installed alongside the original YCode without replacing its pairing or data.
+
+- Open directly into a local new-conversation draft, with project task suggestions; create a desktop session only when sending or configuring it.
+- Switch projects and conversations through a shared sidebar. Show five conversations per project by default, with independent expand/collapse controls.
+- Keep the stop action available while typing or queueing a follow-up message.
+- Explain offline approval and menu states, disable remote writes, and keep local answers and drafts.
+- Preserve upstream context usage and file rewind, and use the personal build's configured repository for updates.
+- Build signed arm64 preview APKs in GitHub Actions and publish pre-releases, not production releases.
+
 ## 0.1.1
 
 Context usage and undoing file changes need BaoCode desktop 1.9.3 or later; with an older desktop they don't appear and everything else works as before.

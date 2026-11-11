@@ -1,24 +1,35 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:bao_link/bao_link.dart';
+import 'package:baocode_mobile/models/user_facing_error.dart';
 import 'package:baocode_mobile/state/app_state.dart';
+import 'package:baocode_mobile/state/conversation_input.dart';
 import 'package:baocode_mobile/link/link_store.dart';
 import 'package:baocode_mobile/link/phone_link.dart'
     show DesktopLinkStatus, KeptDesktop;
 import 'package:baocode_mobile/ui/conversations/chats_tab.dart';
 import 'package:baocode_mobile/ui/files/files_tab.dart';
 import 'package:baocode_mobile/ui/tasks/chat_page.dart';
+import 'package:baocode_mobile/ui/tasks/chat_activity_card.dart';
 import 'package:baocode_mobile/chat/widgets/pixel_loader.dart';
-import 'package:baocode_mobile/ui/widgets/lucide_icon.dart';
+import 'package:baocode_mobile/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _State extends AppState {
-  _State() : super(store: MemoryLinkStore()) {
+  _State({LinkStore? store}) : super(store: store ?? MemoryLinkStore()) {
     settings.language = 'zh';
   }
   bool pinned = true;
   bool withBot = false;
-  LinkSessionStatus status = LinkSessionStatus.idle;
+  bool otherRecent = false;
+  bool projectRemoved = false;
+  bool draftFails = false;
+  Completer<Object?>? draftGate;
   final calls = <Map<String, Object?>>[];
+  final methods = <String>[];
+  final opened = <String>[];
   @override
   List<KeptDesktop> get desktops => const [
     KeptDesktop(id: '在线', name: '在线电脑', publicKey: ''),
@@ -28,52 +39,35 @@ class _State extends AppState {
   bool isOnline(String id) => id == '在线';
   @override
   List<ProjectRef> get projects => [
-    const ProjectRef('在线', ProjectInfo(id: 'p', name: '项目甲', path: '/p')),
+    if (!projectRemoved)
+      const ProjectRef('在线', ProjectInfo(id: 'p', name: '项目甲', path: '/p')),
     if (withBot)
       const ProjectRef('在线', ProjectInfo(id: 'e', name: '空项目', path: '/e')),
   ];
   @override
   List<BotRef> get bots => [
     if (withBot) ...[
-      BotRef(
-        '在线',
-        LinkBot(
-          id: 'b',
-          name: '小宝',
-          assistant: true,
-          updatedAt: DateTime(2026, 6),
-        ),
-      ),
-      // 自己加的 Bot 也要在首页有一行。
-      BotRef(
-        '在线',
-        LinkBot(id: 'c', name: '审稿 Bot', updatedAt: DateTime(2026, 3)),
-      ),
+      BotRef('在线', LinkBot(id: 'b', name: '小宝', assistant: true,
+          updatedAt: DateTime(2026, 6))),
+      BotRef('在线', LinkBot(id: 'c', name: '审稿 Bot',
+          updatedAt: DateTime(2026, 3))),
     ],
   ];
   @override
   List<SessionRef> get sessions => [
-    SessionRef(
-      '在线',
-      SessionSummary(
-        id: '会话甲',
-        project: 'p',
-        title: '置顶任务',
-        updatedAt: DateTime(2026),
-        pinned: pinned,
-        status: status,
-      ),
-    ),
-    SessionRef(
-      '在线',
-      SessionSummary(
-        id: '会话乙',
-        project: 'p',
-        title: '审批任务',
-        updatedAt: DateTime(2025),
-        status: LinkSessionStatus.needsInput,
-      ),
-    ),
+    SessionRef('在线', SessionSummary(
+      id: '会话甲', project: 'p', title: '置顶任务',
+      updatedAt: DateTime(2026), pinned: pinned,
+    )),
+    SessionRef('在线', SessionSummary(
+      id: '会话乙', project: 'p', title: '审批任务',
+      updatedAt: DateTime(2025), status: LinkSessionStatus.needsInput,
+    )),
+    if (otherRecent)
+      SessionRef('在线', SessionSummary(
+        id: '另一项任务', project: 'e', title: '另一项目更新',
+        updatedAt: DateTime(2027),
+      )),
   ];
   @override
   LinkPath pathOf(String desktopId) => desktopId == '在线'
@@ -81,29 +75,30 @@ class _State extends AppState {
       : LinkPath.none;
   @override
   DesktopLinkStatus linkStatus(String desktopId) => isOnline(desktopId)
-      ? DesktopLinkStatus.online
-      : DesktopLinkStatus.offline;
+      ? DesktopLinkStatus.online : DesktopLinkStatus.offline;
   @override
   void retryConnection(String desktopId) {}
   @override
-  Future<Object?> request(
-    String desktopId,
-    String method, [
-    Map<String, Object?> params = const {},
-  ]) async {
-    calls.add(params);
+  Future<Object?> request(String desktopId, String method,
+      [Map<String, Object?> params = const {}]) async {
+    calls.add(Map.of(params));
+    methods.add(method);
     if (method == LinkMethods.draft) {
+      if (draftFails) throw const UserFacingError('无法创建会话');
+      if (draftGate != null) return await draftGate!.future;
       return {'session': 'draft-${params['project']}'};
     }
+    if (method == LinkMethods.send) return {'session': params['session']};
     if (method == LinkMethods.pin) {
       pinned = params['pinned'] as bool;
       notifyListeners();
     }
     return null;
   }
-
   @override
-  Future<void> openSession(String desktopId, String sessionId) async {}
+  Future<void> openSession(String desktopId, String sessionId) async {
+    opened.add(sessionId);
+  }
   @override
   Future<void> closeSession(String desktopId, String sessionId) async {}
 }
@@ -131,360 +126,358 @@ class _OfflineState extends _State {
   DesktopLinkStatus linkStatus(String desktopId) => linkState;
 }
 
-class _PinnedProject extends _State {
+class _Many extends _State {
   @override
-  List<ProjectRef> get projects => const [
-    ProjectRef(
-      '在线',
-      ProjectInfo(id: '置顶', name: '置顶项目', path: '/pinned', pinned: true),
-    ),
+  List<SessionRef> get sessions => [
+    for (var i = 0; i < 7; i++)
+      SessionRef('在线', SessionSummary(
+        id: '任务$i', project: 'p', title: '任务$i',
+        updatedAt: DateTime(2026, 1, i + 1), pinned: i == 6,
+        status: i < 2 ? LinkSessionStatus.needsInput : LinkSessionStatus.idle,
+      )),
   ];
 }
 
+class _SlowStore extends MemoryLinkStore {
+  final gate = Completer<void>();
+  bool blocked = false;
+  @override
+  Future<void> write(String key, String value) async {
+    if (key == 'drafts' && !blocked) {
+      blocked = true;
+      await gate.future;
+    }
+    await super.write(key, value);
+  }
+}
+
+Future<void> _mount(WidgetTester tester, AppState state) async {
+  await tester.pumpWidget(MaterialApp(
+    theme: MobileTheme.build(Brightness.light),
+    home: ChatsTab(state: state),
+  ));
+  await tester.pump();
+}
+
+Future<void> _drawer(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('项目与对话').first);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 350));
+}
+
 void main() {
-  testWidgets('顶栏标题是所选电脑和它的连接状态', (tester) async {
+  testWidgets('默认进入可编辑的新对话，打开和填建议都不创建远端会话', (tester) async {
+    final state = _State();
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    expect(tester.widget<ChatPage>(find.byType(ChatPage)).sessionId, isNull);
+    expect(find.byType(PixelLoader), findsNothing);
+    expect(find.byType(ChatActivityCard), findsNothing);
+    expect(state.calls, isEmpty);
+    expect(state.opened, isEmpty);
+    await tester.tap(find.text('讲讲这个项目的整体结构'));
+    await tester.pump();
+    expect(tester.widget<TextField>(find.byType(TextField).first)
+        .controller!.text, '讲讲这个项目的整体结构');
+    expect(state.calls, isEmpty);
+  });
+
+  testWidgets('首屏说明当前电脑和连接状态，离线输入只保存草稿', (tester) async {
     final state = _OfflineState();
     addTearDown(state.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AnimatedBuilder(
-          animation: state,
-          builder: (_, _) => ChatsTab(state: state),
-        ),
-      ),
-    );
-    expect(find.text('在线电脑'), findsOneWidget);
-    expect(find.text('连接中…'), findsOneWidget);
+    await _mount(tester, state);
+    expect(find.textContaining('在线电脑'), findsOneWidget);
+    expect(find.textContaining('连接中…'), findsOneWidget);
     state.linkState = DesktopLinkStatus.offline;
     state.notifyListeners();
     await tester.pump();
-    expect(find.text('离线 · 正在重连'), findsOneWidget);
-    expect(find.text('连接中…'), findsNothing);
+    await tester.enterText(find.byType(TextField).first, '离线任务');
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(state.inputDraft('在线', AppState.newConversationDraftKey('p')).text,
+        '离线任务');
+    expect(find.text('草稿已保留'), findsOneWidget);
+    expect(state.calls, isEmpty);
   });
 
-  testWidgets('项目和对话用统一的状态文字，不再放运行动画', (tester) async {
-    final state = _State()..status = LinkSessionStatus.running;
-    state.settings.homeSessions.add(('在线', '会话甲'));
+  testWidgets('项目下直接列对话，选择项目不经过文件夹页也不发请求', (tester) async {
+    final state = _State()..withBot = true;
     addTearDown(state.dispose);
-    await tester.pumpWidget(MaterialApp(home: ChatsTab(state: state)));
-    expect(find.byType(PixelLoader), findsNothing);
-    // 会话甲放到了首页，只在首页自己那行标；项目行只算没上首页的会话乙。
-    final line = find.textContaining('1 个待处理');
-    expect(line, findsOneWidget);
-    expect(find.textContaining('1 个运行中'), findsNothing);
-    final spans = (tester.widget<Text>(line).textSpan! as TextSpan).children!;
-    final context = tester.element(line);
-    expect(
-      (spans[0] as TextSpan).style!.color,
-      Theme.of(context).colorScheme.error,
-    );
-    // 首页上的对话行只标自己的状态。
-    expect(find.textContaining('运行中 · 项目甲'), findsOneWidget);
-    // 等着用户的数挂在头像上：项目行 1（会话乙待处理），还在跑的会话甲不挂。
-    final marks = tester
-        .widgetList<Badge>(find.byType(Badge))
-        .where((badge) => badge.isLabelVisible && badge.label != null)
-        .map((badge) => (badge.label! as Text).data)
-        .toList();
-    expect(marks, ['1']);
-    // 点进项目：会话甲标着「首页」，状态灰着、头像不挂数（它还在跑，
-    // 没等着用户，也就没有灰点）。
-    await tester.tap(find.textContaining('项目甲（'));
-    await tester.pumpAndSettle();
-    expect(find.text('首页'), findsOneWidget);
-    expect(
-      tester
-          .widget<Badge>(find.byKey(const ValueKey('home-waiting-dot-在线-会话甲')))
-          .isLabelVisible,
-      isFalse,
-    );
-    final running = find.textContaining('运行中');
-    expect(
-      ((tester.widget<Text>(running).textSpan! as TextSpan).children!.first
-              as TextSpan)
-          .style!
-          .color,
-      Theme.of(tester.element(running)).hintColor,
-    );
+    await _mount(tester, state);
+    await _drawer(tester);
+    expect(find.text('置顶任务'), findsOneWidget);
+    expect(find.text('审批任务'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('project-在线-p')));
+    await tester.pump();
+    expect(find.byType(ProjectChatsPage), findsNothing);
+    expect(find.text('审批任务'), findsOneWidget);
+    expect(state.calls, isEmpty);
+    expect(state.settings.lastProjectByDesktop['在线'], 'p');
+    await tester.ensureVisible(find.byKey(const ValueKey('project-在线-e')));
+    await tester.tap(find.byKey(const ValueKey('project-在线-e')));
+    await tester.pump();
+    expect(tester.widget<ChatPage>(find.byType(ChatPage)).projectId, 'e');
+    expect(state.calls, isEmpty);
   });
 
-  testWidgets('放到首页的对话在项目里只挂灰点，红数只出现在首页那行', (tester) async {
-    final state = _State();
-    state.settings.homeSessions.add(('在线', '会话乙'));
+  testWidgets('每组默认五条，折叠外的待处理仍计数，展开后可收起', (tester) async {
+    final state = _Many();
     addTearDown(state.dispose);
-    await tester.pumpWidget(MaterialApp(home: ChatsTab(state: state)));
-    // 首页那行：红色的数，要用户处理。
-    final homeRow = find.byKey(const ValueKey('home-在线-会话乙'));
-    final homeBadge = tester.widget<Badge>(
-      find.descendant(of: homeRow, matching: find.byType(Badge)),
-    );
-    expect(homeBadge.isLabelVisible, isTrue);
-    expect((homeBadge.label! as Text).data, '1');
-    // 项目行不再数它：没有别的会话在等。
-    final projectRow = find.byKey(const ValueKey('project-在线-p'));
-    expect(
-      tester
-          .widgetList<Badge>(
-            find.descendant(of: projectRow, matching: find.byType(Badge)),
-          )
-          .where((badge) => badge.isLabelVisible),
-      isEmpty,
-    );
-    // 点进项目：它只有个灰点，没有数。
-    await tester.tap(find.textContaining('项目甲（'));
-    await tester.pumpAndSettle();
-    final dot = tester.widget<Badge>(
-      find.byKey(const ValueKey('home-waiting-dot-在线-会话乙')),
-    );
-    expect(dot.isLabelVisible, isTrue);
-    expect(dot.label, isNull);
+    await _mount(tester, state);
+    await _drawer(tester);
+    expect(find.text('任务0'), findsNothing);
+    expect(find.text('任务1'), findsNothing);
+    expect(find.textContaining('2 个待处理'), findsOneWidget);
+    final more = find.byKey(const ValueKey('project-more-在线-p'));
+    await tester.ensureVisible(more);
+    await tester.tap(more);
+    await tester.pump();
+    expect(find.text('任务0'), findsOneWidget);
+    expect(find.text('任务1'), findsOneWidget);
+    await tester.ensureVisible(more);
+    await tester.tap(more);
+    await tester.pump();
+    expect(find.text('任务0'), findsNothing);
+    expect(find.textContaining('2 个待处理'), findsOneWidget);
   });
 
-  testWidgets('点标题弹出电脑列表，显示连接方式与断线，切换后只显示那台电脑', (tester) async {
+  testWidgets('项目折叠独立保存，点项目名称直接重新展开', (tester) async {
+    final state = _State()..withBot = true;
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await _drawer(tester);
+    await tester.tap(find.byKey(const ValueKey('project-fold-在线-p')));
+    await tester.pump();
+    expect(find.text('审批任务'), findsNothing);
+    expect(find.byKey(const ValueKey('project-在线-e')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('project-在线-p')));
+    await tester.pump();
+    expect(find.text('审批任务'), findsOneWidget);
+    expect(state.calls, isEmpty);
+  });
+
+  testWidgets('选会话仍能打开共享侧栏，切换不堆叠，返回新对话', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AnimatedBuilder(
-          animation: state,
-          builder: (_, _) => ChatsTab(state: state),
-        ),
-      ),
-    );
-    expect(find.text('在线 · 经中继 · 399 毫秒'), findsOneWidget);
-    await tester.tap(find.byTooltip('切换电脑'));
+    await _mount(tester, state);
+    await _drawer(tester);
+    await tester.tap(find.byKey(const ValueKey('session-在线-会话甲')));
     await tester.pumpAndSettle();
-    expect(find.text('在线 · 经中继 · 399 毫秒'), findsNWidgets(2));
-    expect(find.text('离线 · 正在重连'), findsOneWidget);
-    expect(find.text('配对新电脑'), findsOneWidget);
+    expect(tester.widget<ChatPage>(find.byType(ChatPage)).sessionId, '会话甲');
+    await _drawer(tester);
+    await tester.tap(find.byKey(const ValueKey('session-在线-会话乙')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatPage), findsOneWidget);
+    expect(tester.widget<ChatPage>(find.byType(ChatPage)).sessionId, '会话乙');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(tester.widget<ChatPage>(find.byType(ChatPage)).sessionId, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('旧首页选择成为常用，移除常用不删除项目内会话', (tester) async {
+    final state = _State()..settings.homeSessions.add(('在线', '会话甲'));
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await _drawer(tester);
+    final favorite = find.byKey(const ValueKey('home-在线-会话甲'));
+    await tester.longPress(favorite);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('从常用移除'));
+    await tester.pumpAndSettle();
+    expect(favorite, findsNothing);
+    expect(find.byKey(const ValueKey('session-在线-会话甲')), findsOneWidget);
+    expect(state.settings.homeSessions, isEmpty);
+    expect(state.calls, isEmpty);
+  });
+
+  testWidgets('辅助筛选不再提供第二套项目选择，也不发送请求', (tester) async {
+    final state = _State();
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await _drawer(tester);
+    await tester.tap(find.byTooltip('筛选对话'));
+    await tester.pumpAndSettle();
+    expect(find.text('SSH / WSL'), findsOneWidget);
+    expect(find.text('全部项目'), findsNothing);
+    await tester.tap(find.text('进行中'));
+    await tester.pump();
+    expect(state.calls, isEmpty);
+  });
+
+  testWidgets('侧栏电脑切换只显示所选电脑，已有项目草稿不串过去', (tester) async {
+    final state = _State();
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await tester.enterText(find.byType(TextField).first, '电脑甲的任务');
+    await _drawer(tester);
+    await tester.tap(find.byTooltip('切换电脑').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('离线设备'));
     await tester.pumpAndSettle();
     expect(state.selectedDesktopId, '离线');
-    expect(find.textContaining('项目甲'), findsNothing);
-    expect(find.text('离线 · 正在重连'), findsOneWidget);
+    expect(find.byKey(const ValueKey('project-在线-p')), findsNothing);
+    expect(state.inputDraft('在线', AppState.newConversationDraftKey('p')).text,
+        '电脑甲的任务');
+    expect(state.inputDraft('离线', AppState.newConversationDraftKey('p')).text,
+        isEmpty);
+    expect(state.calls, isEmpty);
   });
 
-  testWidgets('列表为空时说明原因：连接中、未连接可重试', (tester) async {
+  testWidgets('无项目时保留连接说明与重试入口', (tester) async {
     final state = _EmptyState();
     addTearDown(state.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AnimatedBuilder(
-          animation: state,
-          builder: (_, _) => ChatsTab(state: state),
-        ),
-      ),
-    );
+    await _mount(tester, state);
     expect(find.text('正在连接 在线电脑…'), findsOneWidget);
-    expect(find.text('没有匹配的项目或会话'), findsNothing);
     state.linkState = DesktopLinkStatus.offline;
     state.notifyListeners();
     await tester.pump();
-    expect(find.text('在线电脑 离线'), findsOneWidget);
     await tester.tap(find.text('重试'));
     expect(state.retries, ['在线']);
   });
 
-  testWidgets('项目和 Bot 按最近时间混排，没有时间的在最后', (tester) async {
+  testWidgets('首次发送只创建一次，刷新不会清空真实会话或重新创建', (tester) async {
+    final state = _State();
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await tester.enterText(find.byType(TextField).first, '检查当前改动');
+    await tester.tap(find.byTooltip('发送'));
+    await tester.pumpAndSettle();
+    expect(state.methods, [LinkMethods.draft, LinkMethods.send]);
+    expect(state.calls.last['session'], 'draft-p');
+    expect(state.calls.last['text'], '检查当前改动');
+    expect(state.opened, ['draft-p']);
+    state.notifyListeners();
+    await tester.pump();
+    expect(tester.widget<ChatPage>(find.byType(ChatPage)).sessionId, 'draft-p');
+    await tester.enterText(find.byType(TextField).first, '继续检查');
+    await tester.tap(find.byTooltip('发送'));
+    await tester.pumpAndSettle();
+    expect(state.methods.where((method) => method == LinkMethods.draft),
+        hasLength(1));
+    expect(state.calls.last['session'], 'draft-p');
+  });
+
+  testWidgets('创建失败保留文字且不发送任务', (tester) async {
+    final state = _State()..draftFails = true;
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await tester.enterText(find.byType(TextField).first, '不能丢失的任务');
+    await tester.tap(find.byTooltip('发送'));
+    await tester.pumpAndSettle();
+    expect(state.methods, [LinkMethods.draft]);
+    expect(find.textContaining('无法创建会话'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byType(TextField).first)
+        .controller!.text, '不能丢失的任务');
+    expect(tester.widget<ChatPage>(find.byType(ChatPage)).sessionId, isNull);
+  });
+
+  testWidgets('其他项目活动刷新不会改变正在输入的项目', (tester) async {
     final state = _State()..withBot = true;
     addTearDown(state.dispose);
-    await tester.pumpWidget(MaterialApp(home: ChatsTab(state: state)));
-    double top(String text) => tester.getTopLeft(find.text(text)).dy;
-    expect(top('小宝'), lessThan(top('项目甲（2）')));
-    expect(top('项目甲（2）'), lessThan(top('空项目')));
-    // 自己加的 Bot 不是助理，也一样列在首页，按时间排。
-    expect(top('小宝'), lessThan(top('审稿 Bot')));
-    expect(top('审稿 Bot'), lessThan(top('空项目')));
+    await _mount(tester, state);
+    await tester.enterText(find.byType(TextField).first, '项目甲的输入');
+    state.otherRecent = true;
+    state.notifyListeners();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(tester.widget<ChatPage>(find.byType(ChatPage)).projectId, 'p');
+    expect(state.inputDraft('在线', AppState.newConversationDraftKey('p')).text,
+        '项目甲的输入');
+    expect(state.settings.lastProjectByDesktop['在线'], 'p');
+    expect(state.calls, isEmpty);
   });
 
-  testWidgets('只置顶的对话留在项目里；放到首页后与项目同层，置顶的排在最顶', (tester) async {
-    final state = _State();
+  testWidgets('项目失效保留原输入，不自动改到其他项目执行', (tester) async {
+    final state = _State()..withBot = true;
     addTearDown(state.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AnimatedBuilder(
-          animation: state,
-          builder: (_, _) => ChatsTab(state: state),
-        ),
-      ),
-    );
-    final row = find.byKey(const ValueKey('home-在线-会话甲'));
-    // 会话甲已置顶，但没放到首页：首页只有项目。
-    expect(row, findsNothing);
-
-    await state.setOnHome(
-      state.sessions.firstWhere((ref) => ref.session.id == '会话甲'),
-      true,
-    );
+    await _mount(tester, state);
+    await tester.enterText(find.byType(TextField).first, '原项目任务');
+    state.projectRemoved = true;
+    state.notifyListeners();
     await tester.pump();
-    expect(row, findsOneWidget);
-    expect(
-      tester.getTopLeft(row).dy,
-      lessThan(tester.getTopLeft(find.text('项目甲（2）')).dy),
-    );
-    expect(find.textContaining('在线电脑 ·'), findsNothing);
+    expect(tester.widget<ChatPage>(find.byType(ChatPage)).projectId, 'p');
+    expect(find.textContaining('所选项目暂不可用'), findsOneWidget);
+    await tester.tap(find.byTooltip('发送'));
+    await tester.pump();
+    expect(state.calls, isEmpty);
+    expect(tester.widget<TextField>(find.byType(TextField).first)
+        .controller!.text, '原项目任务');
+  });
 
-    await tester.longPress(row);
+  testWidgets('切换项目后迟到的草稿结果不绑定也不发送', (tester) async {
+    final state = _State()
+      ..withBot = true
+      ..draftGate = Completer<Object?>();
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await tester.enterText(find.byType(TextField).first, '项目甲草稿');
+    await tester.tap(find.byTooltip('模型与权限'));
+    await tester.pump();
+    await _drawer(tester);
+    final other = find.byKey(const ValueKey('project-在线-e'));
+    await tester.ensureVisible(other);
+    await tester.tap(other);
+    await tester.pump();
+    await tester.tap(find.byTooltip('关闭菜单'));
     await tester.pumpAndSettle();
-    expect(find.text('取消置顶'), findsOneWidget);
-    await tester.tap(find.text('从首页移除'));
+    await tester.enterText(find.byType(TextField).first, '空项目草稿');
+    state.draftGate!.complete({'session': '过期会话'});
     await tester.pumpAndSettle();
-    expect(row, findsNothing);
-    // 放到首页只是手机自己的选择，不发请求。
+    final page = tester.widget<ChatPage>(find.byType(ChatPage));
+    expect(page.projectId, 'e');
+    expect(page.sessionId, isNull);
+    expect(state.opened, isEmpty);
+    expect(state.methods, [LinkMethods.draft]);
+    expect(tester.widget<TextField>(find.byType(TextField).first)
+        .controller!.text, '空项目草稿');
+  });
+
+  testWidgets('安全存储慢写不阻塞首发，也不清掉后来的同项目输入', (tester) async {
+    final store = _SlowStore();
+    final state = _State(store: store);
+    addTearDown(state.dispose);
+    addTearDown(() {
+      if (!store.gate.isCompleted) store.gate.complete();
+    });
+    await _mount(tester, state);
+    await tester.enterText(find.byType(TextField).first, '第一项任务');
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(store.blocked, isTrue);
+    await tester.tap(find.byTooltip('发送'));
+    await tester.pumpAndSettle();
+    expect(state.methods, [LinkMethods.draft, LinkMethods.send]);
+    await tester.tap(find.byTooltip('新对话'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, '下一项任务');
+    await tester.pump(const Duration(milliseconds: 350));
+    store.gate.complete();
+    await tester.pumpAndSettle();
+    final key = AppState.newConversationDraftKey('p');
+    expect(state.inputDraft('在线', key).text, '下一项任务');
+    final stored = jsonDecode((await store.read('drafts'))!) as Map;
+    expect(InputDraft.fromStored(stored[jsonEncode(['在线', key])]).text,
+        '下一项任务');
+  });
+
+  testWidgets('冷启动使用每台电脑上次有效项目', (tester) async {
+    final state = _State()..withBot = true;
+    state.settings.lastProjectByDesktop['在线'] = 'e';
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    expect(tester.widget<ChatPage>(find.byType(ChatPage)).projectId, 'e');
     expect(state.calls, isEmpty);
-    expect(find.text('项目甲（2）'), findsOneWidget);
   });
-  testWidgets('官方样式筛选点选即时生效，清除后恢复且不发送请求', (tester) async {
+
+  testWidgets('文件页仍只列所选电脑的项目，不显示对话状态', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
-    await tester.pumpWidget(MaterialApp(home: ChatsTab(state: state)));
-    await tester.tap(find.byTooltip('筛选对话'));
-    await tester.pumpAndSettle();
-    expect(find.text('SSH / WSL'), findsOneWidget);
-    expect(find.text('全部项目'), findsOneWidget);
-    await tester.tap(find.text('进行中'));
-    await tester.pumpAndSettle();
-    await tester.tapAt(const Offset(780, 590));
-    await tester.pumpAndSettle();
-    expect(find.text('项目甲（2）'), findsNothing);
-    await tester.tap(find.text('清除'));
-    await tester.pumpAndSettle();
-    expect(find.text('项目甲（2）'), findsOneWidget);
-    expect(state.calls, isEmpty);
-  });
-  testWidgets('点击首页上的对话直接打开正确会话', (tester) async {
-    final state = _State();
-    state.settings.homeSessions.add(('在线', '会话甲'));
-    addTearDown(state.dispose);
-    await tester.pumpWidget(MaterialApp(home: ChatsTab(state: state)));
-    await tester.tap(find.byKey(const ValueKey('home-在线-会话甲')));
-    await tester.pumpAndSettle();
-    expect(tester.widget<ChatPage>(find.byType(ChatPage)).sessionId, '会话甲');
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-  testWidgets('文件页只列所选电脑的项目，不显示对话状态', (tester) async {
-    final state = _State();
-    addTearDown(state.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AnimatedBuilder(
-          animation: state,
-          builder: (_, _) => FilesTab(state: state),
-        ),
-      ),
-    );
+    await tester.pumpWidget(MaterialApp(home: AnimatedBuilder(
+      animation: state, builder: (_, _) => FilesTab(state: state),
+    )));
     expect(find.text('项目甲'), findsOneWidget);
     expect(find.textContaining('待处理'), findsNothing);
     state.selectDesktop('离线');
     await tester.pump();
     expect(find.text('项目甲'), findsNothing);
     expect(find.text('电脑离线'), findsOneWidget);
-  });
-
-  testWidgets('右上角新建贴着按钮展开；新对话直接打开最近的项目，可在页内切换项目', (tester) async {
-    final state = _State()..withBot = true;
-    addTearDown(state.dispose);
-    await tester.pumpWidget(MaterialApp(home: ChatsTab(state: state)));
-    await tester.tap(find.byTooltip('新建'));
-    await tester.pumpAndSettle();
-    final menu = find.byKey(const ValueKey('dropdown-panel'));
-    expect(find.byType(BottomSheet), findsNothing);
-    expect(find.text('添加 Bot'), findsOneWidget);
-    expect(find.text('配对新电脑'), findsOneWidget);
-    // 只有三行操作，从按钮下方展开，高度贴合内容。
-    expect(find.text('新建'), findsNothing);
-    expect(
-      tester.getTopLeft(menu).dy,
-      greaterThanOrEqualTo(tester.getBottomLeft(find.byTooltip('新建')).dy),
-    );
-
-    await tester.tap(find.text('新对话'));
-    await tester.pumpAndSettle();
-    // 不先弹项目选择，直接进入最近用过的项目。
-    expect(state.calls.last, {'project': 'p'});
-    expect(tester.widget<ChatPage>(find.byType(ChatPage)).projectId, 'p');
-
-    final card = find.byKey(const ValueKey('new-chat-project'));
-    await tester.tap(card);
-    await tester.pumpAndSettle();
-    // 贴着项目卡片弹出，不是从屏幕底部升起。
-    expect(find.byType(BottomSheet), findsNothing);
-    final picker = tester.getRect(find.byKey(const ValueKey('dropdown-panel')));
-    final anchor = tester.getRect(card);
-    expect(picker.top >= anchor.bottom || picker.bottom <= anchor.top, isTrue);
-    await tester.tap(find.byKey(const ValueKey('pick-project-e')));
-    await tester.pumpAndSettle();
-    expect(state.calls.last, {'project': 'e'});
-    final page = tester.widget<ChatPage>(find.byType(ChatPage));
-    expect(page.projectId, 'e');
-    expect(page.sessionId, 'draft-e');
-    // 换项目是替换当前页，返回直接回首页。
-    await tester.pageBack();
-    await tester.pumpAndSettle();
-    expect(find.byType(ChatPage), findsNothing);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  testWidgets('置顶的项目和对话、Bot 一样，行尾有图钉', (tester) async {
-    final state = _PinnedProject();
-    addTearDown(state.dispose);
-    await tester.pumpWidget(MaterialApp(home: ChatsTab(state: state)));
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('project-在线-置顶')),
-        matching: find.byIcon(Icons.push_pin_outlined),
-      ),
-      findsNothing,
-    );
-    final pin = find.descendant(
-      of: find.byKey(const ValueKey('project-在线-置顶')),
-      matching: find.byWidgetPredicate(
-        (widget) => widget is LucideIcon && widget.name == 'pin',
-      ),
-    );
-    expect(pin, findsOneWidget);
-  });
-
-  testWidgets('筛选里选了项目就收起面板，首页直接平铺它的对话，不再是项目文件夹', (tester) async {
-    final state = _State();
-    addTearDown(state.dispose);
-    await tester.pumpWidget(MaterialApp(home: ChatsTab(state: state)));
-    expect(find.text('项目甲（2）'), findsOneWidget);
-    expect(find.text('审批任务'), findsNothing);
-    await tester.tap(find.byTooltip('筛选对话'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('项目甲'));
-    await tester.pumpAndSettle();
-    expect(find.text('全部项目'), findsNothing, reason: '选完自动收起');
-    expect(find.text('项目甲（2）'), findsNothing);
-    expect(find.byKey(const ValueKey('session-在线-会话甲')), findsOneWidget);
-    expect(find.byKey(const ValueKey('session-在线-会话乙')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('session-在线-会话乙')));
-    await tester.pumpAndSettle();
-    expect(tester.widget<ChatPage>(find.byType(ChatPage)).sessionId, '会话乙');
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  testWidgets('点项目行尾的箭头在首页展开它的对话，再点收起，不进入项目', (tester) async {
-    final state = _State();
-    addTearDown(state.dispose);
-    await tester.pumpWidget(MaterialApp(home: ChatsTab(state: state)));
-    expect(find.byKey(const ValueKey('session-在线-会话乙')), findsNothing);
-    expect(find.bySemanticsLabel('展开对话'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('unfold-在线-p')));
-    await tester.pumpAndSettle();
-    expect(find.bySemanticsLabel('收起对话'), findsOneWidget);
-    expect(find.byType(ProjectChatsPage), findsNothing);
-    expect(find.text('项目甲（2）'), findsOneWidget);
-    expect(find.byKey(const ValueKey('session-在线-会话甲')), findsOneWidget);
-    expect(find.byKey(const ValueKey('session-在线-会话乙')), findsOneWidget);
-    // 右下角一整块都算点箭头：离图标远一点也只收起，不进项目。
-    final corner = tester.getBottomRight(
-      find.byKey(const ValueKey('project-在线-p')),
-    );
-    await tester.tapAt(corner - const Offset(64, 6));
-    await tester.pumpAndSettle();
-    expect(find.byType(ProjectChatsPage), findsNothing);
-    expect(find.byKey(const ValueKey('session-在线-会话乙')), findsNothing);
   });
 }

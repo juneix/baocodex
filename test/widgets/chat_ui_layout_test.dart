@@ -22,6 +22,7 @@ class _State extends AppState {
   bool online = true;
   bool fail = false;
   bool planGone = false;
+  bool withBot = false;
   DesktopLinkStatus? linkOverride;
   int refreshes = 0;
   Completer<void>? refreshing;
@@ -51,6 +52,14 @@ class _State extends AppState {
       ),
     ),
   ];
+  @override
+  List<BotRef> get bots => [
+    if (withBot)
+      const BotRef('desktop', LinkBot(
+        id: 'bot', name: '测试助理', session: 'session',
+      )),
+  ];
+
   void update() {
     history.revision++;
     notifyListeners();
@@ -118,6 +127,7 @@ Widget _host(
   bool dark = false,
   double scale = 1,
   double keyboard = 0,
+  bool bot = false,
 }) => MaterialApp(
   theme: MobileTheme.build(
     dark ? Brightness.dark : Brightness.light,
@@ -136,6 +146,7 @@ Widget _host(
     sessionId: 'session',
     title: '很长的中文对话标题需要合理省略而不是挤占操作区域',
     projectId: 'project',
+    botId: bot ? 'bot' : null,
   ),
 );
 
@@ -1271,7 +1282,7 @@ void main() {
   });
 
   for (final online in [true, false]) {
-    testWidgets('新对话收进更多菜单首项，${online ? '在线可创建' : '离线禁用'}', (tester) async {
+    testWidgets('独立聊天在${online ? '在线' : '离线'}时打开本地新对话，不创建会话', (tester) async {
       final state = _State()..online = online;
       addTearDown(state.dispose);
       await tester.pumpWidget(_host(state));
@@ -1283,23 +1294,82 @@ void main() {
         find.byType(PopupMenuItem<String>).first,
       );
       expect(first.value, 'new');
-      expect(first.enabled, online);
+      expect(first.enabled, isTrue);
       expect(state.calls, isEmpty);
-      if (online) {
-        await tester.tap(find.text('新对话'));
-        await tester.pumpAndSettle();
-        expect(state.calls, [LinkMethods.draft]);
-        expect(state.lastParams, {'project': 'project'});
-        final page = tester.widget<ChatPage>(find.byType(ChatPage));
-        expect(page.sessionId, 'new-session');
-        // 默认当前项目，页内仍可换项目，与首页新对话同一套流程。
-        expect(page.projectId, 'project');
-        expect(page.onSwitchProject, isNotNull);
-      }
+      await tester.tap(find.text('新对话'));
+      await tester.pumpAndSettle();
+      expect(state.calls, isEmpty);
+      final page = tester.widget<ChatPage>(find.byType(ChatPage));
+      expect(page.sessionId, isNull);
+      // 默认当前项目，离线也能保留输入，不先创建远端会话。
+      expect(page.projectId, 'project');
+      expect(page.onSwitchProject, isNotNull);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
+
+  for (final bot in [false, true]) {
+    testWidgets('${bot ? 'Bot' : '编程对话'}运行中输入后仍可独立停止且保留草稿', (tester) async {
+      final state = _State()..withBot = bot;
+      addTearDown(state.dispose);
+      state.history
+        ..live = true
+        ..items.add({'t': 'user', 'text': '正在执行的任务'});
+      await tester.pumpWidget(_host(state, bot: bot));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byTooltip('停止生成'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).first, '准备排队的任务');
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.byTooltip('停止生成'), findsOneWidget);
+      expect(find.byTooltip('发送'), findsOneWidget);
+      await tester.tap(find.byTooltip('停止生成'));
+      await tester.pump();
+      expect(state.calls, [LinkMethods.stop]);
+      expect(state.lastParams['session'], 'session');
+      expect(tester.widget<TextField>(find.byType(TextField).first)
+          .controller!.text, '准备排队的任务');
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  testWidgets('离线菜单明确禁用写操作，但仍可读取已同步任务和改动', (tester) async {
+    final state = _State()..online = false;
+    addTearDown(state.dispose);
+    await tester.pumpWidget(_host(state));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('更多'));
+    await tester.pumpAndSettle();
+    final entries = tester.widgetList<PopupMenuItem<String>>(
+      find.byType(PopupMenuItem<String>),
+    ).toList();
+    for (final action in ['files', 'pin', 'rename', 'archive', 'delete']) {
+      expect(entries.singleWhere((entry) => entry.value == action).enabled,
+          isFalse);
+    }
+    for (final action in ['new', 'changes', 'tasks']) {
+      expect(entries.singleWhere((entry) => entry.value == action).enabled,
+          isTrue);
+    }
+    expect(find.text('电脑离线，写操作暂不可用'), findsOneWidget);
+    expect(state.calls, isEmpty);
+  });
+
+  testWidgets('菜单打开后掉线也不发写请求，并说明操作未执行', (tester) async {
+    final state = _State();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(_host(state));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('更多'));
+    await tester.pumpAndSettle();
+    state.online = false;
+    state.update();
+    await tester.pump();
+    await tester.tap(find.text('置顶'));
+    await tester.pumpAndSettle();
+    expect(state.calls, isEmpty);
+    expect(find.text('电脑已离线，操作未执行。'), findsOneWidget);
+  });
 
   testWidgets('更多菜单按真实置顶状态切换置顶和取消置顶', (tester) async {
     final state = _State()..pinned = true;
@@ -1337,10 +1407,26 @@ void main() {
       't': 'user',
       'text': '很长的中文消息和路径 E:/project/测试项目/文件夹/独立文件.txt',
     });
-    state.history.live = true;
+    state.history
+      ..live = true
+      ..choices = const [
+        LinkChoice(kind: 'model', options: []),
+        LinkChoice(kind: 'mode', options: []),
+        LinkChoice(kind: 'permission', options: []),
+      ]
+      ..context = {
+        'window': 200000,
+        'used': 40000,
+        'parts': [{'part': 'messages', 'tokens': 40000}],
+        'compactAt': 167000,
+      };
     state.update();
     await tester.pump();
+    await tester.enterText(find.byType(TextField).first, '生成中准备下一条任务');
+    await tester.pump();
     expect(find.byTooltip('停止生成'), findsOneWidget);
+    expect(find.byTooltip('发送'), findsOneWidget);
+    expect(find.byTooltip('上下文已用 20%'), findsOneWidget);
     expect(
       tester.getSize(find.byKey(const ValueKey('user-message-bubble'))).width,
       lessThan(290),

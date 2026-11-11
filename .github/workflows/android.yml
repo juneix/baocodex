@@ -1,0 +1,340 @@
+name: Android preview
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android.yml'
+      - '.github/workflows/init-signing.yml'
+      - 'analysis_options.yaml'
+      - 'android/**'
+      - 'assets/**'
+      - 'CHANGELOG.md'
+      - 'CHANGELOG_CN.md'
+      - 'lib/**'
+      - 'pubspec.lock'
+      - 'pubspec.yaml'
+      - 'test/**'
+      - 'tool/**'
+      - 'vendor/bao_editor/**'
+      - 'vendor/bao_iroh/**'
+      - 'vendor/bao_link/**'
+  workflow_dispatch:
+    inputs:
+      flutter_version:
+        description: 'Flutter 精确版本（3.47.x）；留空使用仓库变量 FLUTTER_VERSION'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.flutter_version || vars.FLUTTER_VERSION }}
+
+jobs:
+  checks:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Flutter version
+        shell: bash
+        run: |
+          if [[ -z "${FLUTTER_VERSION:-}" ]]; then
+            echo "::error::请设置仓库变量 FLUTTER_VERSION，或在手动运行时填写 flutter_version。"
+            exit 1
+          fi
+          if [[ ! "$FLUTTER_VERSION" =~ ^3\.47\.[0-9]+$ ]]; then
+            echo "::error::FLUTTER_VERSION 必须是明确的 Flutter 3.47.x 三段版本号。"
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Validate bundled Dart SDK
+        shell: bash
+        run: |
+          dart_version="$(dart --version 2>&1)"
+          if [[ ! "$dart_version" =~ Dart\ SDK\ version:\ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+            echo "::error::无法识别所选 Flutter 自带的 Dart 版本：$dart_version"
+            exit 1
+          fi
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+          if (( major != 3 || minor < 13 || (minor == 13 && patch < 4) )); then
+            echo "::error::所选 Flutter 自带 Dart $major.$minor.$patch，不满足 pubspec.yaml 的 ^3.13.4。"
+            exit 1
+          fi
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.1
+          targets: aarch64-linux-android
+
+      - name: Restore locked dependencies
+        shell: bash
+        run: |
+          if ! flutter pub get --enforce-lockfile; then
+            echo "::error::依赖恢复失败；请确认 pubspec.lock 已与 pubspec.yaml 同步。"
+            exit 1
+          fi
+
+      - name: Analyze
+        run: flutter analyze --no-pub
+
+      - name: Test
+        run: flutter test --no-pub
+
+  build_preview:
+    name: Build signed arm64 preview APK
+    needs: checks
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_name: ${{ steps.artifact.outputs.name }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.1
+          targets: aarch64-linux-android
+
+      - name: Restore locked dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Build signed preview APK
+        shell: bash
+        env:
+          YCODE_RELEASE_JKS_BASE64: ${{ secrets.YCODE_RELEASE_JKS_BASE64 }}
+          YCODE_RELEASE_STORE_PASSWORD: ${{ secrets.YCODE_RELEASE_STORE_PASSWORD }}
+          YCODE_RELEASE_KEY_ALIAS: ${{ secrets.YCODE_RELEASE_KEY_ALIAS }}
+          YCODE_RELEASE_KEY_PASSWORD: ${{ secrets.YCODE_RELEASE_KEY_PASSWORD }}
+          YCODE_REPOSITORY: ${{ github.repository }}
+          YCODE_TEST_INSTALL: 'true'
+        run: |
+          missing=()
+          for name in \
+            YCODE_RELEASE_JKS_BASE64 \
+            YCODE_RELEASE_STORE_PASSWORD \
+            YCODE_RELEASE_KEY_ALIAS \
+            YCODE_RELEASE_KEY_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} )); then
+            printf '::error::缺少预览版签名 Secret：%s\n' "${missing[*]}"
+            exit 1
+          fi
+
+          umask 077
+          signing_dir="$(mktemp -d "$RUNNER_TEMP/ycode-signing.XXXXXX")"
+          cleanup() {
+            unset YCODE_RELEASE_JKS_BASE64 YCODE_RELEASE_STORE_PASSWORD \
+              YCODE_RELEASE_KEY_ALIAS YCODE_RELEASE_KEY_PASSWORD
+            rm -rf "$signing_dir"
+          }
+          trap cleanup EXIT
+          keystore="$signing_dir/ycode-preview.jks"
+          properties="$signing_dir/ycode-preview.properties"
+
+          if ! printf '%s' "$YCODE_RELEASE_JKS_BASE64" | base64 --decode > "$keystore"; then
+            echo "::error::YCODE_RELEASE_JKS_BASE64 不是有效的 Base64 数据。"
+            exit 1
+          fi
+          if [[ ! -s "$keystore" ]]; then
+            echo "::error::YCODE_RELEASE_JKS_BASE64 解码后为空。"
+            exit 1
+          fi
+          {
+            printf 'storeFile=ycode-preview.jks\n'
+            printf 'storePassword=%s\n' "$YCODE_RELEASE_STORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$YCODE_RELEASE_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$YCODE_RELEASE_KEY_PASSWORD"
+          } > "$properties"
+          unset YCODE_RELEASE_JKS_BASE64 YCODE_RELEASE_STORE_PASSWORD \
+            YCODE_RELEASE_KEY_ALIAS YCODE_RELEASE_KEY_PASSWORD
+
+          YCODE_SIGNING="$properties" tool/build_android.sh --no-install
+
+      - name: Generate release metadata
+        run: dart run tool/release_manifest.dart --repository=${{ github.repository }}
+
+      - name: Name build artifact
+        id: artifact
+        shell: bash
+        run: echo "name=ycode-android-preview-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload signed APK and metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: |
+            build/app/outputs/flutter-apk/ycode-*.apk
+            build/app/outputs/flutter-apk/latest.json
+          if-no-files-found: error
+          retention-days: 14
+
+  publish_preview:
+    name: Publish preview pre-release
+    needs: build_preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out target commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Download signed APK and metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build_preview.outputs.artifact_name }}
+          path: ${{ runner.temp }}/ycode-release
+
+      - name: Validate release target
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        run: |
+          if [[ "$GITHUB_REPOSITORY" != "$EXPECTED_REPOSITORY" ]]; then
+            echo "::error::发布目标仓库与当前仓库不一致，拒绝发布。"
+            exit 1
+          fi
+          manifest="$RUNNER_TEMP/ycode-release/latest.json"
+          if [[ ! -f "$manifest" ]]; then
+            echo "::error::构建 artifact 中缺少 latest.json。"
+            exit 1
+          fi
+          tag="$(jq -er '.tag_name' "$manifest")"
+          apk_name="$(jq -er '.assets[0].name' "$manifest")"
+          apk="$RUNNER_TEMP/ycode-release/$apk_name"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::latest.json 中的标签不是数字版本标签：$tag"
+            exit 1
+          fi
+          if [[ ! -f "$apk" ]]; then
+            echo "::error::构建 artifact 中缺少 $apk_name。"
+            exit 1
+          fi
+          version="${tag#v}"
+          if [[ ! "$apk_name" =~ ^ycode-[0-9]+\.[0-9]+\.[0-9]+-[1-9][0-9]*\.apk$ ]] ||
+             [[ "$apk_name" != "ycode-$version-"* ]]; then
+            echo "::error::APK 名称与版本不一致。"
+            exit 1
+          fi
+          expected_page="https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag"
+          expected_url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$apk_name"
+          actual_size="$(stat -c %s "$apk")"
+          actual_digest="sha256:$(sha256sum "$apk" | cut -d ' ' -f 1)"
+          jq -e --arg page "$expected_page" --arg url "$expected_url" \
+            --arg digest "$actual_digest" --argjson size "$actual_size" \
+            '.html_url == $page and .assets[0].browser_download_url == $url and
+             .assets[0].size == $size and .assets[0].digest == $digest' \
+            "$manifest" >/dev/null
+          ref_data="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$tag" \
+            --jq ".[] | select(.ref == \"refs/tags/$tag\") | [.object.sha, .object.type] | @tsv")"
+          if [[ -n "$ref_data" ]]; then
+            IFS=$'\t' read -r remote_sha remote_type <<< "$ref_data"
+            while [[ "$remote_type" == tag ]]; do
+              tag_data="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$remote_sha" \
+                --jq '[.object.sha, .object.type] | @tsv')"
+              IFS=$'\t' read -r remote_sha remote_type <<< "$tag_data"
+            done
+            if [[ "$remote_type" != commit ]]; then
+              echo "::error::标签 $tag 指向不支持的 Git 对象类型 $remote_type。"
+              exit 1
+            fi
+            if [[ "$remote_sha" != "$GITHUB_SHA" ]]; then
+              echo "::error::标签 $tag 已指向其他提交 $remote_sha；请递增版本后重试，拒绝强制移动标签。"
+              exit 1
+            fi
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$tag" \
+              -f sha="$GITHUB_SHA" >/dev/null
+          fi
+
+          {
+            printf 'tag=%s\n' "$tag"
+            printf 'version=%s\n' "$version"
+            printf 'apk=%s\n' "$apk"
+            printf 'manifest=%s\n' "$manifest"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or update draft pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+          APK: ${{ steps.release.outputs.apk }}
+          MANIFEST: ${{ steps.release.outputs.manifest }}
+        run: |
+          request="$RUNNER_TEMP/ycode-release-request.json"
+          jq -n \
+            --arg tag_name "$TAG" \
+            --arg target_commitish "$GITHUB_SHA" \
+            --arg name "YCode $VERSION Preview" \
+            --arg body "$(jq -er '.body' "$MANIFEST")" \
+            '{tag_name: $tag_name, target_commitish: $target_commitish,
+              name: $name, body: $body, draft: true, prerelease: true,
+              make_latest: "false"}' > "$request"
+          existing="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq "first(.[] | select(.tag_name == \"$TAG\")) // empty")"
+          if [[ -n "$existing" ]] && [[ "$(jq -r .prerelease <<< "$existing")" != true ]]; then
+            echo "::error::同名正式 Release 已存在，拒绝将其改成预览版。"
+            exit 1
+          fi
+          release_id=""
+          if [[ -n "$existing" ]]; then
+            release_id="$(jq -r '.id' <<< "$existing")"
+          fi
+          if [[ -z "$release_id" ]]; then
+            release_id="$(gh api --method POST "repos/$GITHUB_REPOSITORY/releases" \
+              --input "$request" --jq '.id')"
+          else
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" \
+              --input "$request" >/dev/null
+          fi
+
+          gh release upload "$TAG" "$APK" "$MANIFEST" \
+            --clobber --repo "$GITHUB_REPOSITORY"
+          jq '.draft = false' "$request" > "$request.public"
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" \
+            --input "$request.public" >/dev/null

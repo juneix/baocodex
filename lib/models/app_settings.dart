@@ -9,6 +9,7 @@ class AppSettings {
   /// [MobileAccent]'s name.
   String accent = 'green';
   String? desktop;
+  Map<String, String> lastProjectByDesktop = {};
   double textScale = 1.0;
   double codeFontSize = 14;
 
@@ -32,9 +33,7 @@ class AppSettings {
   /// conversation: the phone's own, sent as the desktop's Keep.
   bool autoKeep = false;
 
-  /// The conversations shown on the home list beside the projects, as
-  /// (desktop, session): the phone's own choice, the desktop knows nothing
-  /// of it.
+  /// 常用对话，按 (desktop, session) 保存；保留旧存储键，不改变电脑置顶。
   Set<(String, String)> homeSessions = {};
 
   /// The bots pinned on the lists, as (desktop, bot): the phone's own choice,
@@ -57,6 +56,13 @@ class AppSettings {
     // 'accent' held only the first default (blue), never a choice: read anew.
     settings.accent = json['accentColor'] as String? ?? 'green';
     settings.desktop = json['desktop'] as String?;
+    if (json['lastProjectByDesktop'] case final Map<dynamic, dynamic> projects) {
+      settings.lastProjectByDesktop = {
+        for (final entry in projects.entries)
+          if (entry.key is String && entry.value is String)
+            entry.key as String: entry.value as String,
+      };
+    }
     settings.textScale = ((json['textScale'] as num?)?.toDouble() ?? 1.0)
         .clamp(0.6, 1.4)
         .toDouble();
@@ -98,6 +104,7 @@ class AppSettings {
     'theme': themeMode.name,
     'accentColor': accent,
     'desktop': desktop,
+    'lastProjectByDesktop': lastProjectByDesktop,
     'textScale': textScale,
     'codeFontSize': codeFontSize,
     'loaders': loaders,

@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('home project row fetches and renders the image project icon', (
+  testWidgets('侧栏项目行读取并展示已有项目图标', (
     tester,
   ) async {
     final state = AppState(demo: true, store: MemoryLinkStore());
@@ -26,9 +26,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // `baocode` advertises {"type": "image", "id": "demo-icon"}; the home
-    // row fetches it through the IconCache and decodes it into a real Image.
-    // (The Files tab shows every project as a folder, by design.)
+    await tester.tap(find.byTooltip('项目与对话'));
+    await tester.pumpAndSettle();
+
+    // 侧栏继续复用 IconCache，文件页仍使用文件夹入口。
     expect(find.byType(Image), findsOneWidget);
     expect(find.textContaining('baocode'), findsWidgets);
   });

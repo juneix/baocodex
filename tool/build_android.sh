@@ -106,10 +106,21 @@ if grep -q integration_test "$registrant"; then
   exit 1
 fi
 
+preview_args=()
+if [ "${YCODE_TEST_INSTALL:-}" = true ]; then
+  preview_args+=(
+    -PtestInstall=true
+    --dart-define=YCODE_PREVIEW=true
+  )
+fi
+repository=${YCODE_REPOSITORY:-shuishani/ycode}
+
 flutter build apk --release --no-pub \
   --target-platform android-arm64 -P arm64Only=true \
+  "${preview_args[@]}" \
   --build-name="$name" --build-number="$number" \
-  --dart-define=APP_VERSION="$version"
+  --dart-define=APP_VERSION="$version" \
+  --dart-define=YCODE_REPOSITORY="$repository"
 
 "$BUILD_TOOLS/zipalign" -f -p 4 "$out/app-release.apk" "$out/app-aligned.apk"
 export YCODE_STORE_PASSWORD="$store_pass" YCODE_KEY_PASSWORD="$key_pass"

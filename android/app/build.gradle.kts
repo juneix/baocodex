@@ -21,7 +21,7 @@ android {
         val testInstall = project.hasProperty("testInstall")
         applicationId = "local.ycode.mobile" + if (testInstall) ".test" else ""
         manifestPlaceholders["appLabel"] =
-            "YCode" + if (testInstall) " 测试" else ""
+            if (testInstall) "YCode Preview" else "YCode"
         minSdk = 24
         targetSdk = 36
         versionCode = flutter.versionCode

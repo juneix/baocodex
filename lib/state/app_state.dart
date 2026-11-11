@@ -275,6 +275,15 @@ class AppState extends ChangeNotifier {
     unawaited(saveSettings().catchError((Object _) {}));
   }
 
+  Future<void> rememberProject(ProjectRef project) async {
+    if (settings.lastProjectByDesktop[project.desktopId] == project.project.id) {
+      return;
+    }
+    settings.lastProjectByDesktop[project.desktopId] = project.project.id;
+    _notify();
+    await saveSettings();
+  }
+
   Map<String, LinkState> get snapshots => {
     for (final entry in (demo ? _demo!.states : link.states).entries)
       entry.key: LinkState.fromJson(entry.value),
@@ -792,6 +801,10 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
+  /// 本地项目输入的存储键，不用于请求或订阅电脑会话。
+  static String newConversationDraftKey(String projectId) =>
+      'new:${jsonEncode(projectId)}';
+
   String _draftKey(String desktopId, String sessionId) =>
       jsonEncode([desktopId, sessionId]);
   InputDraft inputDraft(
@@ -842,11 +855,11 @@ class AppState extends ChangeNotifier {
     return write;
   }
 
-  /// Whether [ref] is shown on the home list, beside the projects.
+  /// 是否为手机上的常用对话，沿用原有首页选择数据。
   bool onHome(SessionRef ref) =>
       settings.homeSessions.contains((ref.desktopId, ref.session.id));
 
-  /// Shows [ref] on the home list, or no longer.
+  /// 加入或移除常用，不改变电脑上的置顶和会话数据。
   Future<void> setOnHome(SessionRef ref, bool shown) async {
     final key = (ref.desktopId, ref.session.id);
     if (shown) {

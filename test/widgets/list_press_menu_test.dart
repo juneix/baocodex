@@ -123,8 +123,18 @@ Finder _row(String title) => find.byWidgetPredicate(
 
 Finder get _menu => find.byKey(const ValueKey('dropdown-panel'));
 
+Future<void> _navigation(WidgetTester tester) async {
+  await tester.tap(find.byTooltip('项目与对话').first);
+  await tester.pumpAndSettle();
+}
+
 Future<void> _press(WidgetTester tester, String title) async {
-  await tester.longPress(_row(title));
+  if (_row(title).evaluate().isEmpty &&
+      find.byType(ChatsTab).evaluate().isNotEmpty) {
+    await _navigation(tester);
+  }
+  await tester.ensureVisible(_row(title).first);
+  await tester.longPress(_row(title).first);
   await tester.pumpAndSettle();
 }
 
@@ -207,15 +217,15 @@ void main() {
     expect(find.text('对话乙'), findsOneWidget);
   });
 
-  testWidgets('首页对话从首页移除不删除电脑上的对话', (tester) async {
+  testWidgets('移除常用不删除项目内或电脑上的会话', (tester) async {
     final state = _State();
     state.settings.homeSessions.add(('desk', 'session'));
     addTearDown(state.dispose);
     await tester.pumpWidget(_host(state));
-    await _pick(tester, '对话甲', '从首页移除');
+    await _pick(tester, '对话甲', '从常用移除');
     expect(state.calls, isEmpty);
     expect(state.settings.homeSessions, isEmpty);
-    expect(_row('对话甲'), findsNothing);
+    expect(_row('对话甲'), findsOneWidget);
     expect(state.sessions.map((ref) => ref.session.id), contains('session'));
   });
 
@@ -225,7 +235,7 @@ void main() {
     addTearDown(tester.view.reset);
     final state = _State();
     addTearDown(state.dispose);
-    await tester.pumpWidget(_host(state));
+    await tester.pumpWidget(_host(state, files: true));
     Future<Rect> at(Offset point) async {
       await tester.longPressAt(point);
       await tester.pumpAndSettle();
@@ -276,7 +286,7 @@ void main() {
     await _press(tester, '对话甲');
     expect(find.text('删除该聊天'), findsNothing);
     expect(find.text('置顶'), findsNothing);
-    expect(find.text('放到首页'), findsOneWidget);
+    expect(find.text('加入常用'), findsOneWidget);
     await tester.tapAt(const Offset(2, 590));
     await tester.pumpAndSettle();
     state
@@ -308,22 +318,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('首页小宝长按置顶排到项目前面，只存手机不发请求', (tester) async {
-    final state = _State()..botList = const [_assistant];
+  testWidgets('侧栏 Bot 组内置顶，不与项目混排且只存手机', (tester) async {
+    final state = _State()..botList = const [_assistant, _helper];
     addTearDown(state.dispose);
     await tester.pumpWidget(_host(state));
+    await _navigation(tester);
     expect(
       tester.getTopLeft(_row('项目甲')).dy,
       lessThan(tester.getTopLeft(_row('小宝')).dy),
     );
-    await _pick(tester, '小宝', '置顶');
-    expect(state.settings.pinnedBots, {('desk', 'xb')});
+    await _pick(tester, '帮手', '置顶');
+    expect(state.settings.pinnedBots, {('desk', 'hp')});
     expect(
-      tester.getTopLeft(_row('小宝')).dy,
-      lessThan(tester.getTopLeft(_row('项目甲')).dy),
+      tester.getTopLeft(_row('帮手')).dy,
+      lessThan(tester.getTopLeft(_row('小宝')).dy),
     );
     expect(state.calls, isEmpty);
-    await _pick(tester, '小宝', '取消置顶');
+    await _pick(tester, '帮手', '取消置顶');
     expect(state.settings.pinnedBots, isEmpty);
     expect(state.calls, isEmpty);
   });

@@ -25,6 +25,7 @@ void main() {
     '文件': (state) => FilesTab(state: state),
     '扩展': (state) => ExtensionsPage(state: state),
     '首页': (state) => ChatsTab(state: state),
+    '侧栏': (state) => ChatsTab(state: state),
     '资料': (state) => BotProfilePage(state: state, ref: state.bots.first),
     '项目文件': (state) => FilesPage(
       state: state,
@@ -90,12 +91,22 @@ void main() {
         ),
       );
       await tester.pump(const Duration(milliseconds: 300));
+      if (entry.key == '侧栏') {
+        await tester.tap(find.byTooltip('项目与对话'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+      }
       expect(tester.takeException(), isNull);
       if (entry.key == 'Bot聊天') {
         final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).last);
         expect(scaffold.backgroundColor, isNot(const Color(0xFFEDEDED)));
       }
-      final scrolls = find.byType(Scrollable);
+      final scrolls = entry.key == '侧栏'
+          ? find.descendant(
+              of: find.byKey(const ValueKey('conversation-navigation-list')),
+              matching: find.byType(Scrollable),
+            )
+          : find.byType(Scrollable);
       if (scrolls.evaluate().isNotEmpty) {
         for (var i = 0; i < 8; i++) {
           await tester.drag(scrolls.first, const Offset(0, -450));

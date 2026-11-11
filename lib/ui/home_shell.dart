@@ -55,6 +55,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   void _select(int index) {
     widget.state.haptic();
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _tab = index);
     if (index != _settingsTab) _pages.jumpToPage(index);
   }
@@ -83,6 +84,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             .where((ref) => ref.desktopId == desktopId)
             .fold(0, (sum, ref) => sum + ref.bot.unread);
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Column(
         children: [
           if (state.demo)
@@ -127,9 +129,20 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 PageView(
                   controller: _pages,
                   allowImplicitScrolling: true,
-                  onPageChanged: (index) => setState(() => _tab = index),
+                  onPageChanged: (index) {
+                    if (index != _tab) {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                    }
+                    setState(() => _tab = index);
+                  },
                   children: [
-                    _KeptPage(child: ChatsTab(state: state)),
+                    _KeptPage(
+                      child: ChatsTab(
+                        state: state,
+                        active: _tab == 0,
+                        onSelectTab: _select,
+                      ),
+                    ),
                     _KeptPage(child: BotsTab(state: state)),
                     _KeptPage(child: FilesTab(state: state)),
                   ],

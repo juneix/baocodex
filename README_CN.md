@@ -2,9 +2,13 @@
 
 [English](README.md) · **简体中文**
 
-[下载 Android 安装包](https://github.com/shuishani/ycode/releases/latest) · [更新日志](CHANGELOG_CN.md) · [问题反馈](https://github.com/shuishani/ycode/issues)
+[下载 Android 预览版](https://github.com/juneix/ycode/releases) · [更新日志](CHANGELOG_CN.md) · [上游项目](https://github.com/shuishani/ycode)
 
 YCode 是 BaoCode 电脑版的独立、非官方 Android 客户端，由 shuishan 维护，使用 Flutter 开发。通过官方 link v2 协议（iroh/QUIC、Ed25519、端到端加密）配对电脑，在手机上查看和继续电脑上的对话。
+
+本仓库是个人预览修改版。`YCode Preview` 使用独立包名和固定个人签名，可与原 YCode 并存，不覆盖原应用的配对和数据。
+
+下方截图为上游 0.1.1 界面；新预览版导航的截图待真机验证后更新。
 
 | 首页 | 对话 |
 | :---: | :---: |
@@ -15,12 +19,12 @@ YCode 是 BaoCode 电脑版的独立、非官方 Android 客户端，由 shuisha
 ## 安装与更新
 
 - **先在电脑上安装 BaoCode**：官网 <https://baocode.dev>，下载 <https://baocode.dev/download>。在电脑端「设置 → 手机」显示二维码，用 YCode 扫码配对。
-- **安装 YCode**：从 [GitHub Releases](https://github.com/shuishani/ycode/releases) 下载 APK，支持 Android 7.0 及以上的 arm64 设备，暂不支持 iOS。
-- **更新**：打开应用时会自动检查，有新版本就弹窗，可在应用内下载安装；也可以在「设置 → 当前版本」手动检查。首次更新时需要允许 YCode「安装未知应用」。覆盖安装会保留配对和数据，不要为了更新而卸载。
+- **安装预览版**：从本 fork 的 [pre-release](https://github.com/juneix/ycode/releases) 下载 APK，支持 Android 7.0 及以上的 arm64 设备。包名为 `local.ycode.mobile.test`，保留原 YCode 即可并存；暂不支持 iOS。
+- **更新**：预览版暂从 pre-release 手动下载。自动检查更新使用构建时配置的仓库，只查询稳定版本。后续预览包沿用同一把个人签名密钥，不要为了更新而卸载。
 
 ## 功能
 
-- 对话、Bot、文件、设置四栏；中英文，跟随系统或浅色/深色主题。
+- 默认对话输入、本地草稿与共享项目导航，每项目默认五条会话，可展开更多；保留 Bot、文件、设置，中英文和系统／浅色／深色主题。
 - 扫码、粘贴或局域网发现配对，多台电脑，断线重连。
 - 项目和对话的搜索、筛选、置顶、归档，项目可在首页直接展开对话；流式消息、排队与立即插入、图片和 @ 文件、/ 命令。
 - 编辑历史消息重发，可撤回 Agent 之后改过的文件；输入栏显示上下文用量（需电脑版 1.9.3 及以上）。

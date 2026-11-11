@@ -449,9 +449,13 @@ extension _History on _ChatPageState {
             online: _online,
             project: _project,
             onSwitchProject:
-                widget.onSwitchProject == null || _sending || !_online
+                widget.onSwitchProject == null || _sending
                 ? null
-                : widget.onSwitchProject!,
+                : (anchor) {
+                    _composerFocus.unfocus();
+                    _closeAdd();
+                    unawaited(widget.onSwitchProject!(anchor));
+                  },
             canSuggest: !_sending && _composer.text.isEmpty,
             onSuggestion: (text) {
               if (_sending || _composer.text.isNotEmpty) return;

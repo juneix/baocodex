@@ -134,7 +134,7 @@ void main() {
     expect(other.isLabelVisible, isFalse);
   });
 
-  testWidgets('对话新增菜单保留新对话、Bot 与配对入口', (tester) async {
+  testWidgets('新对话直接可达，侧栏保留 Bot 与配对入口', (tester) async {
     final state = AppState(demo: true, store: MemoryLinkStore());
     addTearDown(state.dispose);
     await state.initialize();
@@ -146,10 +146,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('新建'));
+    expect(find.byTooltip('新对话'), findsOneWidget);
+    await tester.tap(find.byTooltip('项目与对话'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('dropdown-panel')), findsOneWidget);
-    expect(find.text('新对话'), findsOneWidget);
+    expect(find.byKey(const ValueKey('conversation-drawer')), findsOneWidget);
+    expect(find.byKey(const ValueKey('drawer-new-conversation')), findsOneWidget);
     expect(find.text('添加 Bot'), findsWidgets);
     expect(find.text('配对新电脑'), findsOneWidget);
     await tester.tap(find.text('配对新电脑'));

@@ -2,9 +2,13 @@
 
 **English** · [简体中文](README_CN.md)
 
-[Download for Android](https://github.com/shuishani/ycode/releases/latest) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/shuishani/ycode/issues)
+[Download Android previews](https://github.com/juneix/ycode/releases) · [Changelog](CHANGELOG.md) · [Upstream project](https://github.com/shuishani/ycode)
 
 YCode is an independent, unofficial Android client for the BaoCode desktop app, maintained by shuishan and built with Flutter. It pairs with your computer over BaoCode's official link v2 protocol (iroh/QUIC, Ed25519, end-to-end encrypted), so you can follow and continue your desktop conversations from your phone.
+
+This repository is a personal preview fork. Its `YCode Preview` APK uses a separate package and fixed personal signing key, so it can be installed beside the original YCode without replacing its pairings or data.
+
+The screenshots below show the upstream 0.1.1 interface; captures of the new preview navigation are pending device verification.
 
 | Home | Conversation |
 | :---: | :---: |
@@ -15,12 +19,12 @@ YCode is not an official BaoCode product and is not supported by the BaoCode tea
 ## Install and update
 
 - **Install BaoCode on your computer first**: website <https://baocode.dev>, download <https://baocode.dev/download>. In the desktop app, open Settings → Mobile to show a QR code, then scan it with YCode to pair.
-- **Install YCode**: download the APK from [GitHub Releases](https://github.com/shuishani/ycode/releases). It runs on arm64 devices with Android 7.0 or later. iOS is not supported yet.
-- **Updates**: YCode checks for updates every time it opens, offers new versions in a dialog, and downloads and installs them in the app. You can also check under Settings → Current version. The first update asks you to allow YCode to install unknown apps. Updating in place keeps your pairings and data; don't uninstall to update.
+- **Install the preview**: download the APK from this fork's [pre-releases](https://github.com/juneix/ycode/releases). It runs on arm64 devices with Android 7.0 or later. The package is `local.ycode.mobile.test`; keep the original YCode installed. iOS is not supported yet.
+- **Updates**: preview builds are downloaded manually from pre-releases. Automatic update checks use the build's configured repository and only its stable releases. Keep the same personal signing key for later preview APKs; do not uninstall just to update.
 
 ## Features
 
-- Conversations, Bots, Files and Settings tabs; Chinese and English; follows the system theme or light/dark.
+- Conversation-first home with local drafts and shared project navigation; five conversations per project before expanding. Bots, Files and Settings remain available; Chinese/English and system/light/dark themes.
 - Pair by QR code, pasted link or LAN discovery; multiple computers; reconnects after drops.
 - Search, filter, pin and archive projects and conversations, and unfold a project's conversations right on the home list; streaming messages, queued and immediate sends, images and @ files, / commands.
 - Edit and resend an earlier message, optionally undoing the files the agent changed after it; a context usage ring in the composer (both need BaoCode desktop 1.9.3 or later).
