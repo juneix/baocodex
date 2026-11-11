@@ -110,7 +110,7 @@ void main() {
     expect(find.byTooltip('发送'), findsNothing);
     await tester.enterText(find.byType(TextField).first, '继续');
     await tester.pump();
-    expect(find.byTooltip('停止生成'), findsNothing);
+    expect(find.byTooltip('停止生成'), findsOneWidget);
     expect(find.byTooltip('发送'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, '');
     await tester.pump();
@@ -337,7 +337,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('Bot 干活时显示工作中和计时，停止在左，表情和加号在右，做完就收起', (tester) async {
+  testWidgets('Bot 工作计时和独立停止可达，表情附件不被挤占，结束后收起', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     await tester.pumpWidget(
@@ -391,10 +391,10 @@ void main() {
       tester.getTopLeft(find.byTooltip('添加附件')).dx,
       greaterThanOrEqualTo(input.right),
     );
-    // 停止和发送一样排在最右边。
+    // 停止独立放在输入框上方，不挤占表情和附件的空间。
     expect(
-      tester.getTopLeft(find.byTooltip('停止生成')).dx,
-      greaterThanOrEqualTo(tester.getTopRight(find.byTooltip('添加附件')).dx),
+      tester.getBottomLeft(find.byTooltip('停止生成')).dy,
+      lessThanOrEqualTo(input.top),
     );
 
     buffer.live = false;

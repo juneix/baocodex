@@ -129,11 +129,22 @@ Future<void> _navigation(WidgetTester tester) async {
 }
 
 Future<void> _press(WidgetTester tester, String title) async {
-  if (_row(title).evaluate().isEmpty &&
-      find.byType(ChatsTab).evaluate().isNotEmpty) {
-    await _navigation(tester);
+  final host = find.byType(ChatsTab);
+  if (host.evaluate().isNotEmpty) {
+    final scaffold = find.descendant(of: host, matching: find.byType(Scaffold)).first;
+    if (!tester.state<ScaffoldState>(scaffold).isDrawerOpen) {
+      await _navigation(tester);
+    }
+    if (_row(title).evaluate().isEmpty) {
+      final scroll = find.descendant(
+        of: find.byKey(const ValueKey('conversation-navigation-list')),
+        matching: find.byType(Scrollable),
+      ).first;
+      await tester.scrollUntilVisible(_row(title), 80, scrollable: scroll);
+    }
   }
   await tester.ensureVisible(_row(title).first);
+  await tester.pumpAndSettle();
   await tester.longPress(_row(title).first);
   await tester.pumpAndSettle();
 }

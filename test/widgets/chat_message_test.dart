@@ -304,7 +304,7 @@ void main() {
   });
 
   testWidgets(
-    'live response has one button: stop until a draft makes it send',
+    '运行中输入后停止和发送分别可达，停止中不可重复提交',
     (tester) async {
       final state = ChatPageState()..stopping = Completer<void>();
       state.history.live = true;
@@ -315,12 +315,12 @@ void main() {
       expect(stopButton, findsOneWidget);
       expect(find.byKey(const ValueKey('hollow-stop')), findsOneWidget);
       expect(find.byTooltip('Send'), findsNothing);
-      final slot = tester.getCenter(stopButton);
-      await tester.enterText(find.byType(TextField).first, 'hello');
+      await tester.enterText(find.byType(TextField).first, '准备追加的内容');
       await tester.pump();
-      expect(stopButton, findsNothing);
-      expect(find.byKey(const ValueKey('hollow-stop')), findsNothing);
-      expect(tester.getCenter(find.byTooltip('Send')), slot);
+      expect(stopButton, findsOneWidget);
+      expect(find.byKey(const ValueKey('hollow-stop')), findsOneWidget);
+      expect(tester.getCenter(find.byTooltip('Send')).dx,
+          greaterThan(tester.getCenter(stopButton).dx));
       await tester.enterText(find.byType(TextField).first, '');
       await tester.pump();
       await tester.tap(find.byTooltip('Stop generation'));

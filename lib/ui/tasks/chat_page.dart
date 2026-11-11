@@ -316,7 +316,9 @@ class _ChatPageState extends State<ChatPage> {
     final pending = _creatingSession;
     if (pending != null) return pending;
     final creation = _createSession();
-    setState(() => _creatingSession = creation);
+    setState(() {
+      _creatingSession = creation;
+    });
     try {
       return await creation;
     } finally {

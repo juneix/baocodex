@@ -19,7 +19,7 @@ void main() {
     await tester.enterText(composer, '追加内容');
     await tester.pump();
     expect(find.byTooltip('Send'), findsOneWidget);
-    expect(find.byTooltip('Stop generation'), findsNothing);
+    expect(find.byTooltip('Stop generation'), findsOneWidget);
     await tester.tap(find.byTooltip('Send'));
     await tester.pump();
     // 运行中不上传：留在手机端的排队区，本轮结束后才发出。

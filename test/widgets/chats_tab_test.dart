@@ -195,7 +195,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     expect(state.inputDraft('在线', AppState.newConversationDraftKey('p')).text,
         '离线任务');
-    expect(find.text('草稿已保留'), findsOneWidget);
+    expect(find.textContaining('草稿已保留'), findsOneWidget);
     expect(state.calls, isEmpty);
   });
 
@@ -213,6 +213,7 @@ void main() {
     expect(state.calls, isEmpty);
     expect(state.settings.lastProjectByDesktop['在线'], 'p');
     await tester.ensureVisible(find.byKey(const ValueKey('project-在线-e')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('project-在线-e')));
     await tester.pump();
     expect(tester.widget<ChatPage>(find.byType(ChatPage)).projectId, 'e');
@@ -229,11 +230,13 @@ void main() {
     expect(find.textContaining('2 个待处理'), findsOneWidget);
     final more = find.byKey(const ValueKey('project-more-在线-p'));
     await tester.ensureVisible(more);
+    await tester.pumpAndSettle();
     await tester.tap(more);
     await tester.pump();
     expect(find.text('任务0'), findsOneWidget);
     expect(find.text('任务1'), findsOneWidget);
     await tester.ensureVisible(more);
+    await tester.pumpAndSettle();
     await tester.tap(more);
     await tester.pump();
     expect(find.text('任务0'), findsNothing);
@@ -340,6 +343,7 @@ void main() {
     addTearDown(state.dispose);
     await _mount(tester, state);
     await tester.enterText(find.byType(TextField).first, '检查当前改动');
+    await tester.pump();
     await tester.tap(find.byTooltip('发送'));
     await tester.pumpAndSettle();
     expect(state.methods, [LinkMethods.draft, LinkMethods.send]);
@@ -350,6 +354,7 @@ void main() {
     await tester.pump();
     expect(tester.widget<ChatPage>(find.byType(ChatPage)).sessionId, 'draft-p');
     await tester.enterText(find.byType(TextField).first, '继续检查');
+    await tester.pump();
     await tester.tap(find.byTooltip('发送'));
     await tester.pumpAndSettle();
     expect(state.methods.where((method) => method == LinkMethods.draft),
@@ -362,6 +367,7 @@ void main() {
     addTearDown(state.dispose);
     await _mount(tester, state);
     await tester.enterText(find.byType(TextField).first, '不能丢失的任务');
+    await tester.pump();
     await tester.tap(find.byTooltip('发送'));
     await tester.pumpAndSettle();
     expect(state.methods, [LinkMethods.draft]);
@@ -415,6 +421,7 @@ void main() {
     await _drawer(tester);
     final other = find.byKey(const ValueKey('project-在线-e'));
     await tester.ensureVisible(other);
+    await tester.pumpAndSettle();
     await tester.tap(other);
     await tester.pump();
     await tester.tap(find.byTooltip('关闭菜单'));
