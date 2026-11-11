@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:bao_link/bao_link.dart';
-
 import 'conversation_filters.dart';
 import 'conversation_filter_sheet.dart';
 import 'project_actions.dart';
