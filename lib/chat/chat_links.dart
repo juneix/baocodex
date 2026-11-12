@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/user_facing_error.dart';
 import '../state/app_state.dart';
+import '../theme/app_theme.dart';
 import '../ui/files/files_tab.dart';
 import '../ui/user_message.dart';
 import '../ui/widgets/bottom_sheet_panel.dart';

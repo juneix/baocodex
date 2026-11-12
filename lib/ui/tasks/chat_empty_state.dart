@@ -148,7 +148,6 @@ class _ChatEmptyStateState extends State<ChatEmptyState>
                           key: const ValueKey('chat-logo'),
                           width: 96,
                           height: 96,
-                          semanticLabel: 'BaoCodeX',
                         ),
                       ),
                     ),
