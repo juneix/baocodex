@@ -215,7 +215,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    // Bot 保留自己的吉祥物，不换成应用标志。
     expect(find.byKey(const ValueKey('bot-mascot')), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-logo')), findsNothing);
     expect(find.text('BaoCodeX，我帮你…'), findsOneWidget);
     expect(state.settings.name, isEmpty);
     state.settings.name = '测试资料';

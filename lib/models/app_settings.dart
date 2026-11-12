@@ -7,7 +7,7 @@ class AppSettings {
   ThemeMode themeMode = ThemeMode.system;
 
   /// [MobileAccent]'s name.
-  String accent = 'green';
+  String accent = 'amber';
   String? desktop;
   Map<String, String> lastProjectByDesktop = {};
   double textScale = 1.0;
@@ -54,7 +54,7 @@ class AppSettings {
     settings.themeMode =
         ThemeMode.values.asNameMap()[json['theme']] ?? ThemeMode.system;
     // 'accent' held only the first default (blue), never a choice: read anew.
-    settings.accent = json['accentColor'] as String? ?? 'green';
+    settings.accent = json['accentColor'] as String? ?? 'amber';
     settings.desktop = json['desktop'] as String?;
     if (json['lastProjectByDesktop'] case final Map<dynamic, dynamic> projects) {
       settings.lastProjectByDesktop = {

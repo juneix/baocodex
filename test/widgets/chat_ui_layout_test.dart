@@ -354,7 +354,7 @@ void main() {
     );
   }
 
-  testWidgets('加号弹层第一行四个入口，权限和模式各在独立设置行', (tester) async {
+  testWidgets('加号弹层第一行四个入口，权限和模式在同一行', (tester) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -395,16 +395,26 @@ void main() {
     expect(file.left, greaterThan(camera.right));
     expect(command.left, greaterThan(file.right));
     expect(find.byType(BottomSheet), findsOneWidget);
-    // 弹层使用同一边距，设置不重复放成附件图标。
+    // 弹层从下往上呼出，左右留安全距离，设置不重复放成附件图标。
     final panel = find.byKey(const ValueKey('chat-actions'));
     expect(
       tester.getSize(panel).width,
-      closeTo(tester.view.physicalSize.width, .01),
+      closeTo(tester.view.physicalSize.width - 16, 1),
     );
     expect(tester.getRect(panel).left, closeTo(album.left - 16, .01));
     expect(find.byKey(const ValueKey('composer-setting-permission')), findsOneWidget);
     expect(find.byKey(const ValueKey('composer-mode')), findsOneWidget);
     expect(find.text('自动接受编辑'), findsOneWidget);
+    // 权限和模式在同一行。
+    final permissionRow = tester.getRect(
+      find.byKey(const ValueKey('composer-setting-permission')),
+    );
+    final modeRow = tester.getRect(
+      find.byKey(const ValueKey('composer-mode')),
+    );
+    expect(modeRow.top, lessThan(permissionRow.bottom));
+    expect(modeRow.bottom, greaterThan(permissionRow.top));
+    expect(modeRow.left, greaterThan(permissionRow.left));
     // 模型在输入栏，权限和模式在弹层中，不重复放成附件图标。
     for (final id in ['model', 'mode', 'permission', 'stickers']) {
       expect(find.byKey(ValueKey('chat-action-$id')), findsNothing);
@@ -1215,20 +1225,18 @@ void main() {
     expect(find.text('撤销'), findsNothing);
   });
 
-  testWidgets('顶栏在项目后显示分支，未连接和空对话时不显示', (tester) async {
+  testWidgets('顶栏只写电脑和项目，不显示分支', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     await tester.pumpWidget(_host(state));
     await tester.pumpAndSettle();
-    // 空对话的项目卡片已经有分支，顶栏不重复。
-    expect(find.byKey(const ValueKey('chat-branch-icon')), findsNothing);
 
     state.history.items.add({'t': 'user', 'text': '你好'});
     state.update();
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('chat-branch-icon')), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-branch-icon')), findsNothing);
     expect(find.textContaining('测试项目', findRichText: true), findsWidgets);
-    expect(find.textContaining('真实分支', findRichText: true), findsOneWidget);
+    expect(find.textContaining('真实分支', findRichText: true), findsNothing);
 
     state.online = false;
     state.update();
@@ -1237,17 +1245,19 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('空态展示真实项目和分支，建议只填空草稿不发送', (tester) async {
+  testWidgets('空态展示真实项目和路径，建议只填空草稿不发送', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     await tester.pumpWidget(_host(state));
     await tester.pumpAndSettle();
+    // 顶部是应用标志，下面才是问候和项目。
+    expect(find.byKey(const ValueKey('chat-logo')), findsOneWidget);
     expect(find.byKey(const ValueKey('chat-greeting')), findsOneWidget);
     expect(find.text('今天想做点什么？'), findsOneWidget);
-    // 路径和分支在同一行，与官方的项目卡片一致；分支名完整显示。
+    // 项目卡片只写文件夹名和路径，不带分支。
     expect(find.text('E:/project/测试项目'), findsOneWidget);
-    expect(find.byKey(const ValueKey('new-chat-branch')), findsOneWidget);
-    expect(find.text('真实分支'), findsOneWidget);
+    expect(find.byKey(const ValueKey('new-chat-branch')), findsNothing);
+    expect(find.text('真实分支'), findsNothing);
     await tester.ensureVisible(find.text('讲讲这个项目的整体结构'));
     await tester.tap(find.text('讲讲这个项目的整体结构'));
     await tester.pumpAndSettle();
@@ -1288,6 +1298,22 @@ void main() {
     });
   }
 
+  testWidgets('填了资料用户名时问候带上称呼', (tester) async {
+    await withClock(Clock.fixed(DateTime(2026, 11, 12, 2)), () async {
+      final state = _State();
+      addTearDown(state.dispose);
+      state.settings.name = '小九';
+      await tester.pumpWidget(_host(state));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('chat-greeting'))).data,
+        '小九，夜深了',
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 400));
+    });
+  });
+
   testWidgets('换一换只轮换内置提示，不发送请求也不改动草稿', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
@@ -1321,7 +1347,7 @@ void main() {
     await tester.tap(find.byTooltip('更多输入选项'));
     await tester.pumpAndSettle();
     expect(find.text('相册'), findsOneWidget);
-    expect(find.text('@ 文件'), findsOneWidget);
+    expect(find.text('文件'), findsOneWidget);
     expect(find.text('贴纸'), findsNothing);
     // 模式改为弹层里的分段选择，不再是输入栏的胶囊。
     expect(find.byKey(const ValueKey('composer-mode')), findsOneWidget);

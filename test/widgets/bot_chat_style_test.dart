@@ -120,6 +120,7 @@ void main() {
   });
   for (final dark in [false, true]) {
     testWidgets('Bot气泡左右对齐且隐藏统计，深色=$dark', (tester) async {
+      // 自己的气泡是黑金：浅金底，和回答的白色气泡分得开。
       final state = AppState(store: MemoryLinkStore());
       addTearDown(state.dispose);
       state.settings.language = 'zh';

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
+import '../widgets/lucide_icon.dart';
 import '../../models/user_facing_error.dart';
 
 String taskKindLabel(AppState state, String kind) => switch (kind) {
@@ -54,39 +55,21 @@ String taskStopFailure(AppState state, Object error) {
   );
 }
 
-/// 停止的图标：空心的圈和方块，颜色跟随所在按钮。
+/// 停止的图标：圆圈里两根竖条，颜色跟随所在按钮。
 class HollowStopIcon extends StatelessWidget {
   const HollowStopIcon({super.key, this.size = 24});
 
   final double size;
 
   @override
-  Widget build(BuildContext context) {
-    final line = Border.all(
-      color:
-          IconTheme.of(context).color ??
-          Theme.of(context).colorScheme.onSurfaceVariant,
-      width: 1.8,
-    );
-    return Container(
-      key: const ValueKey('hollow-stop'),
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(border: line, shape: BoxShape.circle),
-      child: Container(
-        width: size * .36,
-        height: size * .36,
-        decoration: BoxDecoration(
-          border: line,
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => LucideIcon(
+    'circle-pause',
+    key: const ValueKey('hollow-stop'),
+    size: size,
+  );
 }
 
-/// 手机上所有的停止：灰色空心，停止中转圈，不能停时变淡。
+/// 手机上所有的停止：黑金圆形，停止中转圈，不能停时变淡。
 class StopActionButton extends StatelessWidget {
   const StopActionButton({
     super.key,
@@ -104,22 +87,32 @@ class StopActionButton extends StatelessWidget {
   final double iconSize;
 
   @override
-  Widget build(BuildContext context) => IconButton(
-    tooltip: tooltip,
-    onPressed: busy ? null : onPressed,
-    padding: EdgeInsets.zero,
-    constraints: BoxConstraints.tight(Size.square(size)),
-    style: IconButton.styleFrom(
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-    ),
-    icon: busy
-        ? const SizedBox.square(
-            dimension: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-        : HollowStopIcon(size: iconSize),
-  );
+  Widget build(BuildContext context) {
+    final enabled = !busy && onPressed != null;
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: busy ? null : onPressed,
+      padding: EdgeInsets.zero,
+      constraints: BoxConstraints.tight(Size.square(size)),
+      style: IconButton.styleFrom(
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        backgroundColor: enabled
+            ? MobileAccent.goldFill
+            : Theme.of(context).colorScheme.onSurfaceVariant.withValues(
+                alpha: .14,
+              ),
+        foregroundColor: enabled
+            ? MobileAccent.goldInk
+            : Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      icon: busy
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : HollowStopIcon(size: iconSize),
+    );
+  }
 }
 
 Future<bool> confirmTaskStop(

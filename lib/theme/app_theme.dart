@@ -86,8 +86,9 @@ abstract final class MobileSizes {
 }
 
 /// The app's color: buttons, links, the selected. Each has its tone for
-/// light and dark; all but [amber] sit on plain gray, [amber] (the first
-/// look) on its warm paper.
+/// light and dark; all but [amber] sit on plain gray, [amber] (the default,
+/// 黑金 as the desktop) on its warm paper. Pale fills that carry black text
+/// are [goldFill] / [goldInk], kept apart from the readable accent.
 enum MobileAccent {
   green('绿色', 'Green', Color(0xFF07C160), Color(0xFF07B45A)),
   blue('蓝色', 'Blue', Color(0xFF1677FF), Color(0xFF4C8DF6)),
@@ -102,8 +103,14 @@ enum MobileAccent {
   Color of(Brightness brightness) =>
       brightness == Brightness.dark ? dark : light;
 
-  /// The one a phone starts with.
-  static const fallback = green;
+  /// 黑金按钮底：浅金，压黑字。桌面端同款；比主题色浅，才压得住黑字。
+  static const goldFill = Color(0xFFF1CE7E);
+
+  /// 黑金按钮上的字和图标。
+  static const goldInk = Color(0xFF1A1A1A);
+
+  /// The one a phone starts with: 黑金, as the desktop app.
+  static const fallback = amber;
 
   static MobileAccent parse(Object? name) =>
       values.asNameMap()[name] ?? fallback;

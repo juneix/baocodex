@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.4
+
+Black-gold look, reworked navigation and input, and a smoother first screen.
+
+- Accent now defaults to black-gold, matching the desktop: pale gold buttons with black icons for New conversation, Send and Stop; secondary actions sit on white circular or pill surfaces over the gray page.
+- Sidebar: project rows use their colored rounded-square icon again (no folder badge), the selected conversation is a pale-gold rounded row with a pixel loader instead of the status dot, search has a rounded outline, and conversation titles are no longer bold.
+- Conversation header shows only the desktop and project; the git branch is gone from the header and the project card, and the project picker shows only folder name and path.
+- Input bar: the model sits beside the plus button with smaller text, Send is smaller, and the add menu renames its entries to Files and Commands while putting permissions and mode on one row.
+- Bottom sheets keep a safe margin instead of filling the screen, with three shared heights; filtering conversations, choosing a desktop and choosing a project now rise from the bottom.
+- Suggestions carry an icon each and alternate backgrounds; the empty conversation shows the app mark and greets by profile name ("name, good evening") when one is set.
+- Device footer uses monitor-smartphone, a smaller name and a plain LAN / Relay line without latency.
+
 ## 1.0.3
 
 BaoCodeX's conversation-first layout, based on YCode. The independent `juneix.baocodex` package does not replace the old app or migrate its pairings and drafts.

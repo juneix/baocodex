@@ -707,6 +707,8 @@ class ListRow extends StatelessWidget {
     required this.leading,
     required this.title,
     this.compact = false,
+    this.titleBold = true,
+    this.highlighted = false,
     this.note,
     this.aside,
     this.subtitle,
@@ -721,6 +723,12 @@ class ListRow extends StatelessWidget {
   final Widget leading;
   final String title;
   final bool compact;
+
+  /// 列表里的对话和项目名不用加粗，和其他列表项区分开。
+  final bool titleBold;
+
+  /// 选中的对话：整行铺一层浅金色圆角矩形，和参考图一样。
+  final bool highlighted;
 
   /// A tag on the title's line, left of the time (such as “助理”).
   final String? note;
@@ -745,8 +753,17 @@ class ListRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final text = theme.textTheme;
-    return Material(
-      color: theme.colorScheme.surfaceContainerLowest,
+    final scheme = theme.colorScheme;
+    // 选中的对话：浅金色圆角矩形，明暗都能看出是金而不是灰。
+    final selectedTint = theme.brightness == Brightness.dark
+        ? MobileAccent.goldFill.withValues(alpha: .22)
+        : MobileAccent.goldFill.withValues(alpha: .55);
+    final body = Material(
+      color: highlighted ? selectedTint : scheme.surfaceContainerLowest,
+      borderRadius: highlighted
+          ? BorderRadius.circular(MobileSizes.radius)
+          : BorderRadius.zero,
+      clipBehavior: highlighted ? Clip.antiAlias : Clip.none,
       child: InkWell(
         onTap: onTap,
         child: Column(
@@ -781,9 +798,11 @@ class ListRow extends StatelessWidget {
                                   title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: text.bodyMedium!.copyWith(
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                  style: titleBold
+                                      ? text.bodyMedium!.copyWith(
+                                          fontWeight: FontWeight.w500,
+                                        )
+                                      : text.bodyMedium,
                                 ),
                               ),
                               if (aside != null) ...[
@@ -864,11 +883,18 @@ class ListRow extends StatelessWidget {
                 ),
               ),
             ),
-            const Divider(height: 1, indent: MobileSizes.listIndent),
+            if (!highlighted)
+              const Divider(height: 1, indent: MobileSizes.listIndent),
           ],
         ),
       ),
     );
+    return highlighted
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            child: body,
+          )
+        : body;
   }
 }
 
@@ -915,39 +941,58 @@ class SearchCapsule extends StatelessWidget {
     required this.onChanged,
     this.hint,
     this.controller,
+    this.outlined = false,
   });
   final AppState state;
   final ValueChanged<String> onChanged;
   final String? hint;
   final TextEditingController? controller;
+
+  /// 侧栏里给搜索框一圈圆角矩形的描边。
+  final bool outlined;
   @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.topCenter,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-      child: TextField(
-        controller: controller,
-        onChanged: onChanged,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          hintText: hint ?? state.tr('搜索', 'Search'),
-          isDense: true,
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 36,
-            minHeight: 36,
-          ),
-          prefixIcon: Center(
-            widthFactor: 1,
-            child: LucideIcon(
-              'search',
-              size: 18,
-              color: Theme.of(context).hintColor,
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+        child: TextField(
+          controller: controller,
+          onChanged: onChanged,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: hint ?? state.tr('搜索', 'Search'),
+            isDense: true,
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 36,
+              minHeight: 36,
             ),
+            prefixIcon: Center(
+              widthFactor: 1,
+              child: LucideIcon(
+                'search',
+                size: 18,
+                color: Theme.of(context).hintColor,
+              ),
+            ),
+            constraints: const BoxConstraints(minHeight: 36),
+            contentPadding: const EdgeInsets.symmetric(vertical: 6),
+            border: outlined
+                ? OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(MobileSizes.radius),
+                    borderSide: BorderSide(color: scheme.outlineVariant),
+                  )
+                : null,
+            enabledBorder: outlined
+                ? OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(MobileSizes.radius),
+                    borderSide: BorderSide(color: scheme.outlineVariant),
+                  )
+                : null,
           ),
-          constraints: const BoxConstraints(minHeight: 36),
-          contentPadding: const EdgeInsets.symmetric(vertical: 6),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

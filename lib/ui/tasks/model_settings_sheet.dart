@@ -251,186 +251,173 @@ class _ModelSettingsSheetState extends State<ModelSettingsSheet> {
             .toList() ??
         [];
     final groups = <String>{};
-    final media = MediaQuery.of(context);
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-        child: SizedBox(
-          height:
-              (media.size.height -
-                  media.viewInsets.bottom -
-                  media.padding.top) *
-              .92,
-          child: Column(
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+          child: Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        tr('模型', 'Model'),
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: tr('关闭', 'Close'),
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-              ),
-              SearchCapsule(
-                state: widget.state,
-                hint: tr('搜索模型', 'Search models'),
-                onChanged: (value) => setState(() => _query = value),
-              ),
-              if (!online || !current || _error != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                  child: Text(
-                    _error ??
-                        (!current
-                            ? tr(
-                                '会话已变化，请关闭后重新选择模型。',
-                                'Conversation changed. Close and reopen the model settings.',
-                              )
-                            : tr(
-                                '电脑已离线，连接后可修改设置。',
-                                'Desktop offline. Reconnect to change settings.',
-                              )),
-                    style: TextStyle(color: colors.error),
-                  ),
-                ),
-              if (_busy || _pendingModel != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 4,
-                  ),
-                  child: Row(
-                    children: [
-                      const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(tr('正在更新设置…', 'Updating settings…')),
-                      ),
-                    ],
-                  ),
-                ),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  children: [
-                    if (options.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(tr('没有匹配模型', 'No matching models')),
-                      ),
-                    for (final option in options) ...[
-                      if ((option.groupLabel ?? option.group)
-                          case final String group
-                          when group.isNotEmpty && groups.add(group)) ...[
-                        // 换一个上游就是换一节：上面一条线，和电脑端的菜单一样。
-                        if (groups.length > 1) const Divider(height: 1),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 20, 18, 8),
-                          child: QuotaPanel(
-                            key: ValueKey(option.group ?? group),
-                            controller: _quota,
-                            provider: option.group ?? group,
-                            title: group,
-                          ),
-                        ),
-                      ],
-                      Material(
-                        color: option.id == model?.selected
-                            ? colors.surfaceContainerHighest
-                            : colors.surface,
-                        borderRadius: BorderRadius.circular(MobileSizes.radius),
-                        clipBehavior: Clip.antiAlias,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ListTile(
-                              enabled: enabled,
-                              leading: _icon(option),
-                              title: Text(option.label),
-                              trailing: option.id == model?.selected
-                                  ? Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.check,
-                                          color: colors.primary,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Icon(
-                                          _expandedModel == option.id
-                                              ? Icons.expand_more
-                                              : Icons.chevron_right,
-                                        ),
-                                      ],
-                                    )
-                                  : option.caution
-                                  ? const Icon(Icons.warning_amber_rounded)
-                                  : null,
-                              onTap: () {
-                                if (option.id == model?.selected) {
-                                  setState(
-                                    () => _expandedModel =
-                                        _expandedModel == option.id
-                                        ? null
-                                        : option.id,
-                                  );
-                                } else {
-                                  _choose(model!, option);
-                                }
-                              },
-                            ),
-                            if (option.id == model?.selected &&
-                                _expandedModel == option.id &&
-                                _pendingModel == null)
-                              for (final setting in _choices.where(
-                                _shownAsSetting,
-                              ))
-                                _setting(setting, enabled),
-                          ],
-                        ),
-                      ),
-                    ],
-                    ListTile(
-                      key: const ValueKey('manage-models'),
-                      leading: const LucideIcon('settings', size: 22),
-                      title: Text(tr('管理模型…', 'Manage models…')),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(MobileSizes.radius),
-                      ),
-                      onTap: () => _note(
-                        tr('管理模型', 'Manage models'),
-                        tr(
-                          '上游和模型在电脑上的设置 → 模型里管理；'
-                              '添加或改动后，这里会自动出现。',
-                          'Upstreams and models are managed on the computer, '
-                              'in Settings → Models. Whatever you add or change '
-                              'shows up here.',
-                        ),
-                      ),
+                child: Text(
+                  tr('模型', 'Model'),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              IconButton(
+                tooltip: tr('关闭', 'Close'),
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+        ),
+        SearchCapsule(
+          state: widget.state,
+          hint: tr('搜索模型', 'Search models'),
+          onChanged: (value) => setState(() => _query = value),
+        ),
+        if (!online || !current || _error != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text(
+              _error ??
+                  (!current
+                      ? tr(
+                          '会话已变化，请关闭后重新选择模型。',
+                          'Conversation changed. Close and reopen the model settings.',
+                        )
+                      : tr(
+                          '电脑已离线，连接后可修改设置。',
+                          'Desktop offline. Reconnect to change settings.',
+                        )),
+              style: TextStyle(color: colors.error),
+            ),
+          ),
+        if (_busy || _pendingModel != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 4,
+            ),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(tr('正在更新设置…', 'Updating settings…')),
+                ),
+              ],
+            ),
+          ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            keyboardDismissBehavior:
+                ScrollViewKeyboardDismissBehavior.onDrag,
+            children: [
+              if (options.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(tr('没有匹配模型', 'No matching models')),
+                ),
+              for (final option in options) ...[
+                if ((option.groupLabel ?? option.group)
+                    case final String group
+                    when group.isNotEmpty && groups.add(group)) ...[
+                  // 换一个上游就是换一节：上面一条线，和电脑端的菜单一样。
+                  if (groups.length > 1) const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 20, 18, 8),
+                    child: QuotaPanel(
+                      key: ValueKey(option.group ?? group),
+                      controller: _quota,
+                      provider: option.group ?? group,
+                      title: group,
                     ),
-                  ],
+                  ),
+                ],
+                Material(
+                  color: option.id == model?.selected
+                      ? colors.surfaceContainerHighest
+                      : colors.surface,
+                  borderRadius: BorderRadius.circular(MobileSizes.radius),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ListTile(
+                        enabled: enabled,
+                        leading: _icon(option),
+                        title: Text(option.label),
+                        trailing: option.id == model?.selected
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.check,
+                                    color: colors.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    _expandedModel == option.id
+                                        ? Icons.expand_more
+                                        : Icons.chevron_right,
+                                  ),
+                                ],
+                              )
+                            : option.caution
+                            ? const Icon(Icons.warning_amber_rounded)
+                            : null,
+                        onTap: () {
+                          if (option.id == model?.selected) {
+                            setState(
+                              () => _expandedModel =
+                                  _expandedModel == option.id
+                                  ? null
+                                  : option.id,
+                            );
+                          } else {
+                            _choose(model!, option);
+                          }
+                        },
+                      ),
+                      if (option.id == model?.selected &&
+                          _expandedModel == option.id &&
+                          _pendingModel == null)
+                        for (final setting in _choices.where(
+                          _shownAsSetting,
+                        ))
+                          _setting(setting, enabled),
+                    ],
+                  ),
+                ),
+              ],
+              ListTile(
+                key: const ValueKey('manage-models'),
+                leading: const LucideIcon('settings', size: 22),
+                title: Text(tr('管理模型…', 'Manage models…')),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(MobileSizes.radius),
+                ),
+                onTap: () => _note(
+                  tr('管理模型', 'Manage models'),
+                  tr(
+                    '上游和模型在电脑上的设置 → 模型里管理；'
+                        '添加或改动后，这里会自动出现。',
+                    'Upstreams and models are managed on the computer, '
+                        'in Settings → Models. Whatever you add or change '
+                        'shows up here.',
+                  ),
                 ),
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 

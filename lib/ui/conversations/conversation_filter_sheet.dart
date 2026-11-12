@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
-import '../widgets/dropdown_panel.dart';
+import '../widgets/bottom_sheet_panel.dart';
 import '../widgets/mobile_widgets.dart';
 import 'conversation_filters.dart';
 
@@ -48,7 +48,7 @@ String filterSummary(AppState state, ConversationFilters filters) {
   ].join(' · ');
 }
 
-/// 贴着按钮弹出：点选即时生效，关闭不撤销筛选，也不改动搜索词。
+/// 从下往上呼出：点选即时生效，关闭不撤销筛选，也不改动搜索词。
 Future<void> showConversationFilters(
   BuildContext anchor,
   AppState state,
@@ -57,10 +57,11 @@ Future<void> showConversationFilters(
   bool projectSelection = true,
 }) {
   var draft = current;
-  return showDropdownPanel<void>(
+  return showBottomSheetPanel<void>(
     anchor,
-    align: DropdownAlign.start,
-    width: 340,
+    title: state.tr('筛选对话', 'Filter conversations'),
+    closeLabel: state.tr('关闭', 'Close'),
+    size: SheetSize.large,
     builder: (context) => StatefulBuilder(
       builder: (context, update) {
         void pick(ConversationFilters next) {
@@ -79,7 +80,7 @@ Future<void> showConversationFilters(
           builder: (context, _) => Padding(
             padding: const EdgeInsets.symmetric(horizontal: MobileSpace.lg),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: MobileSpace.md),
+              padding: const EdgeInsets.fromLTRB(0, 4, 0, MobileSpace.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [

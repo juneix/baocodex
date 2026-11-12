@@ -39,6 +39,9 @@ void main() {
       'images',
       'camera',
       'at-sign',
+      'monitor-smartphone',
+      'circle-arrow-up',
+      'circle-pause',
     ]).catchError((Object _) {}),
   );
   const demo = bool.fromEnvironment('DEMO');

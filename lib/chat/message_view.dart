@@ -37,11 +37,8 @@ part 'message_view_bot.dart';
 /// 右侧留出对面头像的位置。卡片和旁白都对齐到这里。
 const botContentInsets = EdgeInsets.fromLTRB(62, 0, 56, 0);
 
-/// 自己发的气泡：绿底配深色字，夜间也是，不随主题强调色变。
-Color botUserBubbleColor(BuildContext context) =>
-    Theme.of(context).brightness == Brightness.dark
-    ? const Color(0xFF3EB575)
-    : const Color(0xFF95EC69);
+/// 自己发的气泡：黑金配色，浅金底配黑字，明暗一致。
+Color botUserBubbleColor(BuildContext context) => MobileAccent.goldFill;
 
 class MessageView extends StatelessWidget {
   const MessageView({

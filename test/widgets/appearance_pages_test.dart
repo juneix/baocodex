@@ -110,7 +110,7 @@ void main() {
         expect(contrast, greaterThan(.3), reason: '${accent.name} $brightness');
       }
     }
-    expect(MobileAccent.parse('nope'), MobileAccent.green);
+    expect(MobileAccent.parse('nope'), MobileAccent.amber);
   });
 
   testWidgets('主题页可选多款主题色并保存', (tester) async {
@@ -123,12 +123,12 @@ void main() {
       await tester.ensureVisible(find.byKey(ValueKey('accent-${accent.name}')));
       expect(find.text(accent.zh), findsOneWidget);
     }
-    expect(state.settings.accent, 'green');
+    expect(state.settings.accent, 'amber');
     await tester.tap(find.byKey(const ValueKey('accent-blue')));
     await tester.pump();
     expect(state.settings.accent, 'blue');
     expect(AppSettings.fromJson(state.settings.toJson()).accent, 'blue');
-    // 早先自动写入的默认蓝不算用户选择，读回为默认绿色。
-    expect(AppSettings.fromJson({'accent': 'blue'}).accent, 'green');
+    // 早先自动写入的旧键不算用户选择，读回默认金色。
+    expect(AppSettings.fromJson({'accent': 'blue'}).accent, 'amber');
   });
 }

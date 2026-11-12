@@ -21,10 +21,10 @@ import '../devices/device_menu.dart';
 import '../devices/devices_page.dart';
 import '../files/files_tab.dart';
 import '../settings/settings_page.dart';
-import '../widgets/dropdown_panel.dart';
 import '../widgets/lucide_icon.dart';
 import '../widgets/mobile_widgets.dart';
 import '../widgets/model_icon.dart';
+import '../widgets/bottom_sheet_panel.dart';
 import '../widgets/project_icon_view.dart';
 import '../widgets/formats.dart';
 
@@ -118,15 +118,17 @@ Future<void> _openNewConversation(
   }
 });
 
-/// The projects of [current]'s desktop to start a conversation in, beside
-/// [anchor]: each with its folder and branch, [current] ticked.
+/// The projects of [current]'s desktop to start a conversation in, from the
+/// bottom: each with its folder and path, [current] ticked.
 Future<ProjectRef?> pickProject(
   BuildContext anchor,
   AppState state, {
   required ProjectRef current,
-}) => showDropdownPanel<ProjectRef>(
+}) => showBottomSheetPanel<ProjectRef>(
   anchor,
-  width: 640,
+  title: state.tr('选择项目', 'Choose project'),
+  closeLabel: state.tr('关闭', 'Close'),
+  size: SheetSize.medium,
   builder: (context) {
     final theme = Theme.of(context);
     final choices = [
@@ -135,7 +137,12 @@ Future<ProjectRef?> pickProject(
     ];
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.all(MobileSpace.sm),
+        padding: const EdgeInsets.fromLTRB(
+          MobileSpace.sm,
+          0,
+          MobileSpace.sm,
+          MobileSpace.md,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -143,7 +150,6 @@ Future<ProjectRef?> pickProject(
               Builder(
                 builder: (context) {
                   final selected = ref.project.id == current.project.id;
-                  final branch = ref.project.branch;
                   return Material(
                     color: selected
                         ? theme.colorScheme.surfaceContainerHighest
@@ -160,10 +166,9 @@ Future<ProjectRef?> pickProject(
                             : null,
                       ),
                       subtitle: Text(
-                        [
-                          ref.project.path,
-                          if (branch != null && branch.isNotEmpty) branch,
-                        ].join(' · '),
+                        ref.project.path,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       trailing: selected
                           ? LucideIcon(
@@ -495,11 +500,14 @@ class _ChatsTabState extends State<ChatsTab> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    OutlinedButton.icon(
+                    FilledButton.icon(
                       key: const ValueKey('drawer-new-conversation'),
                       onPressed: () => _showNew(),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      style: FilledButton.styleFrom(
+                        // 黑金：浅金底、黑字，侧栏里唯一的重点按钮。
+                        backgroundColor: MobileAccent.goldFill,
+                        foregroundColor: MobileAccent.goldInk,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
                       ),
                       icon: const LucideIcon('message-circle-plus', size: 18),
                       label: Text(state.tr('新对话', 'New chat')),
@@ -510,6 +518,7 @@ class _ChatsTabState extends State<ChatsTab> {
               SearchCapsule(
                 state: state,
                 controller: _search,
+                outlined: true,
                 onChanged: (value) => setState(
                   () => _filters = _filters.copyWith(query: value),
                 ),
@@ -529,6 +538,7 @@ class _ChatsTabState extends State<ChatsTab> {
                       tooltip: expanded
                           ? state.tr('收起全部', 'Collapse all')
                           : state.tr('展开全部', 'Expand all'),
+                      style: _softButton(context),
                       icon: LucideIcon(
                         expanded ? 'folder-minus' : 'folder-plus',
                         size: 20,
@@ -546,6 +556,7 @@ class _ChatsTabState extends State<ChatsTab> {
                     Builder(
                       builder: (anchor) => IconButton(
                         tooltip: state.tr('筛选对话', 'Filter conversations'),
+                        style: _softButton(context),
                         icon: const LucideIcon('list-sort-descending', size: 20),
                         onPressed: () => showConversationFilters(
                           anchor,
@@ -606,12 +617,14 @@ class _ChatsTabState extends State<ChatsTab> {
                     IconButton(
                       key: const ValueKey('drawer-bots'),
                       tooltip: state.tr('Bot 管理', 'Manage bots'),
+                      style: _softButton(context),
                       icon: const LucideIcon('bot', size: 22),
                       onPressed: () => _openDestination(BotsTab(state: state)),
                     ),
                     IconButton(
                       key: const ValueKey('drawer-settings'),
                       tooltip: state.tr('设置', 'Settings'),
+                      style: _softButton(context),
                       icon: const LucideIcon('settings', size: 22),
                       onPressed: () => _openDestination(SettingsPage(state: state)),
                     ),
@@ -705,6 +718,14 @@ class _ChatsTabState extends State<ChatsTab> {
     );
   }
 
+  /// 侧栏里次要按钮的白色圆形浮层：灰底页面上才立得住。
+  static ButtonStyle _softButton(BuildContext context) =>
+      IconButton.styleFrom(
+        fixedSize: const Size.square(36),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+      );
+
   Widget _sessionRow(AppState state, SessionRef ref, {bool favorite = false}) =>
       projectSessionRow(
         context,
@@ -735,6 +756,7 @@ class _ChatsTabState extends State<ChatsTab> {
           child: ListRow(
             key: ValueKey('project-fold-${ref.desktopId}-${ref.project.id}'),
             compact: true,
+            titleBold: false,
             leading: waitingAvatar(
               state,
               ProjectIconView(state: state, ref: ref, size: 22),
@@ -784,10 +806,7 @@ class _ChatsTabState extends State<ChatsTab> {
     final all = _showAll.contains(key);
     return [
       for (final ref in all ? sessions : sessions.take(5))
-        Padding(
-          padding: const EdgeInsets.only(left: 12),
-          child: _sessionRow(state, ref, favorite: favorite),
-        ),
+        _sessionRow(state, ref, favorite: favorite),
       if (sessions.length > 5)
         Align(
           alignment: Alignment.centerLeft,
@@ -819,6 +838,7 @@ class _ChatsTabState extends State<ChatsTab> {
       ListRow(
         key: ValueKey('conversation-group-${key.$1}-${key.$3}'),
         compact: true,
+        titleBold: false,
         leading: LucideIcon(icon, size: 22),
         title: title,
         trailing: Padding(
@@ -845,6 +865,7 @@ class _ChatsTabState extends State<ChatsTab> {
           child: ListRow(
             key: ValueKey('bot-fold-${ref.desktopId}-${ref.bot.id}'),
             compact: true,
+            titleBold: false,
             leading: Badge(
               isLabelVisible: ref.bot.unread > 0,
               label: Text('${ref.bot.unread}'),
@@ -861,20 +882,17 @@ class _ChatsTabState extends State<ChatsTab> {
           ),
         ),
         if (!collapsed)
-          Padding(
-            padding: const EdgeInsets.only(left: 12),
-            child: _BotChatRow(
-              key: ValueKey('bot-${ref.desktopId}-${ref.bot.id}'),
-              state: state,
-              ref: ref,
-              onTap: () => _openDestination(
-                ChatPage(
-                  state: state,
-                  desktopId: ref.desktopId,
-                  sessionId: ref.bot.session ?? 'bot:${ref.bot.id}',
-                  title: ref.bot.name,
-                  botId: ref.bot.id,
-                ),
+          _BotChatRow(
+            key: ValueKey('bot-${ref.desktopId}-${ref.bot.id}'),
+            state: state,
+            ref: ref,
+            onTap: () => _openDestination(
+              ChatPage(
+                state: state,
+                desktopId: ref.desktopId,
+                sessionId: ref.bot.session ?? 'bot:${ref.bot.id}',
+                title: ref.bot.name,
+                botId: ref.bot.id,
               ),
             ),
           ),
@@ -1003,6 +1021,7 @@ class _BotChatRow extends StatelessWidget {
     ref: ref,
     child: ListRow(
       compact: true,
+      titleBold: false,
       leading: Center(
         child: Tooltip(
           message: ref.bot.status == BotStatus.typing
@@ -1152,22 +1171,30 @@ Widget projectSessionRow(
     session: ref,
     child: ListRow(
       compact: compact,
+      titleBold: false,
+      highlighted: selected,
       leading: compact
           ? Center(
-              child: Tooltip(
-                message: !state.isOnline(ref.desktopId)
-                    ? linkStatusLabel(state, state.linkStatus(ref.desktopId))
-                    : flags.firstOrNull?.$1 ?? state.tr('空闲', 'Idle'),
-                child: Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: flags.firstOrNull?.$2 ??
-                        Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
+              // 选中的对话前面换成像素点阵标记；其余仍是状态小圆点。
+              child: selected
+                  ? const PixelMark(size: 14)
+                  : Tooltip(
+                      message: !state.isOnline(ref.desktopId)
+                          ? linkStatusLabel(
+                              state,
+                              state.linkStatus(ref.desktopId),
+                            )
+                          : flags.firstOrNull?.$1 ?? state.tr('空闲', 'Idle'),
+                      child: Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: flags.firstOrNull?.$2 ??
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
             )
           : home
           ? homeWaitingDot(context, state, ref, LetterAvatar(ref.session.title))
@@ -1340,4 +1367,53 @@ Widget? modelTag(BuildContext context, AppState state, SessionRef ref) {
       Flexible(child: Text(modelShortName(model.id, model.label))),
     ],
   );
+}
+
+/// 选中对话前面的像素点阵：3×3 小方块，静态绘制，不驱动帧。
+class PixelMark extends StatelessWidget {
+  const PixelMark({super.key, this.size = 14, this.color});
+
+  final double size;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    key: const ValueKey('session-pixel-mark'),
+    dimension: size,
+    child: CustomPaint(
+      painter: _PixelMarkPainter(
+        color ?? Theme.of(context).colorScheme.onSurface,
+      ),
+    ),
+  );
+}
+
+class _PixelMarkPainter extends CustomPainter {
+  const _PixelMarkPainter(this.color);
+
+  final Color color;
+
+  static const _alpha = [1.0, .55, .25, .55, 1.0, .55, .25, .55, 1.0];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cell = size.width / 3;
+    final gap = cell * .18;
+    final paint = Paint();
+    for (var i = 0; i < 9; i++) {
+      paint.color = color.withValues(alpha: _alpha[i]);
+      final left = (i % 3) * cell;
+      final top = (i ~/ 3) * cell;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(left + gap / 2, top + gap / 2, cell - gap, cell - gap),
+          Radius.circular(cell * .18),
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PixelMarkPainter old) => old.color != color;
 }

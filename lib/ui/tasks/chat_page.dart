@@ -30,6 +30,7 @@ import '../../state/local_message_queue.dart';
 import '../files/files_tab.dart';
 import '../bots/bots_tab.dart';
 import '../widgets/image_gallery.dart';
+import '../widgets/bottom_sheet_panel.dart';
 import '../widgets/lucide_icon.dart';
 import '../widgets/dropdown_panel.dart';
 import '../widgets/fold_row.dart';
@@ -1289,14 +1290,17 @@ class _ChatPageState extends State<ChatPage> {
     centerTitle: false,
     titleSpacing: 4,
     leading: widget.onOpenNavigation != null
-        ? IconButton(
-            tooltip: tr('项目与对话', 'Projects and conversations'),
-            icon: const LucideIcon('menu', size: 22),
-            onPressed: () {
-              _composerFocus.unfocus();
-              _closeAdd();
-              widget.onOpenNavigation!();
-            },
+        ? Center(
+            child: IconButton(
+              tooltip: tr('项目与对话', 'Projects and conversations'),
+              style: _roundButton(context),
+              icon: const LucideIcon('menu', size: 20),
+              onPressed: () {
+                _composerFocus.unfocus();
+                _closeAdd();
+                widget.onOpenNavigation!();
+              },
+            ),
           )
         : widget.botId == null
         ? null
@@ -1333,59 +1337,92 @@ class _ChatPageState extends State<ChatPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 3),
-                _connectionLine(
-                  context,
-                  syncing: syncing,
-                  // 空对话的项目卡片已经写着分支。
-                  branch: buffer.items.isEmpty
-                      ? null
-                      : _project?.project.branch,
-                ),
+                _connectionLine(context, syncing: syncing),
               ],
             ),
     ),
     actions: [
       if (widget.botId == null && widget.onNewConversation != null)
-        IconButton(
-          tooltip: tr('新对话', 'New conversation'),
-          icon: const LucideIcon('message-circle-plus', size: 22),
-          onPressed: _sending ? null : widget.onNewConversation,
+        Center(
+          child: IconButton(
+            tooltip: tr('新对话', 'New conversation'),
+            style: _goldPillStyle(),
+            icon: const LucideIcon('message-circle-plus', size: 20),
+            onPressed: _sending ? null : widget.onNewConversation,
+          ),
         ),
       if (widget.botId == null && (widget.onOpenFiles != null || _project != null))
-        IconButton(
-          key: const ValueKey('chat-open-files'),
-          tooltip: tr('文件', 'Files'),
-          icon: const LucideIcon('folder', size: 22),
-          onPressed: widget.onOpenFiles ??
-              (_online && _project != null
-                  ? () => openPage<void>(
-                      context,
-                      FilesPage(state: widget.state, project: _project!),
-                    )
-                  : null),
+        Center(
+          child: IconButton(
+            key: const ValueKey('chat-open-files'),
+            tooltip: tr('文件', 'Files'),
+            style: _roundButton(context),
+            icon: const LucideIcon('folder', size: 20),
+            onPressed: widget.onOpenFiles ??
+                (_online && _project != null
+                    ? () => openPage<void>(
+                        context,
+                        FilesPage(state: widget.state, project: _project!),
+                      )
+                    : null),
+          ),
         ),
       if (bot != null)
-        IconButton(
-          tooltip: tr('资料', 'Profile'),
-          icon: const LucideIcon('ellipsis', size: 22),
-          onPressed: () => openPage<void>(
-            context,
-            BotProfilePage(state: widget.state, ref: bot, fromChat: true),
+        Center(
+          child: IconButton(
+            tooltip: tr('资料', 'Profile'),
+            style: _pillButtonStyle(context),
+            icon: const LucideIcon('ellipsis', size: 20),
+            onPressed: () => openPage<void>(
+              context,
+              BotProfilePage(state: widget.state, ref: bot, fromChat: true),
+            ),
           ),
         )
       else
-        IconButton(
-          key: const ValueKey('chat-open-session-menu'),
-          tooltip: tr('更多', 'More'),
-          icon: Badge(
-            isLabelVisible: buffer.tasks.any(
-              (task) => task.status == 'running',
+        Center(
+          child: IconButton(
+            key: const ValueKey('chat-open-session-menu'),
+            tooltip: tr('更多', 'More'),
+            style: _pillButtonStyle(context),
+            icon: Badge(
+              isLabelVisible: buffer.tasks.any(
+                (task) => task.status == 'running',
+              ),
+              child: const LucideIcon('ellipsis', size: 20),
             ),
-            child: const LucideIcon('ellipsis', size: 22),
+            onPressed: _openSessionPanel,
           ),
-          onPressed: _openSessionPanel,
         ),
     ],
+  );
+
+  /// 顶栏次要动作：白底圆形/胶囊浮层，在灰底页面上才立得住。
+  ButtonStyle _roundButton(BuildContext context) =>
+      IconButton.styleFrom(
+        fixedSize: const Size.square(34),
+        padding: EdgeInsets.zero,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        shape: const CircleBorder(),
+      );
+
+  ButtonStyle _pillButtonStyle(BuildContext context) =>
+      IconButton.styleFrom(
+        fixedSize: const Size(52, 34),
+        padding: EdgeInsets.zero,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        shape: const StadiumBorder(),
+      );
+
+  /// 新对话：黑金重点按钮，浅金底黑图标。
+  ButtonStyle _goldPillStyle() => IconButton.styleFrom(
+    fixedSize: const Size(52, 34),
+    padding: EdgeInsets.zero,
+    backgroundColor: MobileAccent.goldFill,
+    foregroundColor: MobileAccent.goldInk,
+    shape: const StadiumBorder(),
   );
 
   Widget _goalTile(BuildContext context, Map<String, Object?> goal) => Padding(
@@ -1437,7 +1474,6 @@ class _ChatPageState extends State<ChatPage> {
     BuildContext context, {
     bool center = false,
     bool syncing = false,
-    String? branch,
   }) {
     final status = _status;
     final isSyncing = syncing && status == DesktopLinkStatus.online;
@@ -1496,29 +1532,8 @@ class _ChatPageState extends State<ChatPage> {
           mark,
           const SizedBox(width: 5),
           Flexible(
-            // 同一段文字：放不下时只省略排在后面的分支名。
-            child: Text.rich(
-              TextSpan(
-                text: text,
-                children: [
-                  if (status == DesktopLinkStatus.online &&
-                      !isSyncing &&
-                      branch != null &&
-                      branch.isNotEmpty) ...[
-                    const TextSpan(text: '  '),
-                    WidgetSpan(
-                      alignment: PlaceholderAlignment.middle,
-                      child: LucideIcon(
-                        'git-branch',
-                        key: const ValueKey('chat-branch-icon'),
-                        size: 13,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    TextSpan(text: ' $branch'),
-                  ],
-                ],
-              ),
+            child: Text(
+              text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               // 只有真要处理的那种（需重新配对）用红字；离线是灰的，

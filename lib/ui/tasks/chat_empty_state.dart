@@ -1,5 +1,6 @@
 import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
@@ -33,23 +34,39 @@ class ChatEmptyState extends StatefulWidget {
 class _ChatEmptyStateState extends State<ChatEmptyState>
     with WidgetsBindingObserver {
   static const _projectSuggestions = [
-    ('讲讲这个项目的整体结构', 'Explain this project’s structure'),
-    ('找出最近改动里的一个 bug 并修好', 'Find and fix a bug in the recent changes'),
-    ('给今天的改动补上测试', 'Add tests for today’s changes'),
-    ('总结当前未提交的改动', 'Summarize the uncommitted changes'),
-    ('检查项目的启动方式和依赖', 'Check how to start the project and its dependencies'),
-    ('先列出实现计划，不修改文件', 'Make an implementation plan without editing files'),
-    ('检查最近的错误日志', 'Review the recent error logs'),
-    ('解释这个项目的核心业务流程', 'Explain this project’s core workflow'),
-    ('找一个可以改善的交互细节', 'Find an interaction that could be improved'),
+    ('讲讲这个项目的整体结构', 'Explain this project’s structure', 'layout-grid'),
+    (
+      '找出最近改动里的一个 bug 并修好',
+      'Find and fix a bug in the recent changes',
+      'file-diff',
+    ),
+    ('给今天的改动补上测试', 'Add tests for today’s changes', 'list-checks'),
+    ('总结当前未提交的改动', 'Summarize the uncommitted changes', 'file-pen'),
+    (
+      '检查项目的启动方式和依赖',
+      'Check how to start the project and its dependencies',
+      'terminal',
+    ),
+    (
+      '先列出实现计划，不修改文件',
+      'Make an implementation plan without editing files',
+      'list-todo',
+    ),
+    ('检查最近的错误日志', 'Review the recent error logs', 'triangle-alert'),
+    (
+      '解释这个项目的核心业务流程',
+      'Explain this project’s core workflow',
+      'compass',
+    ),
+    ('找一个可以改善的交互细节', 'Find an interaction that could be improved', 'sparkles'),
   ];
   static const _botSuggestions = [
-    ('报告当前系统运行状态', 'Report the current system status'),
-    ('帮我整理今天要做的事', 'Help organize today’s tasks'),
-    ('你现在可以帮我做什么？', 'What can you help me with right now?'),
-    ('总结最近的工作进展', 'Summarize recent work progress'),
-    ('帮我检查正在运行的任务', 'Help check the running tasks'),
-    ('先给出建议，不执行操作', 'Give suggestions without taking action'),
+    ('报告当前系统运行状态', 'Report the current system status', 'activity'),
+    ('帮我整理今天要做的事', 'Help organize today’s tasks', 'list-todo'),
+    ('你现在可以帮我做什么？', 'What can you help me with right now?', 'sparkles'),
+    ('总结最近的工作进展', 'Summarize recent work progress', 'file-text'),
+    ('帮我检查正在运行的任务', 'Help check the running tasks', 'list-checks'),
+    ('先给出建议，不执行操作', 'Give suggestions without taking action', 'info'),
   ];
   int _batch = 0;
 
@@ -72,18 +89,20 @@ class _ChatEmptyStateState extends State<ChatEmptyState>
 
   String _greeting() {
     final state = widget.state;
+    final name = state.settings.name.trim();
     if (widget.bot) {
-      final name = state.settings.name.trim();
       final who = name.isEmpty ? 'BaoCodeX' : name;
       return state.tr('$who，我帮你…', '$who, I’m here to help…');
     }
-    return switch (clock.now().toLocal().hour) {
+    final time = switch (clock.now().toLocal().hour) {
       >= 5 && < 11 => state.tr('早上好', 'Good morning'),
       >= 11 && < 14 => state.tr('中午好', 'Good afternoon'),
       >= 14 && < 18 => state.tr('下午好', 'Good afternoon'),
       >= 18 && < 23 => state.tr('晚上好', 'Good evening'),
       _ => state.tr('夜深了', 'It’s getting late'),
     };
+    // 填了资料用户名就带上称呼：名字，夜深了。
+    return name.isEmpty ? time : state.tr('$name，$time', '$name, $time');
   }
 
   @override
@@ -91,12 +110,9 @@ class _ChatEmptyStateState extends State<ChatEmptyState>
     final state = widget.state;
     final colors = Theme.of(context).colorScheme;
     final pool = widget.bot ? _botSuggestions : _projectSuggestions;
-    final suggestions = [
+    final picks = [
       for (var index = 0; index < 3; index++)
-        state.tr(
-          pool[(_batch + index) % pool.length].$1,
-          pool[(_batch + index) % pool.length].$2,
-        ),
+        pool[(_batch + index) % pool.length],
     ];
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
@@ -106,8 +122,9 @@ class _ChatEmptyStateState extends State<ChatEmptyState>
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 28, 16, 16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // Bot 保持原来的吉祥物开场；编程对话用应用标志。
                   if (widget.bot) ...[
                     Image.asset(
                       'assets/icons/bot.png',
@@ -121,13 +138,26 @@ class _ChatEmptyStateState extends State<ChatEmptyState>
                       ),
                     ),
                     const SizedBox(height: 20),
-                  ],
+                  ] else
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(22),
+                        child: SvgPicture.asset(
+                          'assets/icons/baocodex.svg',
+                          key: const ValueKey('chat-logo'),
+                          width: 96,
+                          height: 96,
+                          semanticLabel: 'BaoCodeX',
+                        ),
+                      ),
+                    ),
                   Text(
                     _greeting(),
                     key: const ValueKey('chat-greeting'),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    textAlign: widget.bot ? TextAlign.left : TextAlign.center,
+                    textAlign: TextAlign.center,
                     style: (widget.bot
                             ? Theme.of(context).textTheme.headlineLarge
                             : Theme.of(context).textTheme.headlineSmall)
@@ -143,86 +173,66 @@ class _ChatEmptyStateState extends State<ChatEmptyState>
                   ],
                   if (widget.project case final project?) ...[
                     const SizedBox(height: 28),
-                    Material(
-                      color: colors.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(MobileSizes.radius),
-                      clipBehavior: Clip.antiAlias,
-                      child: Builder(
-                        builder: (anchor) => InkWell(
-                          key: const ValueKey('new-chat-project'),
-                          onTap: widget.onSwitchProject == null
-                              ? null
-                              : () => widget.onSwitchProject!(anchor),
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Row(
-                              children: [
-                                LucideIcon(
-                                  'folder',
-                                  size: 28,
-                                  color: colors.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        project.project.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium,
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Row(
+                    // 项目选择框在页面正中，不拉满整行。
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        child: Material(
+                          color: colors.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(MobileSizes.radius),
+                          clipBehavior: Clip.antiAlias,
+                          child: Builder(
+                            builder: (anchor) => InkWell(
+                              key: const ValueKey('new-chat-project'),
+                              onTap: widget.onSwitchProject == null
+                                  ? null
+                                  : () => widget.onSwitchProject!(anchor),
+                              child: Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Row(
+                                  children: [
+                                    LucideIcon(
+                                      'folder',
+                                      size: 28,
+                                      color: colors.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Flexible(
-                                            child: Text(
-                                              shortPath(project.project.path),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: MobileTheme.hintStyleOf(
-                                                context,
-                                              ),
+                                          Text(
+                                            project.project.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium,
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            shortPath(project.project.path),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: MobileTheme.hintStyleOf(
+                                              context,
                                             ),
                                           ),
-                                          if (project.project.branch
-                                              case final branch?
-                                              when branch.isNotEmpty) ...[
-                                            const SizedBox(width: 10),
-                                            LucideIcon(
-                                              'git-branch',
-                                              size: 14,
-                                              color: colors.onSurfaceVariant,
-                                            ),
-                                            const SizedBox(width: 3),
-                                            Text(
-                                              branch,
-                                              key: const ValueKey(
-                                                'new-chat-branch',
-                                              ),
-                                              maxLines: 1,
-                                              style: MobileTheme.hintStyleOf(
-                                                context,
-                                              ),
-                                            ),
-                                          ],
                                         ],
                                       ),
+                                    ),
+                                    if (widget.onSwitchProject != null) ...[
+                                      const SizedBox(width: 8),
+                                      LucideIcon(
+                                        'chevrons-up-down',
+                                        size: 20,
+                                        color: colors.onSurfaceVariant,
+                                      ),
                                     ],
-                                  ),
+                                  ],
                                 ),
-                                if (widget.onSwitchProject != null) ...[
-                                  const SizedBox(width: 8),
-                                  LucideIcon(
-                                    'chevrons-up-down',
-                                    size: 20,
-                                    color: colors.onSurfaceVariant,
-                                  ),
-                                ],
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -231,39 +241,77 @@ class _ChatEmptyStateState extends State<ChatEmptyState>
                   ],
                   const SizedBox(height: 28),
                   const Spacer(),
-                  for (final suggestion in suggestions)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton(
-                          onPressed: widget.canSuggest
-                              ? () => widget.onSuggestion(suggestion)
-                              : null,
-                          style: TextButton.styleFrom(
-                            foregroundColor: colors.onSurface,
-                            backgroundColor: colors.surfaceContainerLowest,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final (index, pick) in picks.indexed)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: TextButton(
+                                onPressed: widget.canSuggest
+                                    ? () => widget.onSuggestion(
+                                        state.tr(pick.$1, pick.$2),
+                                      )
+                                    : null,
+                                style: TextButton.styleFrom(
+                                  foregroundColor: colors.onSurface,
+                                  // 相邻两条底色略深/略浅交替，和参考图一致。
+                                  backgroundColor: index.isEven
+                                      ? colors.surfaceContainerLowest
+                                      : colors.surfaceContainerHighest,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
+                                  alignment: Alignment.centerLeft,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    LucideIcon(
+                                      pick.$3,
+                                      size: 16,
+                                      color: colors.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        state.tr(pick.$1, pick.$2),
+                                        softWrap: true,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                          TextButton.icon(
+                            key: const ValueKey('refresh-suggestions'),
+                            onPressed: () => setState(
+                              () => _batch = (_batch + 3) % pool.length,
                             ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: colors.onSurfaceVariant,
+                              backgroundColor: colors.surfaceContainerLowest,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const LucideIcon('refresh-cw', size: 16),
+                            label: Text(state.tr('换一换', 'Try others')),
                           ),
-                          child: Text(suggestion, softWrap: true),
-                        ),
+                        ],
                       ),
-                    ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      key: const ValueKey('refresh-suggestions'),
-                      onPressed: () => setState(
-                        () => _batch = (_batch + 3) % pool.length,
-                      ),
-                      icon: const LucideIcon('refresh-cw', size: 18),
-                      label: Text(state.tr('换一换', 'Try others')),
                     ),
                   ),
                 ],

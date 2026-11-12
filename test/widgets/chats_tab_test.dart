@@ -355,6 +355,28 @@ void main() {
     expect(state.calls, isEmpty);
   });
 
+  testWidgets('选中的对话用浅金圆角高亮和像素点阵标记', (tester) async {
+    final state = _State();
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await _drawer(tester);
+    await tester.tap(find.byKey(const ValueKey('session-在线-会话甲')));
+    await tester.pumpAndSettle();
+    await _drawer(tester);
+    final row = find.byKey(const ValueKey('session-在线-会话甲'));
+    expect(find.descendant(of: row, matching: find.byKey(const ValueKey('session-pixel-mark'))), findsOneWidget);
+    final tiles = tester.widgetList<Material>(
+      find.descendant(of: row, matching: find.byType(Material)),
+    );
+    // 浅金高亮：有一层底色带金色分量，不是普通白行。
+    expect(
+      tiles.any((tile) => tile.color != null && tile.color!.r > tile.color!.b),
+      isTrue,
+    );
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('选会话仍能打开共享侧栏，切换不堆叠，返回新对话', (tester) async {
     final state = _State();
     addTearDown(state.dispose);

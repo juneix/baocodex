@@ -8,7 +8,7 @@ import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/lucide_icon.dart';
 import '../widgets/mobile_widgets.dart';
-import '../widgets/dropdown_panel.dart';
+import '../widgets/bottom_sheet_panel.dart';
 import 'devices_page.dart';
 import '../user_message.dart';
 
@@ -22,7 +22,8 @@ String linkStatusLabel(AppState state, DesktopLinkStatus status) =>
       DesktopLinkStatus.needsPairing => state.tr('需要重新配对', 'Pair again'),
     };
 
-/// 「在线 · 局域网直连 · 12 毫秒」, 「连接中…」, 「离线 5 分钟 · 正在重连」.
+/// 「LAN 直连」「Relay 中继」；不在线时写状态。
+/// 在线与否由前面的绿点表示，这里不再重复「在线」，也不显示延迟。
 String devicePathText(AppState state, String desktopId) {
   final status = state.linkStatus(desktopId);
   switch (status) {
@@ -40,19 +41,12 @@ String devicePathText(AppState state, String desktopId) {
       ].join(' · ');
     case DesktopLinkStatus.online:
       final path = state.pathOf(desktopId);
-      final kind = switch (path.kind) {
-        LinkPathKind.lan => state.tr('局域网直连', 'LAN'),
+      return switch (path.kind) {
+        LinkPathKind.lan => state.tr('LAN 直连', 'LAN'),
         LinkPathKind.direct => state.tr('直连', 'Direct'),
-        LinkPathKind.relay => state.tr('经中继', 'Via relay'),
-        LinkPathKind.none => null,
+        LinkPathKind.relay => state.tr('Relay 中继', 'Relay'),
+        LinkPathKind.none => linkStatusLabel(state, status),
       };
-      final rtt = path.rtt;
-      return [
-        linkStatusLabel(state, status),
-        ?kind,
-        if (kind != null && rtt != null)
-          state.tr('${rtt.inMilliseconds} 毫秒', '${rtt.inMilliseconds} ms'),
-      ].join(' · ');
   }
 }
 
@@ -167,50 +161,59 @@ class DesktopSwitcherTitle extends StatelessWidget {
               horizontal: MobileSpace.sm,
               vertical: MobileSpace.xs,
             ),
-            child: Column(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
+                LucideIcon(
+                  'monitor-smartphone',
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: MobileSpace.sm),
+                Flexible(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
                         name ?? state.tr('选择电脑', 'Choose desktop'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: MobileType.title,
-                          fontWeight: FontWeight.w600,
+                        style: TextStyle(
+                          fontSize: MobileType.secondary,
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: MobileSpace.xs),
-                    _SwitcherChevron(state: state),
-                  ],
-                ),
-                if (desktopId != null && status != null)
-                  Row(
-                    key: ValueKey('desktop-status-$desktopId'),
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DeviceStatusMark(status: status, size: 6),
-                      const SizedBox(width: MobileSpace.xs),
-                      Flexible(
-                        child: Text(
-                          devicePathText(state, desktopId),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: MobileType.caption,
-                            fontWeight: FontWeight.normal,
-                            color: status == DesktopLinkStatus.needsPairing
-                                ? theme.colorScheme.error
-                                : theme.colorScheme.onSurfaceVariant,
-                          ),
+                      if (desktopId != null && status != null)
+                        Row(
+                          key: ValueKey('desktop-status-$desktopId'),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            DeviceStatusMark(status: status, size: 6),
+                            const SizedBox(width: MobileSpace.xs),
+                            Flexible(
+                              child: Text(
+                                devicePathText(state, desktopId),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: MobileType.caption,
+                                  fontWeight: FontWeight.normal,
+                                  color:
+                                      status == DesktopLinkStatus.needsPairing
+                                      ? theme.colorScheme.error
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
                     ],
                   ),
+                ),
+                const SizedBox(width: MobileSpace.xs),
+                _SwitcherChevron(state: state),
               ],
             ),
           ),
@@ -315,14 +318,16 @@ class DesktopSwitcherButton extends StatelessWidget {
   }
 }
 
-/// 贴着按钮弹出的设备面板：显示连接状态、附近电脑与配对入口，返回选中电脑的 id。
+/// 从下往上呼出的设备面板：显示连接状态、附近电脑与配对入口，返回选中电脑的 id。
 Future<String?> showDeviceMenu(
   BuildContext anchor,
   AppState state, {
   String? selectedId,
-}) => showDropdownPanel<String>(
+}) => showBottomSheetPanel<String>(
   anchor,
-  width: 340,
+  title: state.tr('选择电脑', 'Desktops'),
+  closeLabel: state.tr('关闭', 'Close'),
+  size: SheetSize.large,
   builder: (menuContext) =>
       _DeviceSheet(state: state, selectedId: selectedId, pageContext: anchor),
 );

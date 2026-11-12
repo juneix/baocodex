@@ -89,7 +89,7 @@ void main() {
     expect(find.text('p'), findsOneWidget, reason: '没有图标时显示项目名首字');
   });
 
-  testWidgets('没有图标的项目：项目名首字用色调写在浅底上，带文件夹角标，和对话的实心头像分得开', (tester) async {
+  testWidgets('没有图标的项目：项目名首字用色调写在浅底上，不叠文件夹角标', (tester) async {
     final state = AppState(demo: true, store: MemoryLinkStore());
     addTearDown(state.dispose);
     await state.initialize();
@@ -112,7 +112,7 @@ void main() {
     final letter = tester.widget<Text>(find.text('测'));
     // 对话头像是白字；项目的字是它自己的色调。
     expect(letter.style?.color, letterToneOf('测试项目'));
-    expect(find.byKey(const ValueKey('project-folder-badge')), findsOneWidget);
+    expect(find.byKey(const ValueKey('project-folder-badge')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

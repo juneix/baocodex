@@ -602,11 +602,18 @@ extension _Composer on _ChatPageState {
     ),
   );
 
+  /// 输入栏次要按钮的白色圆形浮层。
+  ButtonStyle _softCircle(BuildContext context) => IconButton.styleFrom(
+    fixedSize: const Size.square(34),
+    backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+    foregroundColor: Theme.of(context).colorScheme.onSurface,
+  );
+
   /// 运行中的独立停止操作，不因输入或排队消息而消失。
   Widget _stopAction({required double size}) => StopActionButton(
     busy: _commandBusy,
     size: size,
-    iconSize: 26,
+    iconSize: 22,
     tooltip: _commandBusy
         ? tr('正在停止…', 'Stopping…')
         : tr('停止生成', 'Stop generation'),
@@ -650,10 +657,9 @@ extension _Composer on _ChatPageState {
       _actionsOpen = true;
       _reserve = 0;
     });
-    final sheet = showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+    final sheet = showBottomSheetSurface<void>(
+      context,
+      size: SheetSize.medium,
       requestFocus: false,
       builder: (sheetContext) => AnimatedBuilder(
         animation: widget.state,
@@ -682,20 +688,17 @@ extension _Composer on _ChatPageState {
             _online && !clock.now().isBefore(_desktopCommandsDue)
         ? _loadDesktopCommands()
         : Future<void>.value();
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+    await showBottomSheetSurface<void>(
+      context,
+      size: SheetSize.medium,
       requestFocus: false,
       builder: (sheetContext) => FutureBuilder<void>(
         future: loading,
-        builder: (_, _) => Padding(
-          padding: const EdgeInsets.fromLTRB(12, 20, 12, 16),
-          child: SingleChildScrollView(
-            child: _slashMenu(
-              force: true,
-              onPicked: () => Navigator.pop(sheetContext),
-            ),
+        builder: (_, _) => SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+          child: _slashMenu(
+            force: true,
+            onPicked: () => Navigator.pop(sheetContext),
           ),
         ),
       ),
@@ -857,8 +860,9 @@ extension _Composer on _ChatPageState {
       child: IconButton(
         key: const ValueKey('composer-add'),
         tooltip: tr('更多输入选项', 'More input options'),
+        style: _softCircle(context),
         onPressed: _sending || _picking ? null : _toggleAdd,
-        icon: const LucideIcon('plus', size: 22),
+        icon: const LucideIcon('plus', size: 20),
       ),
     );
     Widget contextUsage() => usage == null
@@ -877,7 +881,7 @@ extension _Composer on _ChatPageState {
         final actions = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (live) _stopAction(size: 48),
+            if (live) _stopAction(size: 36),
             if (!live || hasDraft || _sending)
               Padding(
                 padding: const EdgeInsets.only(left: 4, right: 8),
@@ -890,10 +894,19 @@ extension _Composer on _ChatPageState {
               ),
           ],
         );
-        // 始终一行：模型名用 Expanded + 省略号让出宽度，窄屏大字也不额外
-        // 加高输入栏，避免把上方排队消息顶出可用高度。
+        // 模型紧挨加号，上下文和发送靠右；模型名用省略号让出宽度。
         return Row(
-          children: [add, Expanded(child: _modelButton(ready)), contextUsage(), actions],
+          children: [
+            add,
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _modelButton(ready),
+              ),
+            ),
+            contextUsage(),
+            actions,
+          ],
         );
       },
     );
@@ -920,114 +933,143 @@ extension _Composer on _ChatPageState {
       ('camera', 'camera', tr('拍照', 'Camera'),
           blocked ? null : () => _pickImages(source: ImageSource.camera), true),
       if (!bot) ...[
-        ('file', 'at-sign', tr('@ 文件', '@ Files'),
+        ('file', 'at-sign', tr('文件', 'Files'),
             ready && _project != null ? _mention : null, true),
-        ('command', 'slash', tr('斜杠命令', 'Commands'),
+        ('command', 'slash', tr('命令', 'Commands'),
             blocked || _editIndex != null ? null : () => runUi(context, _openSlashMenu,
                 errorMessage: (error) => userMessage(widget.state, error)), false),
       ] else
         ('emoji', 'smile', tr('表情', 'Emoji'), blocked ? null : _toggleEmoji, false),
     ];
-    return SafeArea(
-      top: false,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: media.size.height * .72),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            const gap = 12.0, side = 16.0;
-            final width = ((constraints.maxWidth - side * 2 - gap * (_addColumns - 1)) /
-                _addColumns).floorToDouble();
-            final tile = math.min(media.textScaler.scale(_addTile), width);
-            return SingleChildScrollView(
-              key: const ValueKey('chat-actions'),
-              padding: const EdgeInsets.fromLTRB(side, 20, side, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 12.0, side = 16.0;
+        final width = ((constraints.maxWidth - side * 2 - gap * (_addColumns - 1)) /
+            _addColumns).floorToDouble();
+        final tile = math.min(media.textScaler.scale(_addTile), width);
+        return SingleChildScrollView(
+          key: const ValueKey('chat-actions'),
+          padding: const EdgeInsets.fromLTRB(side, 20, side, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                spacing: gap,
+                runSpacing: gap,
                 children: [
-                  Wrap(
-                    spacing: gap,
-                    runSpacing: gap,
-                    children: [
-                      for (final (id, icon, title, onTap, focus) in actions)
-                        SizedBox(
-                          key: ValueKey('chat-action-$id'),
-                          width: width,
-                          child: Tooltip(
-                            message: title,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(14),
-                              onTap: onTap == null ? null : () => pick(onTap, focus),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 7),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: tile,
-                                      height: tile,
-                                      decoration: BoxDecoration(
-                                        color: scheme.surfaceContainerLowest,
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: Center(
-                                        child: LucideIcon(icon, size: tile * .44,
-                                            color: onTap == null ? scheme.onSurfaceVariant : scheme.onSurface),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(fontSize: MobileType.secondary,
-                                            color: scheme.onSurfaceVariant)),
-                                  ],
+                  for (final (id, icon, title, onTap, focus) in actions)
+                    SizedBox(
+                      key: ValueKey('chat-action-$id'),
+                      width: width,
+                      child: Tooltip(
+                        message: title,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: onTap == null ? null : () => pick(onTap, focus),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 7),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: tile,
+                                  height: tile,
+                                  decoration: BoxDecoration(
+                                    color: scheme.surfaceContainerLowest,
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Center(
+                                    child: LucideIcon(icon, size: tile * .44,
+                                        color: onTap == null ? scheme.onSurfaceVariant : scheme.onSurface),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(height: 8),
+                                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: MobileType.secondary,
+                                        color: scheme.onSurfaceVariant)),
+                              ],
                             ),
                           ),
                         ),
-                    ],
-                  ),
-                  if (!bot && permission != null && permission.options.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    _settingRow(permission, ready),
-                  ],
-                  if (!bot && mode != null && mode.options.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    Text(tr('模式', 'Mode'), style: Theme.of(context).textTheme.bodyMedium),
-                    const SizedBox(height: 8),
-                    IgnorePointer(
-                      ignoring: !ready || _commandBusy,
-                      child: SegmentBar<String>(
-                        key: const ValueKey('composer-mode'),
-                        values: [for (final option in mode.options) option.id],
-                        selected: mode.selected ?? '',
-                        label: (id) => _choicePresentation('mode',
-                            mode.options.firstWhere((option) => option.id == id)).$1,
-                        onSelected: (option) {
-                          if (!mounted || !ready || !_online || _commandBusy || !_hasSession ||
-                              _sessionId != session || _binding.generation != generation) {
-                            return;
-                          }
-                          runUi(context, () => _command(LinkMethods.choose,
-                              {'kind': 'mode', 'option': option}),
-                              errorMessage: (error) => userMessage(widget.state, error));
-                        },
                       ),
                     ),
-                  ],
-                  if (!bot)
-                    for (final choice in _visibleChoices(buffer))
-                      if (!{'model', 'mode', 'permission'}.contains(choice.kind)) ...[
-                        const SizedBox(height: 16),
-                        _settingRow(choice, ready),
-                      ],
                 ],
               ),
-            );
-          },
-        ),
-      ),
+              // 权限和模式同一行，左右与相册、命令两个图标的外缘对齐。
+              if (!bot &&
+                  ((permission?.options.isNotEmpty ?? false) ||
+                      (mode?.options.isNotEmpty ?? false))) ...[
+                const SizedBox(height: 16),
+                Padding(
+                  // 第一列的图标左缘和最后一列的图标右缘，各让进 (width-tile)/2。
+                  padding: EdgeInsets.symmetric(
+                    horizontal: math.max(0, (width - tile) / 2),
+                  ),
+                  child: Row(
+                    children: [
+                      if (permission != null && permission.options.isNotEmpty)
+                        Expanded(
+                          flex: 3,
+                          child: _settingRow(permission, ready),
+                        ),
+                      if (mode != null && mode.options.isNotEmpty) ...[
+                        const SizedBox(width: 12),
+                        Flexible(
+                          flex: 4,
+                          child: IgnorePointer(
+                            ignoring: !ready || _commandBusy,
+                            child: SegmentBar<String>(
+                              key: const ValueKey('composer-mode'),
+                              values: [
+                                for (final option in mode.options) option.id,
+                              ],
+                              selected: mode.selected ?? '',
+                              label: (id) => _choicePresentation(
+                                'mode',
+                                mode.options.firstWhere(
+                                  (option) => option.id == id,
+                                ),
+                              ).$1,
+                              onSelected: (option) {
+                                if (!mounted ||
+                                    !ready ||
+                                    !_online ||
+                                    _commandBusy ||
+                                    !_hasSession ||
+                                    _sessionId != session ||
+                                    _binding.generation != generation) {
+                                  return;
+                                }
+                                runUi(
+                                  context,
+                                  () => _command(LinkMethods.choose, {
+                                    'kind': 'mode',
+                                    'option': option,
+                                  }),
+                                  errorMessage: (error) =>
+                                      userMessage(widget.state, error),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+              if (!bot)
+                for (final choice in _visibleChoices(buffer))
+                  if (!{'model', 'mode', 'permission'}.contains(choice.kind)) ...[
+                    const SizedBox(height: 16),
+                    _settingRow(choice, ready),
+                  ],
+            ],
+          ),
+        );
+      },
     );
   }
 

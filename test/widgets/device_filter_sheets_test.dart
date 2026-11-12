@@ -75,7 +75,7 @@ class _State extends AppState {
   }
 }
 
-Finder get panel => find.byKey(const ValueKey('dropdown-panel'));
+Finder get panel => find.byType(BottomSheet);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -135,13 +135,17 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('设备列表贴着按钮弹出，点外面关闭，当前设备高亮', (tester) async {
+  testWidgets('设备列表从下往上弹出，点外面关闭，当前设备高亮', (tester) async {
     await openDevices(tester);
-    expect(find.byType(BottomSheet), findsNothing);
+    expect(panel, findsOneWidget);
+    expect(find.byKey(const ValueKey('dropdown-panel')), findsNothing);
+    // 从下往上呼出：贴着屏底，上方留出安全距离，不铺满整屏。
+    final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
     expect(
-      tester.getTopLeft(panel).dy,
-      greaterThan(tester.getBottomLeft(find.byType(TextButton).first).dy),
+      tester.getBottomLeft(panel).dy,
+      greaterThanOrEqualTo(screen.height - 40),
     );
+    expect(tester.getSize(panel).height, lessThan(screen.height * .95));
     final row = find.byKey(const ValueKey('device-online'));
     final material = tester.widget<Material>(
       find.descendant(of: row, matching: find.byType(Material)).first,
@@ -227,7 +231,7 @@ void main() {
       of: panel,
       matching: find.byType(SingleChildScrollView),
     );
-    expect(tester.getBottomLeft(scroll).dy, lessThanOrEqualTo(616));
+    expect(tester.getBottomLeft(scroll).dy, lessThanOrEqualTo(640));
     await tester.tap(find.text('重连'));
     await tester.pumpAndSettle();
     expect(link.reconnects, [('offline', true)]);
@@ -365,7 +369,7 @@ void main() {
       of: panel,
       matching: find.byType(SingleChildScrollView),
     );
-    expect(tester.getBottomLeft(scroll).dy, lessThanOrEqualTo(736));
+    expect(tester.getBottomLeft(scroll).dy, lessThanOrEqualTo(752));
     await tester.tap(find.text('进行中'));
     await tester.pumpAndSettle();
     expect(filters.status, ConversationStatus.active);
@@ -427,7 +431,7 @@ void main() {
     expect(find.text('项目 0'), findsOneWidget);
     expect(filters.source, ConversationSource.local);
     expect(filters.projectKey, isNull);
-    await tester.tapAt(const Offset(790, 590));
+    await tester.tapAt(const Offset(2, 2));
     await tester.pumpAndSettle();
   });
 }

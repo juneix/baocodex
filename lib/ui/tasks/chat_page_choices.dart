@@ -148,9 +148,9 @@ extension _Choices on _ChatPageState {
   }
 
   Future<void> _modelSettings(String session, bool Function() isCurrent) =>
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
+      showBottomSheetSurface<void>(
+        context,
+        size: SheetSize.large,
         requestFocus: false,
         builder: (_) => ModelSettingsSheet(
           state: widget.state,
@@ -274,7 +274,7 @@ extension _Choices on _ChatPageState {
     final enabled = ready && !_commandBusy &&
         (_hasSession || widget.botId == null) && _creatingSession == null;
     final scheme = Theme.of(context).colorScheme;
-    final icon = _selectedModelIcon(scheme.onSurfaceVariant, 20);
+    final icon = _selectedModelIcon(scheme.onSurfaceVariant, 16);
     final ref = widget.state.sessions.where((ref) =>
         ref.desktopId == widget.desktopId && ref.session.id == _sessionId).firstOrNull;
     final bot = widget.state.bots.where((ref) =>
@@ -301,8 +301,9 @@ extension _Choices on _ChatPageState {
               : null,
           style: TextButton.styleFrom(
             foregroundColor: scheme.onSurfaceVariant,
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            minimumSize: const Size(0, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            minimumSize: const Size(0, 40),
+            textStyle: Theme.of(context).textTheme.bodySmall,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -326,7 +327,7 @@ extension _Choices on _ChatPageState {
                         ],
                       )
                     : icon,
-                const SizedBox(width: 6),
+                const SizedBox(width: 5),
               ],
               Flexible(
                 child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),

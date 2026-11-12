@@ -1,6 +1,7 @@
 // YCode — GPL-3.0-only.
 import 'package:flutter/material.dart';
 
+import '../../theme/app_theme.dart';
 import '../widgets/lucide_icon.dart';
 
 /// Send affordance for the standard chat composer.
@@ -24,23 +25,24 @@ class ChatComposerAction extends StatelessWidget {
     Widget icon() {
       if (busy) {
         return const SizedBox(
-          width: 18,
-          height: 18,
+          width: 16,
+          height: 16,
           child: CircularProgressIndicator(strokeWidth: 2),
         );
       }
-      return const LucideIcon('arrow-up', size: 20);
+      return const LucideIcon('circle-arrow-up', size: 22);
     }
 
     return IconButton.filled(
       tooltip: tooltip,
       onPressed: enabled ? onSend : null,
       style: IconButton.styleFrom(
-        fixedSize: const Size.square(36),
-        minimumSize: const Size.square(36),
+        fixedSize: const Size.square(34),
+        minimumSize: const Size.square(34),
         padding: EdgeInsets.zero,
-        backgroundColor: scheme.primary,
-        foregroundColor: scheme.onPrimary,
+        // 黑金：浅金底、黑图标。
+        backgroundColor: MobileAccent.goldFill,
+        foregroundColor: MobileAccent.goldInk,
         disabledBackgroundColor: scheme.onSurfaceVariant.withValues(alpha: .14),
         disabledForegroundColor: scheme.onSurfaceVariant.withValues(alpha: .7),
       ),

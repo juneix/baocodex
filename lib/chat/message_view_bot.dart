@@ -66,7 +66,7 @@ extension _BotMessage on MessageView {
         ? Text(
             text,
             style: MobileTheme.messageStyleOf(context)
-                .copyWith(color: const Color(0xFF111111)),
+                .copyWith(color: MobileAccent.goldInk),
           )
         // 气泡是白的，里面的代码块要用白底上的浅灰。
         : MobileTheme.reading(context, child: _prose(text));

@@ -417,8 +417,8 @@ class ThemePage extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Text(
               state.tr(
-                '用于按钮、链接和选中状态；浅色与深色各有适配的色调。',
-                'Used for buttons, links and what is selected, toned for light and dark.',
+                '用于按钮、链接和选中状态；默认黑金，和电脑端一致。',
+                'Used for buttons, links and what is selected. Defaults to black-gold, as the desktop.',
               ),
               style: MobileTheme.hintStyleOf(context),
             ),

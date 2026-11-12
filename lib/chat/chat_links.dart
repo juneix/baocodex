@@ -6,9 +6,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/user_facing_error.dart';
 import '../state/app_state.dart';
-import '../theme/app_theme.dart';
 import '../ui/files/files_tab.dart';
 import '../ui/user_message.dart';
+import '../ui/widgets/bottom_sheet_panel.dart';
 import 'chat_markdown.dart';
 
 /// Shows [path] of the chat's project or bot; where every file open in the
@@ -52,30 +52,23 @@ Future<void> showLinkedFile(
     });
     if (result is! Map) throw const FormatException('Invalid file response');
     if (!context.mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .75,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Text(path, style: Theme.of(context).textTheme.titleSmall),
-              if (result['text'] is String)
-                CodePanel(code: result['text'] as String)
-              else
-                Text(
-                  result['tooLarge'] == true
-                      ? state.tr('文件超过读取限制。', 'File exceeds the read limit.')
-                      : state.tr(
-                          '此文件没有文本预览。',
-                          'This file has no text preview.',
-                        ),
-                ),
-            ],
-          ),
-        ),
+    await showBottomSheetPanel<void>(
+      context,
+      title: path,
+      closeLabel: state.tr('关闭', 'Close'),
+      size: SheetSize.large,
+      builder: (context) => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (result['text'] is String)
+            CodePanel(code: result['text'] as String)
+          else
+            Text(
+              result['tooLarge'] == true
+                  ? state.tr('文件超过读取限制。', 'File exceeds the read limit.')
+                  : state.tr('此文件没有文本预览。', 'This file has no text preview.'),
+            ),
+        ],
       ),
     );
   } catch (error) {
@@ -126,26 +119,20 @@ Future<String?> _findInProject(
     );
     return null;
   }
-  return showModalBottomSheet<String>(
-    context: context,
-    builder: (context) => SafeArea(
-      child: ListView(
-        shrinkWrap: true,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              state.tr('有几个 $path，打开哪个？', 'Several $path. Open which?'),
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
+  return showBottomSheetPanel<String>(
+    context,
+    title: state.tr('有几个 $path，打开哪个？', 'Several $path. Open which?'),
+    closeLabel: state.tr('关闭', 'Close'),
+    size: SheetSize.small,
+    builder: (context) => ListView(
+      shrinkWrap: true,
+      children: [
+        for (final candidate in named)
+          ListTile(
+            title: Text(candidate),
+            onTap: () => Navigator.pop(context, candidate),
           ),
-          for (final candidate in named)
-            ListTile(
-              title: Text(candidate),
-              onTap: () => Navigator.pop(context, candidate),
-            ),
-        ],
-      ),
+      ],
     ),
   );
 }
