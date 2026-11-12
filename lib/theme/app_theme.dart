@@ -58,6 +58,12 @@ abstract final class MobileSizes {
   /// 列表头像：会话、项目、Bot 一致。
   static const avatar = 44.0;
 
+  /// 所有圆形图标按钮的统一边长：顶栏、侧栏、输入栏都用它。
+  static const iconButton = 36.0;
+
+  /// 胶囊里的图标按钮：外面还有 2 的留白，总高仍是 [iconButton]。
+  static const capsuleButton = iconButton - 4;
+
   /// 列表右侧时间列的固定宽度，按「60分钟」「60小时」这类最长文案取。
   static const timeColumn = 52.0;
 
@@ -93,11 +99,12 @@ abstract final class MobileSizes {
 /// 黑金 as the desktop) on its warm paper. Pale fills that carry black text
 /// come from [fillFor], kept apart from the readable accent.
 enum MobileAccent {
+  /// 黑金，默认项：和电脑端一致。
+  amber('琥珀', 'Amber', Color(0xFF966A25), Color(0xFFE4B16A)),
   green('绿色', 'Green', Color(0xFF07C160), Color(0xFF07B45A)),
   blue('蓝色', 'Blue', Color(0xFF1677FF), Color(0xFF4C8DF6)),
   graphite('石墨', 'Graphite', Color(0xFF262626), Color(0xFFE6E6E6)),
-  indigo('靛紫', 'Indigo', Color(0xFF5856D6), Color(0xFF7D7AFF)),
-  amber('琥珀', 'Amber', Color(0xFFC29A3A), Color(0xFFE4B16A));
+  indigo('靛紫', 'Indigo', Color(0xFF5856D6), Color(0xFF7D7AFF));
 
   const MobileAccent(this.zh, this.en, this.light, this.dark);
   final String zh, en;

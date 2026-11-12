@@ -119,6 +119,8 @@ void main() {
     state.settings.language = 'zh';
     await tester.pumpWidget(host(ThemePage(state: state)));
     expect(find.text('主题色'), findsOneWidget);
+    // 琥珀排第一，是默认项。
+    expect(MobileAccent.values.first, MobileAccent.amber);
     for (final accent in MobileAccent.values) {
       await tester.ensureVisible(find.byKey(ValueKey('accent-${accent.name}')));
       expect(find.text(accent.zh), findsOneWidget);

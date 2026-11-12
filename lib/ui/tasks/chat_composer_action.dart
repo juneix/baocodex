@@ -1,6 +1,7 @@
 // YCode — GPL-3.0-only.
 import 'package:flutter/material.dart';
 
+import '../../theme/app_theme.dart';
 import '../widgets/lucide_icon.dart';
 
 /// Send affordance for the standard chat composer: the gold icon itself, no
@@ -37,8 +38,8 @@ class ChatComposerAction extends StatelessWidget {
       tooltip: tooltip,
       onPressed: enabled ? onSend : null,
       style: IconButton.styleFrom(
-        fixedSize: const Size.square(32),
-        minimumSize: const Size.square(32),
+        fixedSize: const Size.square(MobileSizes.iconButton),
+        minimumSize: const Size.square(MobileSizes.iconButton),
         padding: EdgeInsets.zero,
         backgroundColor: Colors.transparent,
         // 主题色直接落在图标上：黑金是浅金，禁用时退成灰。

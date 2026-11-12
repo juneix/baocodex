@@ -111,8 +111,8 @@ class QueuedMessagesPanel extends StatelessWidget {
           onPressed: enabled ? onTap : null,
           visualDensity: VisualDensity.compact,
           style: IconButton.styleFrom(
-            minimumSize: const Size.square(40),
-            fixedSize: const Size.square(40),
+            minimumSize: const Size.square(MobileSizes.iconButton),
+            fixedSize: const Size.square(MobileSizes.iconButton),
           ),
           // Muted: the messages, not their actions, are what to read.
           icon: LucideIcon(

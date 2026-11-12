@@ -1394,29 +1394,30 @@ class _ChatPageState extends State<ChatPage> {
     ],
   );
 
-  /// 白底圆形按钮：灰底页面上才立得住。
+  /// 白底圆形按钮：和左侧菜单、侧栏按钮同一尺寸。
   ButtonStyle _circleButton(BuildContext context) =>
       IconButton.styleFrom(
-        fixedSize: const Size.square(36),
+        fixedSize: const Size.square(MobileSizes.iconButton),
         padding: EdgeInsets.zero,
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
         shape: const CircleBorder(),
       );
 
-  /// 胶囊里的一个动作，不各自带底色。
+  /// 胶囊里的一个动作，不各自带底色；外框 2 的留白补齐总高。
   ButtonStyle _capsuleButton(BuildContext context) =>
       IconButton.styleFrom(
-        fixedSize: const Size.square(40),
+        fixedSize: const Size.square(MobileSizes.capsuleButton),
         padding: EdgeInsets.zero,
         backgroundColor: Colors.transparent,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
         shape: const CircleBorder(),
       );
 
-  /// 一个白底胶囊装下几个动作。
+  /// 一个白底胶囊装下几个动作，高度与单个圆形按钮一致。
   Widget _capsule(BuildContext context, {required List<Widget> children}) =>
       Container(
+        height: MobileSizes.iconButton,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(999),

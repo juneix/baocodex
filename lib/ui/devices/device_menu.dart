@@ -40,12 +40,14 @@ String devicePathText(AppState state, String desktopId) {
         state.tr('正在重连', 'Reconnecting'),
       ].join(' · ');
     case DesktopLinkStatus.online:
-      final path = state.pathOf(desktopId);
-      return switch (path.kind) {
+      // 只报真实链路：LAN 直连、Relay 中继；还没拿到链路时说连接中，
+      // 不再用一个含糊的「直连」。
+      return switch (state.pathOf(desktopId).kind) {
         LinkPathKind.lan => state.tr('LAN 直连', 'LAN'),
-        LinkPathKind.direct => state.tr('直连', 'Direct'),
         LinkPathKind.relay => state.tr('Relay 中继', 'Relay'),
-        LinkPathKind.none => linkStatusLabel(state, status),
+        // 打洞直连也还没归到这两类：只说在线，不造「直连」这个词。
+        LinkPathKind.direct => linkStatusLabel(state, status),
+        LinkPathKind.none => state.tr('连接中…', 'Connecting…'),
       };
   }
 }

@@ -76,7 +76,7 @@ class StopActionButton extends StatelessWidget {
     required this.tooltip,
     required this.onPressed,
     this.busy = false,
-    this.size = 40,
+    this.size = MobileSizes.iconButton,
     this.iconSize = 24,
   });
 

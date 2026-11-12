@@ -540,7 +540,8 @@ class _ChatsTabState extends State<ChatsTab> {
                       tooltip: expanded
                           ? state.tr('收起全部', 'Collapse all')
                           : state.tr('展开全部', 'Expand all'),
-                      style: _softButton(context),
+                      // 工作区标题旁的按钮不套白底，只保留图标。
+                      style: _plainButton(context),
                       icon: LucideIcon(
                         expanded ? 'folder-minus' : 'folder-plus',
                         size: 20,
@@ -558,7 +559,7 @@ class _ChatsTabState extends State<ChatsTab> {
                     Builder(
                       builder: (anchor) => IconButton(
                         tooltip: state.tr('筛选对话', 'Filter conversations'),
-                        style: _softButton(context),
+                        style: _plainButton(context),
                         icon: const LucideIcon('list-sort-descending', size: 20),
                         onPressed: () => showConversationFilters(
                           anchor,
@@ -632,14 +633,15 @@ class _ChatsTabState extends State<ChatsTab> {
                       key: const ValueKey('drawer-bots'),
                       tooltip: state.tr('Bot 管理', 'Manage bots'),
                       style: _softButton(context),
-                      icon: const LucideIcon('bot', size: 22),
+                      icon: const LucideIcon('bot', size: 20),
                       onPressed: () => _openDestination(BotsTab(state: state)),
                     ),
+                    const SizedBox(width: MobileSpace.sm),
                     IconButton(
                       key: const ValueKey('drawer-settings'),
                       tooltip: state.tr('设置', 'Settings'),
                       style: _softButton(context),
-                      icon: const LucideIcon('settings', size: 22),
+                      icon: const LucideIcon('settings', size: 20),
                       onPressed: () => _openDestination(SettingsPage(state: state)),
                     ),
                   ],
@@ -733,11 +735,21 @@ class _ChatsTabState extends State<ChatsTab> {
   }
 
   /// 侧栏里次要按钮的白色圆形浮层：灰底页面上才立得住。
+  /// 标题旁的次要图标：不套白底。
+  static ButtonStyle _plainButton(BuildContext context) =>
+      IconButton.styleFrom(
+        fixedSize: const Size.square(MobileSizes.iconButton),
+        padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+      );
+
   static ButtonStyle _softButton(BuildContext context) =>
       IconButton.styleFrom(
-        fixedSize: const Size.square(36),
+        fixedSize: const Size.square(MobileSizes.iconButton),
         padding: EdgeInsets.zero,
-        // 点击区域不再外扩，36 的圆就是布局宽度，右缘才和搜索框、时间对齐。
+        // 点击区域不再外扩，圆的边长就是布局宽度，右缘才和搜索框、时间对齐。
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         foregroundColor: Theme.of(context).colorScheme.onSurface,

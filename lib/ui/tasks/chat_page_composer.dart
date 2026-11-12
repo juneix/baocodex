@@ -855,7 +855,7 @@ extension _Composer on _ChatPageState {
         tooltip: tr('更多输入选项', 'More input options'),
         // 加号属于输入框本身，不再套一层白底圆。
         style: IconButton.styleFrom(
-          fixedSize: const Size.square(34),
+          fixedSize: const Size.square(MobileSizes.iconButton),
           foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         onPressed: _sending || _picking ? null : _toggleAdd,
