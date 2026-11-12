@@ -1258,9 +1258,7 @@ class _ChatPageState extends State<ChatPage> {
                               },
                       ),
                     ),
-                  // 输入区可以被压缩：排队消息和活动卡片多时先缩小它们，
-                  // 保证输入框和工具行始终在屏内。
-                  Flexible(fit: FlexFit.loose, child: _composerView(buffer, ready)),
+                  _composerView(buffer, ready),
                 ],
               ),
             ),

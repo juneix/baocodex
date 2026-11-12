@@ -134,7 +134,13 @@ void main() {
     await tester.tap(permissionRow);
     await tester.pumpAndSettle();
     // 权限下拉只显示选项第一行；描述不出现，也没有警示图标。
-    expect(find.text('完全访问'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('dropdown-panel')),
+        matching: find.text('完全访问'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('不做任何检查，编辑和命令直接执行'), findsNothing);
     expect(
       find.byWidgetPredicate(
@@ -1172,7 +1178,7 @@ void main() {
     await tester.pumpWidget(chatHost(state));
     await tester.pumpAndSettle();
     // Fast 在加号弹层的设置行里，点一下直接切换、不弹菜单。
-    await tester.tap(find.byTooltip('更多输入选项'));
+    await tester.tap(find.byTooltip('More input options'));
     await tester.pumpAndSettle();
     final fastRow = find.byKey(const ValueKey('composer-setting-fast'));
     await tester.ensureVisible(fastRow);
@@ -1217,7 +1223,7 @@ void main() {
     await tester.pumpWidget(chatHost(state));
     await tester.pumpAndSettle();
     // Effort 在加号弹层的设置行里，点开菜单再选。
-    await tester.tap(find.byTooltip('更多输入选项'));
+    await tester.tap(find.byTooltip('More input options'));
     await tester.pumpAndSettle();
     final effortRow = find.byKey(const ValueKey('composer-setting-effort'));
     await tester.ensureVisible(effortRow);

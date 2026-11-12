@@ -122,8 +122,9 @@ class QueuedMessagesPanel extends StatelessWidget {
           ),
         );
     final media = MediaQuery.of(context);
-    final maxHeight = ((media.size.height - media.viewInsets.bottom) * .3)
-        .clamp(96.0, 240.0);
+    // 给输入框和工具行留出空间：排队消息再多也只占可用高度的一部分。
+    final maxHeight = ((media.size.height - media.viewInsets.bottom) * .22)
+        .clamp(72.0, 200.0);
     return Container(
       key: const ValueKey('queued-messages'),
       constraints: BoxConstraints(maxHeight: maxHeight),
