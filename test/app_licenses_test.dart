@@ -16,7 +16,7 @@ void main() {
         .map((paragraph) => paragraph.text)
         .join('\n');
 
-    expect(textOf('YCode'), contains('GNU GENERAL PUBLIC LICENSE'));
+    expect(textOf('BaoCodeX'), contains('GNU GENERAL PUBLIC LICENSE'));
     expect(textOf('Lucide'), contains('ISC License'));
     // 部分 Lucide 图标衍生自 Feather，MIT 声明也要一起带上。
     expect(textOf('Lucide'), contains('Cole Bemis'));

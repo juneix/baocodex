@@ -127,7 +127,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('更多输入选项'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('composer-setting-permission')));
+    final permissionRow =
+        find.byKey(const ValueKey('composer-setting-permission'));
+    await tester.ensureVisible(permissionRow);
+    await tester.pumpAndSettle();
+    await tester.tap(permissionRow);
     await tester.pumpAndSettle();
     final detail = find.text('不做任何检查，编辑和命令直接执行');
     final style = tester.widget<Text>(detail).style;
@@ -1167,8 +1171,11 @@ void main() {
     state.history.choices = [fast];
     state.update();
     await tester.pumpWidget(chatHost(state));
-    await tester.pump();
-    await tester.tap(find.byTooltip('Fast: Off'));
+    await tester.pumpAndSettle();
+    // Fast 在加号弹层的设置行里，点一下直接切换、不弹菜单。
+    await tester.tap(find.byTooltip('更多输入选项'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('composer-setting-fast')));
     await tester.pumpAndSettle();
     expect(state.calls.single.$1, 'choose');
     expect(state.calls.single.$2, {
@@ -1185,7 +1192,7 @@ void main() {
     ];
     state.update();
     await tester.pump();
-    expect(find.byTooltip('Fast: On'), findsOneWidget);
+    expect(find.byKey(const ValueKey('composer-setting-fast')), findsOneWidget);
   });
 
   testWidgets('the effort chip opens its menu and picks an effort', (
@@ -1206,8 +1213,11 @@ void main() {
     ];
     state.update();
     await tester.pumpWidget(chatHost(state));
-    await tester.pump();
-    await tester.tap(find.byTooltip('Effort: High'));
+    await tester.pumpAndSettle();
+    // Effort 在加号弹层的设置行里，点开菜单再选。
+    await tester.tap(find.byTooltip('更多输入选项'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('composer-setting-effort')));
     await tester.pumpAndSettle();
     expect(find.text('Effort', skipOffstage: false), findsWidgets);
     await tester.tap(find.text('Low', skipOffstage: false));

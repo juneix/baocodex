@@ -1475,9 +1475,8 @@ class _ChatPageState extends State<ChatPage> {
         _project?.project.name ?? linkStatusLabel(widget.state, status),
       _ => linkStatusLabel(widget.state, status),
     };
-    final text = widget.onOpenNavigation == null
-        ? label
-        : '${widget.state.desktopName(widget.desktopId)} · $label';
+    // 电脑名 + 状态：Bot 和普通对话都显示，标题下一行始终说明连的是哪台电脑。
+    final text = '${widget.state.desktopName(widget.desktopId)} · $label';
     return Semantics(
       label: switch (status) {
         DesktopLinkStatus.online when isSyncing => tr(

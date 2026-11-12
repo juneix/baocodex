@@ -25,6 +25,7 @@ import '../widgets/dropdown_panel.dart';
 import '../widgets/lucide_icon.dart';
 import '../widgets/mobile_widgets.dart';
 import '../widgets/model_icon.dart';
+import '../widgets/project_icon_view.dart';
 import '../widgets/formats.dart';
 
 /// A new conversation, as the desktop's own starts one: in the project
@@ -736,7 +737,7 @@ class _ChatsTabState extends State<ChatsTab> {
             compact: true,
             leading: waitingAvatar(
               state,
-              LucideIcon(collapsed ? 'folder' : 'folder-open', size: 22),
+              ProjectIconView(state: state, ref: ref, size: 22),
               notOnHome(state, sessions),
             ),
             title: ref.project.name,

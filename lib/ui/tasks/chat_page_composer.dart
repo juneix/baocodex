@@ -869,44 +869,33 @@ extension _Composer on _ChatPageState {
             showValue: true,
             onPressed: () => showContextUsage(context, widget.state, usage),
           );
-    return LayoutBuilder(
-      builder: (context, constraints) => ValueListenableBuilder<TextEditingValue>(
-        valueListenable: _composer,
-        builder: (context, value, _) {
-          final hasDraft = value.text.trim().isNotEmpty || _images.isNotEmpty;
-          final canSend = ready && !_sending && hasDraft && !_imagesMissing && _editReady;
-          final actions = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (live) _stopAction(size: 48),
-              if (!live || hasDraft || _sending)
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, right: 8),
-                  child: ChatComposerAction(
-                    busy: _sending,
-                    enabled: canSend,
-                    tooltip: _editIndex != null ? tr('重新发送', 'Resend') : tr('发送', 'Send'),
-                    onSend: _send,
-                  ),
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _composer,
+      builder: (context, value, _) {
+        final hasDraft = value.text.trim().isNotEmpty || _images.isNotEmpty;
+        final canSend = ready && !_sending && hasDraft && !_imagesMissing && _editReady;
+        final actions = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (live) _stopAction(size: 48),
+            if (!live || hasDraft || _sending)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, right: 8),
+                child: ChatComposerAction(
+                  busy: _sending,
+                  enabled: canSend,
+                  tooltip: _editIndex != null ? tr('重新发送', 'Resend') : tr('发送', 'Send'),
+                  onSend: _send,
                 ),
-            ],
-          );
-          final crowded = constraints.maxWidth < 330 ||
-              MediaQuery.textScalerOf(context).scale(14) > 18;
-          if (crowded) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(children: [add, Expanded(child: _modelButton(ready))]),
-                Row(children: [const Spacer(), contextUsage(), actions]),
-              ],
-            );
-          }
-          return Row(
-            children: [add, Expanded(child: _modelButton(ready)), contextUsage(), actions],
-          );
-        },
-      ),
+              ),
+          ],
+        );
+        // 始终一行：模型名用 Expanded + 省略号让出宽度，窄屏大字也不额外
+        // 加高输入栏，避免把上方排队消息顶出可用高度。
+        return Row(
+          children: [add, Expanded(child: _modelButton(ready)), contextUsage(), actions],
+        );
+      },
     );
   }
 

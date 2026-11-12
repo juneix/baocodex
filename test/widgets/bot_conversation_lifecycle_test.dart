@@ -24,6 +24,8 @@ class _State extends AppState {
   @override
   String tr(String zh, String en) => zh;
   @override
+  String desktopName(String id) => '电脑';
+  @override
   bool isOnline(String desktop) => true;
   @override
   Map<String, LinkState> get snapshots => {
