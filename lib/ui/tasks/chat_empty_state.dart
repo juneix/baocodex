@@ -118,10 +118,13 @@ class _ChatEmptyStateState extends State<ChatEmptyState>
       builder: (context, constraints) => SingleChildScrollView(
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: IntrinsicHeight(
+          // 内容比屏幕高时由外层滚动，不再用 IntrinsicHeight 硬撑；
+          // 装得下时整块垂直居中。
+          child: Center(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 28, 16, 16),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Bot 保持原来的吉祥物开场；编程对话用应用标志。
