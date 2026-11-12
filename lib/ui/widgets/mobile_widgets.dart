@@ -761,154 +761,163 @@ class ListRow extends StatelessWidget {
     final theme = Theme.of(context);
     final text = theme.textTheme;
     final scheme = theme.colorScheme;
-    // 选中的对话：主题色提亮后的圆角矩形，换主题色时一起变。
+    // 选中的对话：白底上叠一层主题色，不是把背景挖空。
     final selectedTint = MobileAccent.fillFor(
       theme.brightness,
       theme.colorScheme.primary,
     ).withValues(alpha: .55);
     final body = Material(
-      color: highlighted ? selectedTint : scheme.surfaceContainerLowest,
+      color: scheme.surfaceContainerLowest,
       borderRadius: highlighted
           ? BorderRadius.circular(MobileSizes.radius)
           : BorderRadius.zero,
       clipBehavior: highlighted ? Clip.antiAlias : Clip.none,
       child: InkWell(
         onTap: onTap,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: compact ? 44 : MobileSizes.listRow,
+            // 先铺白底，再叠主题色；选中的行不会露出下面的灰色。
+            if (highlighted)
+              Positioned.fill(
+                child: ColoredBox(color: selectedTint),
               ),
-              child: Padding(
-                // 选中行外面多套了 6 的内缩，这里减掉，内容左缘仍在同一条线上。
-                padding: EdgeInsets.symmetric(
-                  horizontal: highlighted
-                      ? MobileSpace.lg - 6
-                      : MobileSpace.lg,
-                  vertical: compact ? 8 : MobileSpace.md,
-                ),
-                child: Row(
-                  children: [
-                    SizedBox.square(
-                      dimension: compact ? 22 : MobileSizes.avatar,
-                      child: leading,
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: compact ? 44 : MobileSizes.listRow,
+                  ),
+                  child: Padding(
+                    // 选中行外面多套了 6 的内缩，这里减掉，内容左缘仍在同一条线上。
+                    padding: EdgeInsets.symmetric(
+                      horizontal: highlighted
+                          ? MobileSpace.lg - 6
+                          : MobileSpace.lg,
+                      vertical: compact ? 8 : MobileSpace.md,
                     ),
-                    SizedBox(width: compact ? 10 : MobileSpace.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // 右边的模型、标签和时间先排满，标题拿剩下的。
-                          Row(
+                    child: Row(
+                      children: [
+                        SizedBox.square(
+                          dimension: compact ? 22 : MobileSizes.avatar,
+                          child: leading,
+                        ),
+                        SizedBox(width: compact ? 10 : MobileSpace.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: titleBold
-                                      ? text.bodyMedium!.copyWith(
-                                          fontWeight: FontWeight.w500,
-                                        )
-                                      : text.bodyMedium,
-                                  // 侧栏里选中的对话不再另加对勾或色块。
-                                ),
+                              // 右边的模型、标签和时间先排满，标题拿剩下的。
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: titleBold
+                                          ? text.bodyMedium!.copyWith(
+                                              fontWeight: FontWeight.w500,
+                                            )
+                                          : text.bodyMedium,
+                                      // 侧栏里选中的对话不再另加对勾或色块。
+                                    ),
+                                  ),
+                                  if (aside != null) ...[
+                                    const SizedBox(width: MobileSpace.sm),
+                                    // 有上限：长名字也不会把标题挤没。
+                                    ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxWidth: MediaQuery.textScalerOf(context)
+                                            .scale(96),
+                                      ),
+                                      child: DefaultTextStyle(
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: text.labelSmall!,
+                                        child: aside!,
+                                      ),
+                                    ),
+                                  ],
+                                  if (note != null) ...[
+                                    const SizedBox(width: MobileSpace.sm),
+                                    MobileTag(note!),
+                                  ],
+                                  if (time != null) ...[
+                                    const SizedBox(width: MobileSpace.sm),
+                                    // 固定宽度：各行的相对时间右缘对齐。
+                                    SizedBox(
+                                      width: MediaQuery.textScalerOf(context)
+                                          .scale(MobileSizes.timeColumn),
+                                      child: Text(
+                                        time!,
+                                        textAlign: TextAlign.end,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.clip,
+                                        softWrap: false,
+                                        style: text.labelSmall,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
-                              if (aside != null) ...[
-                                const SizedBox(width: MobileSpace.sm),
-                                // 有上限：长名字也不会把标题挤没。
-                                ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth: MediaQuery.textScalerOf(context)
-                                        .scale(96),
-                                  ),
-                                  child: DefaultTextStyle(
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: text.labelSmall!,
-                                    child: aside!,
-                                  ),
-                                ),
-                              ],
-                              if (note != null) ...[
-                                const SizedBox(width: MobileSpace.sm),
-                                MobileTag(note!),
-                              ],
-                              if (time != null) ...[
-                                const SizedBox(width: MobileSpace.sm),
-                                // 固定宽度：各行的相对时间右缘对齐。
-                                SizedBox(
-                                  width: MediaQuery.textScalerOf(context)
-                                      .scale(MobileSizes.timeColumn),
-                                  child: Text(
-                                    time!,
-                                    textAlign: TextAlign.end,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.clip,
-                                    softWrap: false,
-                                    style: text.labelSmall,
-                                  ),
+                              if (subtitle != null ||
+                                  flags.isNotEmpty ||
+                                  status != null) ...[
+                                const SizedBox(height: MobileSpace.xs),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            for (final (i, (label, color))
+                                                in flags.indexed) ...[
+                                              if (i > 0)
+                                                const TextSpan(text: ' · '),
+                                              TextSpan(
+                                                text: label,
+                                                style: TextStyle(color: color),
+                                              ),
+                                            ],
+                                            if (subtitle != null) ...[
+                                              if (flags.isNotEmpty)
+                                                const TextSpan(text: ' · '),
+                                              TextSpan(text: subtitle),
+                                            ],
+                                          ],
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: text.bodySmall,
+                                      ),
+                                    ),
+                                    if (status != null) ...[
+                                      const SizedBox(width: MobileSpace.sm),
+                                      IconTheme.merge(
+                                        data: IconThemeData(
+                                          size: 16,
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                        child: status!,
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ],
                             ],
                           ),
-                          if (subtitle != null ||
-                              flags.isNotEmpty ||
-                              status != null) ...[
-                            const SizedBox(height: MobileSpace.xs),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text.rich(
-                                    TextSpan(
-                                      children: [
-                                        for (final (i, (label, color))
-                                            in flags.indexed) ...[
-                                          if (i > 0)
-                                            const TextSpan(text: ' · '),
-                                          TextSpan(
-                                            text: label,
-                                            style: TextStyle(color: color),
-                                          ),
-                                        ],
-                                        if (subtitle != null) ...[
-                                          if (flags.isNotEmpty)
-                                            const TextSpan(text: ' · '),
-                                          TextSpan(text: subtitle),
-                                        ],
-                                      ],
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: text.bodySmall,
-                                  ),
-                                ),
-                                if (status != null) ...[
-                                  const SizedBox(width: MobileSpace.sm),
-                                  IconTheme.merge(
-                                    data: IconThemeData(
-                                      size: 16,
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                    child: status!,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
+                        ),
+                        ?trailing,
+                      ],
                     ),
-                    ?trailing,
-                  ],
+                  ),
                 ),
-              ),
+                if (divider)
+                  const Divider(height: 1, indent: MobileSizes.listIndent),
+              ],
             ),
-            if (divider)
-              const Divider(height: 1, indent: MobileSizes.listIndent),
           ],
         ),
       ),
@@ -989,14 +998,15 @@ class SearchCapsule extends StatelessWidget {
             hintText: hint ?? state.tr('搜索', 'Search'),
             isDense: true,
             prefixIconConstraints: const BoxConstraints(
-              minWidth: 36,
-              minHeight: 36,
+              minWidth: 32,
+              minHeight: 32,
             ),
-            prefixIcon: Center(
-              widthFactor: 1,
+            prefixIcon: Padding(
+              // 图标到文字的间距：12 的左边距 + 6 的图标后留白。
+              padding: const EdgeInsets.only(left: 12, right: 6),
               child: LucideIcon(
                 'search',
-                size: 18,
+                size: 16,
                 color: Theme.of(context).hintColor,
               ),
             ),

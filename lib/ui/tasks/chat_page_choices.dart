@@ -303,8 +303,9 @@ extension _Choices on _ChatPageState {
                 : null,
             style: TextButton.styleFrom(
               foregroundColor: scheme.onSurfaceVariant,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              minimumSize: const Size(0, 40),
+              // 紧挨加号：左边不留空，只留图标与文字之间的小间距。
+              padding: const EdgeInsets.only(right: 6),
+              minimumSize: const Size(0, MobileSizes.iconButton),
               // 靠左、占满可用宽度，名字过长才省略，不会把按钮往右推。
               alignment: Alignment.centerLeft,
               textStyle: Theme.of(context).textTheme.bodySmall,

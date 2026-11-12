@@ -881,31 +881,30 @@ extension _Composer on _ChatPageState {
         final actions = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (!showSend) _stopAction(size: 32),
+            if (!showSend) _stopAction(size: MobileSizes.iconButton),
             if (showSend)
-              Padding(
-                padding: const EdgeInsets.only(left: 4, right: 8),
-                child: ChatComposerAction(
-                  busy: _sending,
-                  enabled: canSend,
-                  tooltip: _editIndex != null ? tr('重新发送', 'Resend') : tr('发送', 'Send'),
-                  onSend: _send,
-                ),
+              ChatComposerAction(
+                busy: _sending,
+                enabled: canSend,
+                tooltip: _editIndex != null ? tr('重新发送', 'Resend') : tr('发送', 'Send'),
+                onSend: _send,
               ),
           ],
         );
+        // 左右边距一致：加号和最右按钮各留 4，整行再靠外层 16。
         // 左：加号 + 模型（可省略）；中：留白；右：上下文与发送/停止。
-        // 左侧与留白 5 : 2 弹性分配，右侧按内容取宽：360dp 下无上下文环
-        // 约 55% / 20% / 25%，有环约 50% / 18% / 32%，窄屏先压模型名。
-        return Row(
-          children: [
-            add,
-            const SizedBox(width: 2),
-            Expanded(flex: 5, child: _modelButton(ready)),
-            const Spacer(flex: 2),
-            contextUsage(),
-            actions,
-          ],
+        // 左侧与留白 5 : 2 弹性分配，右侧按内容取宽，窄屏先压模型名。
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            children: [
+              add,
+              Expanded(flex: 5, child: _modelButton(ready)),
+              const Spacer(flex: 2),
+              contextUsage(),
+              actions,
+            ],
+          ),
         );
       },
     );

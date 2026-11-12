@@ -543,7 +543,8 @@ class _ChatsTabState extends State<ChatsTab> {
                       // 工作区标题旁的按钮不套白底，只保留图标。
                       style: _plainButton(context),
                       icon: LucideIcon(
-                        expanded ? 'folder-minus' : 'folder-plus',
+                        // 平铺 = 全部展开，收纳 = 全部收起。
+                        expanded ? 'folders' : 'folder-tree',
                         size: 20,
                       ),
                       onPressed: keys.isEmpty
@@ -808,13 +809,13 @@ class _ChatsTabState extends State<ChatsTab> {
                     tooltip: state.tr('新对话', 'New conversation'),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints.tightFor(
-                      width: 28,
-                      height: 28,
+                      width: MobileSizes.iconButton - 8,
+                      height: MobileSizes.iconButton - 8,
                     ),
                     style: IconButton.styleFrom(
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    icon: const LucideIcon('plus', size: 20),
+                    icon: const LucideIcon('plus', size: 18),
                     onPressed: () => _showNew(ref),
                   ),
             onTap: () => _toggleGroup(key),
@@ -1241,8 +1242,10 @@ Widget projectSessionRow(
                   height: selected ? 9 : 7,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
+                    // 空闲是浅灰，几乎没有存在感；有状态才用状态色。
                     color: flags.firstOrNull?.$2 ??
-                        Theme.of(context).colorScheme.onSurfaceVariant,
+                        Theme.of(context).colorScheme.onSurfaceVariant
+                            .withValues(alpha: .45),
                   ),
                 ),
               ),

@@ -45,8 +45,8 @@ String devicePathText(AppState state, String desktopId) {
       return switch (state.pathOf(desktopId).kind) {
         LinkPathKind.lan => state.tr('LAN 直连', 'LAN'),
         LinkPathKind.relay => state.tr('Relay 中继', 'Relay'),
-        // 打洞直连也还没归到这两类：只说在线，不造「直连」这个词。
-        LinkPathKind.direct => linkStatusLabel(state, status),
+        // 跨公网打洞：不是 LAN，也不是中继。
+        LinkPathKind.direct => state.tr('WAN 直连', 'WAN'),
         LinkPathKind.none => state.tr('连接中…', 'Connecting…'),
       };
   }

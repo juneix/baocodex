@@ -1286,7 +1286,7 @@ class _ChatPageState extends State<ChatPage> {
             .clamp(56, double.infinity)
             .toDouble(),
     centerTitle: false,
-    titleSpacing: 4,
+    titleSpacing: 8,
     // 顶栏两侧与内容区、输入区同一条边线。
     leadingWidth: widget.onOpenNavigation != null ? 52 : null,
     leading: widget.onOpenNavigation != null
