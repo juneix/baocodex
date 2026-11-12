@@ -166,6 +166,8 @@ void main() {
     expect(find.byKey(const ValueKey('about-donate')), findsOneWidget);
     expect(find.byKey(const ValueKey('donate-wechat')), findsOneWidget);
     expect(find.byKey(const ValueKey('donate-alipay')), findsOneWidget);
+    // 打赏码把下面的卡片推下去了，先滚到可见再点。
+    await tester.scrollUntilVisible(find.text('开源许可').hitTestable(), 100);
     await tester.tap(find.text('开源许可'));
     await tester.pumpAndSettle();
     expect(find.byType(LicensePage), findsOneWidget);
