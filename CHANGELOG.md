@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.7
+
+Clearer conversation status, roomier tap targets, and tidier spacing.
+
+- The sidebar dot now tells four states apart: blue breathing while an agent runs, red pulsing when it waits on you, green breathing when a finished conversation is unread, and a faint gray dot otherwise. Motion stops when the system asks for reduced animation.
+- Icon buttons keep a 36 visual size but get a 44–48 hit area, so they are easier to hit without looking larger. The header capsule is the same height as the round menu button.
+- The device footer reports the real path: LAN 直连, WAN 直连, Relay 中继, or 连接中…; there is no vague "直连" any more.
+- Spacing fixes: the title clears the menu button, the search icon sits closer to its text, the composer has equal margins on both sides, and the model name starts right after the plus.
+- Selected conversations tint over white instead of cutting a hole in the background; the expand/collapse icons are folders and folder-tree.
+- Amber is the first accent and the default; the accent description is back to the upstream wording.
+
 ## 1.0.6
 
 Accent colors stay accents, wider message bubbles, and a tip jar.
