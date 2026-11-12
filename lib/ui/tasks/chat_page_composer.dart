@@ -1017,7 +1017,9 @@ extension _Composer on _ChatPageState {
                             mode.options.firstWhere((option) => option.id == id)).$1,
                         onSelected: (option) {
                           if (!mounted || !ready || !_online || _commandBusy || !_hasSession ||
-                              _sessionId != session || _binding.generation != generation) return;
+                              _sessionId != session || _binding.generation != generation) {
+                            return;
+                          }
                           runUi(context, () => _command(LinkMethods.choose,
                               {'kind': 'mode', 'option': option}),
                               errorMessage: (error) => userMessage(widget.state, error));

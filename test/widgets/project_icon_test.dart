@@ -5,7 +5,6 @@ import 'package:baocode_mobile/theme/app_theme.dart';
 import 'package:baocode_mobile/ui/conversations/chats_tab.dart';
 import 'package:baocode_mobile/ui/widgets/mobile_widgets.dart';
 import 'package:baocode_mobile/ui/widgets/project_icon_view.dart';
-import 'package:baocode_mobile/ui/widgets/lucide_icon.dart';
 import 'package:bao_link/bao_link.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

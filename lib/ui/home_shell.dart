@@ -4,6 +4,7 @@ import '../state/app_state.dart';
 import '../state/update_check.dart';
 import '../theme/app_theme.dart';
 import 'conversations/chats_tab.dart';
+import 'settings/settings_page.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, required this.state, this.updateChecker});
