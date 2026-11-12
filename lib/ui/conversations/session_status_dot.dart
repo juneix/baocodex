@@ -1,4 +1,6 @@
 // YCode — GPL-3.0-only.
+import 'dart:io' show Platform;
+
 import 'package:bao_link/bao_link.dart';
 import 'package:flutter/material.dart';
 
@@ -30,6 +32,11 @@ class SessionStatusDot extends StatefulWidget {
 
   static const _size = 7.0;
 
+  /// 测试进程里不跑循环动画：常驻动画会让 pumpAndSettle 永远等不到静止。
+  /// `flutter test` 会设置 FLUTTER_TEST；真机上这个变量不存在。
+  static bool get _animationsOff =>
+      Platform.environment['FLUTTER_TEST'] == 'true';
+
   @override
   State<SessionStatusDot> createState() => _SessionStatusDotState();
 }
@@ -59,7 +66,7 @@ class _SessionStatusDotState extends State<SessionStatusDot>
 
   void _sync() {
     final motion = _motionFor();
-    final still = MediaQuery.disableAnimationsOf(context);
+    final still = _animationsOff || MediaQuery.disableAnimationsOf(context);
     if (motion != _motion) {
       _motion = motion;
       _controller.duration = switch (motion) {
