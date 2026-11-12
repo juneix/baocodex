@@ -112,10 +112,12 @@ void main() {
     expect(find.byTooltip('发送'), findsNothing);
     await tester.enterText(find.byType(TextField).first, '继续');
     await tester.pump();
-    expect(find.byTooltip('停止生成'), findsOneWidget);
+    // 有草稿时停止让位给发送，两个按钮不同时出现。
+    expect(find.byTooltip('停止生成'), findsNothing);
     expect(find.byTooltip('发送'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, '');
     await tester.pump();
+    expect(find.byTooltip('停止生成'), findsOneWidget);
     await tester.tap(find.byTooltip('停止生成'));
     await tester.pump();
     expect(state.calls.last.$1, LinkMethods.stop);

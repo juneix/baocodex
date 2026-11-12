@@ -1481,7 +1481,7 @@ void main() {
   }
 
   for (final bot in [false, true]) {
-    testWidgets('${bot ? 'Bot' : '编程对话'}运行中输入后仍可独立停止且保留草稿', (tester) async {
+    testWidgets('${bot ? 'Bot' : '编程对话'}运行中输入时发送替代停止，清空后停止回来', (tester) async {
       final state = _State()..withBot = bot;
       addTearDown(state.dispose);
       state.history
@@ -1495,6 +1495,8 @@ void main() {
       // 有草稿时停止让位给发送，两个按钮不同时出现。
       expect(find.byTooltip('停止生成'), findsNothing);
       expect(find.byTooltip('发送'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField).first)
+          .controller!.text, '准备排队的任务');
       await tester.enterText(find.byType(TextField).first, '');
       await tester.pump(const Duration(milliseconds: 350));
       expect(find.byTooltip('停止生成'), findsOneWidget);
@@ -1502,8 +1504,6 @@ void main() {
       await tester.pump();
       expect(state.calls, [LinkMethods.stop]);
       expect(state.lastParams['session'], 'session');
-      expect(tester.widget<TextField>(find.byType(TextField).first)
-          .controller!.text, '准备排队的任务');
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
