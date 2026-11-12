@@ -761,10 +761,11 @@ class ListRow extends StatelessWidget {
     final theme = Theme.of(context);
     final text = theme.textTheme;
     final scheme = theme.colorScheme;
-    // 选中的对话：浅金色圆角矩形，明暗都能看出是金而不是灰。
-    final selectedTint = theme.brightness == Brightness.dark
-        ? MobileAccent.goldFill.withValues(alpha: .22)
-        : MobileAccent.goldFill.withValues(alpha: .55);
+    // 选中的对话：主题色提亮后的圆角矩形，换主题色时一起变。
+    final selectedTint = MobileAccent.fillFor(
+      theme.brightness,
+      theme.colorScheme.primary,
+    ).withValues(alpha: .55);
     final body = Material(
       color: highlighted ? selectedTint : scheme.surfaceContainerLowest,
       borderRadius: highlighted

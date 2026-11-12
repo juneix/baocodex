@@ -19,7 +19,7 @@ BaoCodeX 基于 YCode，整体按 [GPL-3.0-only](LICENSE) 发布。下面这些�
 | `assets/model_icons/` 中标注 theSVG 的文件 | [theSVG](https://github.com/glincker/thesvg) | MIT | [assets/licenses/thesvg.txt](assets/licenses/thesvg.txt) |
 | `assets/model_icons/` 中标注 Simple Icons 的文件 | [Simple Icons](https://github.com/simple-icons/simple-icons) | CC0-1.0 | 无需附带 |
 | `assets/material_icons/` | [Material Icon Theme](https://github.com/material-extensions/vscode-material-icon-theme) | MIT | [assets/material_icons/LICENSE](assets/material_icons/LICENSE) |
-| `assets/icons/bot.png`、`assets/icons/baocodex.svg`、Android 应用图标（`mipmap-*/app_icon.png`） | BaoCodeX 自制/生成的授权素材，可公开分发 | GPL-3.0-only | — |
+| `assets/icons/bot.png`、`assets/icons/baocodex.svg`、`assets/donate/wechat.webp`、`assets/donate/alipay.webp`、Android 应用图标（`mipmap-*/app_icon.png`） | BaoCodeX 自制/生成的授权素材，可公开分发 | GPL-3.0-only | — |
 
 每个 SVG 图标文件开头的注释记录了它的具体来源与许可。BaoCodeX 新增的导航图标继续取自 lucide-static 1.66.0，统一为现有 1.75 笔触，不引入新图标依赖。
 

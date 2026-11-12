@@ -666,11 +666,12 @@ class _DeviceRow extends StatelessWidget {
       child: Semantics(
         selected: selected,
         child: Material(
-          // 选中的电脑和侧栏选中的对话一样：浅金圆角高亮，不用灰块。
+          // 选中的电脑和侧栏选中的对话一样：主题色浅底高亮，不用灰块。
           color: selected
-              ? (theme.brightness == Brightness.dark
-                    ? MobileAccent.goldFill.withValues(alpha: .22)
-                    : MobileAccent.goldFill.withValues(alpha: .55))
+              ? MobileAccent.fillFor(
+                  theme.brightness,
+                  theme.colorScheme.primary,
+                ).withValues(alpha: .55)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(MobileSizes.radius),
           clipBehavior: Clip.antiAlias,

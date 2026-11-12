@@ -1456,6 +1456,9 @@ class AboutPage extends StatelessWidget {
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: MobileSpace.xl),
+          // 功能说明和官网卡片之间：微信、支付宝两张打赏码并排。
+          _DonateCard(state: state),
+          const SizedBox(height: MobileSpace.lg),
           GroupCard(
             children: [
               SettingsRow(
@@ -1486,6 +1489,89 @@ class AboutPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 打赏：微信与支付宝收款码并排，点开可放大。
+class _DonateCard extends StatelessWidget {
+  const _DonateCard({required this.state});
+
+  final AppState state;
+
+  static const _codes = [
+    ('assets/donate/wechat.webp', '微信', 'WeChat'),
+    ('assets/donate/alipay.webp', '支付宝', 'Alipay'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      key: const ValueKey('about-donate'),
+      children: [
+        Text(
+          state.tr('请我喝杯咖啡', 'Buy me a coffee'),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: MobileSpace.sm),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (final (index, (path, zh, en)) in _codes.indexed) ...[
+              if (index > 0) const SizedBox(width: MobileSpace.md),
+              Flexible(
+                child: Column(
+                  children: [
+                    Material(
+                      color: theme.colorScheme.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(MobileSizes.radius),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => showDialog<void>(
+                          context: context,
+                          builder: (context) => Dialog(
+                            backgroundColor: Colors.transparent,
+                            insetPadding: const EdgeInsets.all(MobileSpace.xl),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                MobileSizes.radius,
+                              ),
+                              child: Image.asset(path, fit: BoxFit.contain),
+                            ),
+                          ),
+                        ),
+                        child: Image.asset(
+                          path,
+                          key: ValueKey('donate-${index == 0 ? 'wechat' : 'alipay'}'),
+                          width: 148,
+                          height: 148,
+                          fit: BoxFit.contain,
+                          // 解码失败时占位，不让一张图拖垮整页。
+                          errorBuilder: (_, _, _) => const SizedBox(
+                            width: 148,
+                            height: 148,
+                            child: Center(
+                              child: LucideIcon('qr-code', size: 48),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: MobileSpace.xs),
+                    Text(
+                      state.tr(zh, en),
+                      style: theme.textTheme.labelSmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
     );
   }
 }

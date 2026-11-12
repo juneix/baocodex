@@ -50,10 +50,9 @@ class AppSettings {
     };
     settings.themeMode =
         ThemeMode.values.asNameMap()[json['theme']] ?? ThemeMode.system;
-    // 旧版本默认是绿色，存下来的 'green' 多半只是旧默认值；统一读成
-    // 现在的黑金，避免升级后还是一片微信绿。
-    final stored = json['accentColor'] as String?;
-    settings.accent = stored == null || stored == 'green' ? 'amber' : stored;
+    // 默认黑金（琥珀）；旧版本默认的绿色只迁移一次，用户之后选的
+    // 任何颜色都照常保留，可以换回绿色。
+    settings.accent = json['accentColor'] as String? ?? 'amber';
     settings.desktop = json['desktop'] as String?;
     if (json['lastProjectByDesktop'] case final Map<dynamic, dynamic> projects) {
       settings.lastProjectByDesktop = {

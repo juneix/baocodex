@@ -130,8 +130,8 @@ void main() {
     expect(AppSettings.fromJson(state.settings.toJson()).accent, 'blue');
     // 早先自动写入的旧键不算用户选择，读回默认金色。
     expect(AppSettings.fromJson({'accent': 'blue'}).accent, 'amber');
-    // 旧版本默认的绿色一并迁到黑金，升级后不再是一片微信绿。
-    expect(AppSettings.fromJson({'accentColor': 'green'}).accent, 'amber');
+    // 用户明确选过的主题色都保留，包括绿色。
+    expect(AppSettings.fromJson({'accentColor': 'green'}).accent, 'green');
     expect(AppSettings.fromJson({'accentColor': 'indigo'}).accent, 'indigo');
   });
 }

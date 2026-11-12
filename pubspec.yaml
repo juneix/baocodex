@@ -1,7 +1,7 @@
 name: baocode_mobile
 description: BaoCodeX, an unofficial Android client based on YCode for BaoCode desktops.
 publish_to: none
-version: 1.0.5
+version: 1.0.6
 
 environment:
   sdk: ^3.13.4
@@ -49,6 +49,7 @@ flutter:
     - CHANGELOG_CN.md
     - assets/LICENSE-GPL-3.0.txt
     - assets/licenses/
+    - assets/donate/
     - assets/icons/
     - assets/model_icons/
     - assets/material_icons/

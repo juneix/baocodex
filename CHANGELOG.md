@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.6
+
+Accent colors stay accents, wider message bubbles, and a tip jar.
+
+- The chosen accent now only tints emphasis (buttons, selected rows, links). Your own messages are always white bubbles, and the bot's replies use a light gray bubble so the two stay distinct.
+- Message bubbles grow with their content: a short line stays short, a long one uses up to 88% of the width and keeps a safe margin on both sides.
+- About now shows WeChat and Alipay tip codes side by side between the description and the website card; tap either to enlarge.
+- Every accent color, including green, is kept once chosen; black-gold remains the default.
+
 ## 1.0.5
 
 Black-gold palette everywhere, cleaner sidebars, and a tidier composer.

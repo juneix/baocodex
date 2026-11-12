@@ -162,6 +162,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('BaoCodeX'), findsOneWidget);
     expect(find.text('版本 $appVersion'), findsOneWidget);
+    // 功能说明和官网之间是微信、支付宝两张打赏码。
+    expect(find.byKey(const ValueKey('about-donate')), findsOneWidget);
+    expect(find.byKey(const ValueKey('donate-wechat')), findsOneWidget);
+    expect(find.byKey(const ValueKey('donate-alipay')), findsOneWidget);
     await tester.tap(find.text('开源许可'));
     await tester.pumpAndSettle();
     expect(find.byType(LicensePage), findsOneWidget);

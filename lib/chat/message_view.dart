@@ -37,8 +37,10 @@ part 'message_view_bot.dart';
 /// 右侧留出对面头像的位置。卡片和旁白都对齐到这里。
 const botContentInsets = EdgeInsets.fromLTRB(62, 0, 56, 0);
 
-/// 自己发的气泡：黑金配色，浅金底配黑字，明暗一致。
-Color botUserBubbleColor(BuildContext context) => MobileAccent.goldFill;
+/// 自己发的气泡：始终白底黑字。主题色只用于强调提示，
+/// 不染气泡，也不随明暗变成彩色。
+Color botUserBubbleColor(BuildContext context) =>
+    Theme.of(context).colorScheme.surfaceContainerLowest;
 
 class MessageView extends StatelessWidget {
   const MessageView({
@@ -332,9 +334,11 @@ class MessageView extends StatelessWidget {
             Flexible(
               child: Container(
                 key: const ValueKey('user-message-bubble'),
+                // 短句自然收缩，长内容最多占到可用宽度的 88%，
+                // 两侧各留一点安全距离，不贴边。
                 constraints: BoxConstraints(
-                  maxWidth: ((MediaQuery.sizeOf(context).width - 32) * .82)
-                      .clamp(0, 560)
+                  maxWidth: ((MediaQuery.sizeOf(context).width - 32) * .88)
+                      .clamp(0, 640)
                       .toDouble(),
                 ),
                 padding: const EdgeInsets.symmetric(
