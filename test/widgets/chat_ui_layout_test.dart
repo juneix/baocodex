@@ -554,9 +554,13 @@ void main() {
       ),
       findsOneWidget,
     );
+    // 停止图标现在是 SVG 的 circle-pause，不再画圆圈图标。
     expect(
-      find.descendant(of: row, matching: find.byType(SvgPicture)),
-      findsNothing,
+      find.descendant(
+        of: row,
+        matching: find.byKey(const ValueKey('hollow-stop')),
+      ),
+      findsOneWidget,
     );
     await tester.pumpWidget(const SizedBox.shrink());
   });

@@ -239,7 +239,6 @@ class _ChatEmptyStateState extends State<ChatEmptyState>
                     ),
                   ],
                   const SizedBox(height: 28),
-                  const Spacer(),
                   Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 420),
