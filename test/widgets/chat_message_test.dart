@@ -100,7 +100,7 @@ void main() {
     });
   });
 
-  testWidgets('手机宽度下选中的完全访问描述不折行', (tester) async {
+  testWidgets('手机宽度下权限下拉只列选项文字，不显示描述和警示图标', (tester) async {
     tester.view.physicalSize = const Size(391, 844);
     tester.view.devicePixelRatio = 1;
     tester.platformDispatcher.textScaleFactorTestValue = 1.1;
@@ -133,10 +133,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(permissionRow);
     await tester.pumpAndSettle();
-    final detail = find.text('不做任何检查，编辑和命令直接执行');
-    final style = tester.widget<Text>(detail).style;
-    final line = tester.getSize(find.text('编辑和命令前都先询问')).height;
-    expect(tester.getSize(detail).height, line, reason: '$style');
+    // 权限下拉只显示选项第一行；描述不出现，也没有警示图标。
+    expect(find.text('完全访问'), findsOneWidget);
+    expect(find.text('不做任何检查，编辑和命令直接执行'), findsNothing);
     expect(
       find.byWidgetPredicate(
         (w) => w is LucideIcon && w.name == 'triangle-alert',
@@ -1175,7 +1174,10 @@ void main() {
     // Fast 在加号弹层的设置行里，点一下直接切换、不弹菜单。
     await tester.tap(find.byTooltip('更多输入选项'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('composer-setting-fast')));
+    final fastRow = find.byKey(const ValueKey('composer-setting-fast'));
+    await tester.ensureVisible(fastRow);
+    await tester.pumpAndSettle();
+    await tester.tap(fastRow);
     await tester.pumpAndSettle();
     expect(state.calls.single.$1, 'choose');
     expect(state.calls.single.$2, {
@@ -1217,7 +1219,10 @@ void main() {
     // Effort 在加号弹层的设置行里，点开菜单再选。
     await tester.tap(find.byTooltip('更多输入选项'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('composer-setting-effort')));
+    final effortRow = find.byKey(const ValueKey('composer-setting-effort'));
+    await tester.ensureVisible(effortRow);
+    await tester.pumpAndSettle();
+    await tester.tap(effortRow);
     await tester.pumpAndSettle();
     expect(find.text('Effort', skipOffstage: false), findsWidgets);
     await tester.tap(find.text('Low', skipOffstage: false));

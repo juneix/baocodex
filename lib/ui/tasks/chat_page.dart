@@ -1258,7 +1258,9 @@ class _ChatPageState extends State<ChatPage> {
                               },
                       ),
                     ),
-                  _composerView(buffer, ready),
+                  // 输入区可以被压缩：排队消息和活动卡片多时先缩小它们，
+                  // 保证输入框和工具行始终在屏内。
+                  Flexible(fit: FlexFit.loose, child: _composerView(buffer, ready)),
                 ],
               ),
             ),
@@ -1475,8 +1477,11 @@ class _ChatPageState extends State<ChatPage> {
         _project?.project.name ?? linkStatusLabel(widget.state, status),
       _ => linkStatusLabel(widget.state, status),
     };
-    // 电脑名 + 状态：Bot 和普通对话都显示，标题下一行始终说明连的是哪台电脑。
-    final text = '${widget.state.desktopName(widget.desktopId)} · $label';
+    // Bot 和可打开侧栏的普通对话显示「电脑名 · 状态」；独立路由的普通对话
+    // 只写状态，标题下一行保持简短。
+    final text = widget.botId != null || widget.onOpenNavigation != null
+        ? '${widget.state.desktopName(widget.desktopId)} · $label'
+        : label;
     return Semantics(
       label: switch (status) {
         DesktopLinkStatus.online when isSyncing => tr(

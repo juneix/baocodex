@@ -753,75 +753,87 @@ extension _Composer on _ChatPageState {
     }
     final bot = widget.botId != null;
     final live = buffer.live && _online;
+    final notices = <Widget>[
+      ..._composerNotices(),
+      if (_hasSession && !bot)
+        ChatActivityCard(
+          key: ValueKey((widget.desktopId, _sessionId)),
+          state: widget.state,
+          desktopId: widget.desktopId,
+          sessionId: _sessionId,
+          projectId: widget.projectId,
+          agents: projectRunningAgents(
+            buffer.items.map(ChatCodec.decode).whereType<ChatItem>(),
+            buffer.tasks,
+          ),
+          onOpenAgent: _openRunningAgent,
+          foldSignal: _trayFold,
+        ),
+      if (!bot) _slashMenu(),
+    ];
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (bot && live) BotWorkingLine(tr: tr, since: _turnStart(buffer)),
+        // 输入框上方的提示、活动卡片可滚动，输入框和工具行固定在最下方，
+        // 排队消息再多也不会把它们挤出屏幕。
+        if (notices.isNotEmpty)
+          Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(
+              reverse: true,
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: notices,
+              ),
+            ),
+          ),
         Container(
           padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ..._composerNotices(),
-              if (_hasSession && !bot)
-                ChatActivityCard(
-                  key: ValueKey((widget.desktopId, _sessionId)),
-                  state: widget.state,
-                  desktopId: widget.desktopId,
-                  sessionId: _sessionId,
-                  projectId: widget.projectId,
-                  agents: projectRunningAgents(
-                    buffer.items.map(ChatCodec.decode).whereType<ChatItem>(),
-                    buffer.tasks,
-                  ),
-                  onOpenAgent: _openRunningAgent,
-                  foldSignal: _trayFold,
-                ),
-              if (!bot) _slashMenu(),
-              DecoratedBox(
-                key: const ValueKey('composer-input-surface'),
-                decoration: _composerDecoration,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_editIndex != null) _editHeader(buffer),
-                    if (_images.isNotEmpty) _draftImages(),
-                    _pasteScope(
-                      TextField(
-                        controller: _composer,
-                        focusNode: _composerFocus,
-                        contextMenuBuilder: _pasteMenu,
-                        groupId: _addRegion,
-                        onTap: _addToKeyboard,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        minLines: 1,
-                        maxLines: 6,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: InputDecoration(
-                          filled: false,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          suffixIcon: _clearButton(),
-                          suffixIconConstraints: const BoxConstraints(),
-                          contentPadding: EdgeInsets.fromLTRB(
-                            16,
-                            _editIndex != null ? 2 : 14,
-                            16,
-                            2,
-                          ),
-                          hintText: bot
-                              ? tr('发消息…', 'Message…')
-                              : tr('发消息，@files， /command', 'Message, @files, /command'),
-                        ),
+          child: DecoratedBox(
+            key: const ValueKey('composer-input-surface'),
+            decoration: _composerDecoration,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_editIndex != null) _editHeader(buffer),
+                if (_images.isNotEmpty) _draftImages(),
+                _pasteScope(
+                  TextField(
+                    controller: _composer,
+                    focusNode: _composerFocus,
+                    contextMenuBuilder: _pasteMenu,
+                    groupId: _addRegion,
+                    onTap: _addToKeyboard,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    minLines: 1,
+                    maxLines: 6,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: InputDecoration(
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      suffixIcon: _clearButton(),
+                      suffixIconConstraints: const BoxConstraints(),
+                      contentPadding: EdgeInsets.fromLTRB(
+                        16,
+                        _editIndex != null ? 2 : 14,
+                        16,
+                        2,
                       ),
+                      hintText: bot
+                          ? tr('发消息…', 'Message…')
+                          : tr('发消息，@files， /command', 'Message, @files, /command'),
                     ),
-                    _composerToolbar(buffer, ready, live),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+                _composerToolbar(buffer, ready, live),
+              ],
+            ),
           ),
         ),
         if (bot && _addOpen && _emojiPanel && !_sending)
