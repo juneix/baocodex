@@ -1404,26 +1404,34 @@ class _ChatPageState extends State<ChatPage> {
         shape: const CircleBorder(),
       );
 
-  /// 胶囊里的一个动作，不各自带底色；外框 2 的留白补齐总高。
+  /// 胶囊里的一个动作：不各自带底色，命中区 44（Apple 下限）。
   ButtonStyle _capsuleButton(BuildContext context) =>
       IconButton.styleFrom(
-        fixedSize: const Size.square(MobileSizes.capsuleButton),
+        fixedSize: const Size.square(44),
         padding: EdgeInsets.zero,
         backgroundColor: Colors.transparent,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
         shape: const CircleBorder(),
       );
 
-  /// 一个白底胶囊装下几个动作，高度与单个圆形按钮一致。
+  /// 白底胶囊：视觉高度与左侧圆形按钮一致（36），
+  /// 里面的按钮各有 44 的命中区，超出部分透明、不改变外观。
   Widget _capsule(BuildContext context, {required List<Widget> children}) =>
-      Container(
-        height: MobileSizes.iconButton,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Row(mainAxisSize: MainAxisSize.min, children: children),
+      Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            top: 4,
+            bottom: 4,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          Row(mainAxisSize: MainAxisSize.min, children: children),
+        ],
       );
 
   Widget _goalTile(BuildContext context, Map<String, Object?> goal) => Padding(

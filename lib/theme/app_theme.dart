@@ -58,8 +58,11 @@ abstract final class MobileSizes {
   /// 列表头像：会话、项目、Bot 一致。
   static const avatar = 44.0;
 
-  /// 所有圆形图标按钮的统一边长：顶栏、侧栏、输入栏都用它。
+  /// 圆形图标按钮的视觉边长：顶栏、侧栏、输入栏都用它。
   static const iconButton = 36.0;
+
+  /// 可点区域的最小边长（Apple 44 / Material 48 取大者）。
+  static const tapTarget = 48.0;
 
   /// 胶囊里的图标按钮：外面还有 2 的留白，总高仍是 [iconButton]。
   static const capsuleButton = iconButton - 4;
@@ -602,13 +605,12 @@ class MobileStatusColors extends ThemeExtension<MobileStatusColors> {
   factory MobileStatusColors.forBrightness(Brightness brightness) {
     final dark = brightness == Brightness.dark;
     // What a state means stays its own color whatever the accent: green
-    // done or online, indigo under way (calm beside any accent, not
-    // the loud link blue), orange careful, red (the scheme's error)
-    // waiting on you or failed.
+    // done or online, blue under way, orange careful, red (the scheme's
+    // error) waiting on you or failed.
     return MobileStatusColors(
       success: Color(dark ? 0xFF4CC38A : 0xFF12A150),
       warning: Color(dark ? 0xFFF3A847 : 0xFFD46B08),
-      info: Color(dark ? 0xFF7D7AFF : 0xFF5856D6),
+      info: Color(dark ? 0xFF60A5FA : 0xFF2563EB),
       added: Color(dark ? 0xFF91C99B : 0xFF356B43),
       removed: Color(dark ? 0xFFF1A49E : 0xFFA43E37),
       addedBackground: Color(dark ? 0xFF2D4A35 : 0xFFD2E9D7),

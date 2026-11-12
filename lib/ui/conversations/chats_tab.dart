@@ -8,6 +8,7 @@ import 'conversation_filters.dart';
 import 'conversation_filter_sheet.dart';
 import 'project_actions.dart';
 import 'session_press_row.dart';
+import 'session_status_dot.dart';
 
 import 'package:flutter/material.dart';
 
@@ -741,7 +742,6 @@ class _ChatsTabState extends State<ChatsTab> {
       IconButton.styleFrom(
         fixedSize: const Size.square(MobileSizes.iconButton),
         padding: EdgeInsets.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: Colors.transparent,
         foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
       );
@@ -750,8 +750,7 @@ class _ChatsTabState extends State<ChatsTab> {
       IconButton.styleFrom(
         fixedSize: const Size.square(MobileSizes.iconButton),
         padding: EdgeInsets.zero,
-        // 点击区域不再外扩，圆的边长就是布局宽度，右缘才和搜索框、时间对齐。
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        // 视觉 36，命中区由主题撑到 48；外层留白已扣掉多出的 6。
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
       );
@@ -811,9 +810,6 @@ class _ChatsTabState extends State<ChatsTab> {
                     constraints: const BoxConstraints.tightFor(
                       width: MobileSizes.iconButton - 8,
                       height: MobileSizes.iconButton - 8,
-                    ),
-                    style: IconButton.styleFrom(
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     icon: const LucideIcon('plus', size: 18),
                     onPressed: () => _showNew(ref),
@@ -1232,22 +1228,10 @@ Widget projectSessionRow(
       divider: divider,
       leading: compact
           ? Center(
-              // 状态小圆点，按状态换颜色；选中的更实一点。
-              child: Tooltip(
-                message: !state.isOnline(ref.desktopId)
-                    ? linkStatusLabel(state, state.linkStatus(ref.desktopId))
-                    : flags.firstOrNull?.$1 ?? state.tr('空闲', 'Idle'),
-                child: Container(
-                  width: selected ? 9 : 7,
-                  height: selected ? 9 : 7,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    // 空闲是浅灰，几乎没有存在感；有状态才用状态色。
-                    color: flags.firstOrNull?.$2 ??
-                        Theme.of(context).colorScheme.onSurfaceVariant
-                            .withValues(alpha: .45),
-                  ),
-                ),
+              child: SessionStatusDot(
+                state: state,
+                ref: ref,
+                selected: selected,
               ),
             )
           : waitingAvatar(state, LetterAvatar(ref.session.title), [ref]),
@@ -1321,7 +1305,7 @@ List<(String, Color)> statusFlags(
         counted
             ? state.tr('$running 个运行中', '$running running')
             : state.tr('运行中', 'Running'),
-        // Under way is indigo whatever the accent, apart from green (done).
+        // 运行中固定蓝色，不随主题色变。
         MobileTheme.statusColorsOf(context).info,
       ),
     if (waiting > 0)
@@ -1336,7 +1320,8 @@ List<(String, Color)> statusFlags(
         counted
             ? state.tr('$done 个已完成', '$done done')
             : state.tr('已完成', 'Done'),
-        MobileTheme.statusColorsOf(context).success,
+        // 已完成是灰的，和空闲一致；绿色只留给「完成且未读」的圆点。
+        colors.onSurfaceVariant.withValues(alpha: .6),
       ),
   ];
 }

@@ -93,9 +93,9 @@ class StopActionButton extends StatelessWidget {
       tooltip: tooltip,
       onPressed: busy ? null : onPressed,
       padding: EdgeInsets.zero,
+      // 视觉尺寸由调用方给，命中区由主题撑到 48。
       constraints: BoxConstraints.tight(Size.square(size)),
       style: IconButton.styleFrom(
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         // 和发送一样：主题色直接落在图标上，不另加圆底。
         backgroundColor: Colors.transparent,
         foregroundColor: enabled

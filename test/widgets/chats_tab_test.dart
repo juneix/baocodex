@@ -363,6 +363,34 @@ void main() {
     expect(state.calls, isEmpty);
   });
 
+  testWidgets('状态圆点按状态换色：运行蓝、待处理红、未读绿、空闲灰', (tester) async {
+    final state = _State();
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await _drawer(tester);
+    Color dot(String session) {
+      final box = tester.widget<Container>(
+        find.descendant(
+          of: find.byKey(ValueKey('session-在线-$session')),
+          matching: find.byKey(const ValueKey('session-status-dot')),
+        ),
+      );
+      return (box.decoration! as BoxDecoration).color!;
+    }
+
+    final context = tester.element(find.byType(ChatsTab));
+    final theme = Theme.of(context);
+    // 会话甲置顶且空闲已读：灰。
+    expect(
+      dot('会话甲'),
+      theme.colorScheme.onSurfaceVariant.withValues(alpha: .45),
+    );
+    // 会话乙等待回应：红。
+    expect(dot('会话乙'), theme.colorScheme.error);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('选中的对话用浅金圆角高亮，左侧仍是状态圆点', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
