@@ -70,15 +70,6 @@ class _SessionPressRowState extends State<SessionPressRow> {
               });
             }),
           ),
-        ],
-        // 只是手机自己的选择，离线也能改。
-        PressMenuItem(
-          state.onHome(ref)
-              ? state.tr('从常用移除', 'Remove from favorites')
-              : state.tr('加入常用', 'Add to favorites'),
-          () => _run(() => state.setOnHome(ref, !state.onHome(ref))),
-        ),
-        if (online) ...[
           PressMenuItem(
             state.tr('归档', 'Archive'),
             () => _run(() async {
@@ -97,7 +88,7 @@ class _SessionPressRowState extends State<SessionPressRow> {
             }),
           ),
           PressMenuItem(
-            state.tr('删除该聊天', 'Delete chat'),
+            state.tr('删除', 'Delete'),
             () => _run(
               () => deleteConversation(
                 context,
@@ -107,6 +98,8 @@ class _SessionPressRowState extends State<SessionPressRow> {
                 title: session.title,
               ),
             ),
+            // 删除不可撤销：红色，避免和上面的操作混在一起误触。
+            color: Theme.of(context).colorScheme.error,
           ),
         ],
       ],

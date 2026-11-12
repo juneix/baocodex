@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bao_link/bao_link.dart' show BotStatus;
 import 'package:clock/clock.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'conversation_filters.dart';
 import 'conversation_filter_sheet.dart';
@@ -351,17 +352,13 @@ class _ChatsTabState extends State<ChatsTab> {
         : FilesTab(state: widget.state),
   );
 
-  List<_SessionGroup> _sessionGroups(
-    List<ConversationProject> projects,
-    List<SessionRef> home,
-  ) {
+  List<_SessionGroup> _sessionGroups(List<ConversationProject> projects) {
     final state = widget.state;
     if (_filters.grouping == ConversationGrouping.project) return const [];
     final unique = <(String, String), SessionRef>{
       for (final project in projects)
         for (final ref in project.sessions)
           (ref.desktopId, ref.session.id): ref,
-      for (final ref in home) (ref.desktopId, ref.session.id): ref,
     };
     final sessions = _filters.copyWith(query: '').sessions(
       unique.values,
@@ -421,26 +418,6 @@ class _ChatsTabState extends State<ChatsTab> {
       state.sessions,
       state.desktopName,
     );
-    // Conversations put on the home list stand beside the projects; being
-    // pinned only lifts one within its project (and, on the home list, to
-    // the top).
-    final home = state.sessions.where((ref) {
-      if (ref.desktopId != desktopId || !state.onHome(ref)) return false;
-      final project = state.projects
-          .where(
-            (p) =>
-                p.desktopId == ref.desktopId &&
-                p.project.id == ref.session.project,
-          )
-          .firstOrNull;
-      return _filters
-          .sessions(
-            [ref],
-            state.desktopName,
-            projectName: project?.project.name ?? '',
-          )
-          .isNotEmpty;
-    }).toList();
     // 所有 Bot 都在首页有一行，不只是助理：自己加的那些也能直接点开聊。
     final bots = _filters.allowsBots
         ? state.bots
@@ -461,9 +438,8 @@ class _ChatsTabState extends State<ChatsTab> {
     final key = _pageKey;
     final targetDesktop = current?.desktop ?? desktopId;
     final targetProject = current?.project ?? _entryProjectId;
-    final groups = _sessionGroups(projects, home);
+    final groups = _sessionGroups(projects);
     final keys = <(String, String, String)>[
-      if (home.isNotEmpty) ('home', desktopId ?? '', 'favorites'),
       if (_filters.grouping == ConversationGrouping.project)
         for (final item in projects)
           ('project', item.ref.desktopId, item.ref.project.id)
@@ -481,6 +457,8 @@ class _ChatsTabState extends State<ChatsTab> {
       drawer: Drawer(
         key: const ValueKey('conversation-drawer'),
         width: MediaQuery.sizeOf(context).width * .8,
+        // 侧栏和对话页同一层灰，白底胶囊才立得住。
+        backgroundColor: Theme.of(context).colorScheme.surface,
         child: SafeArea(
           minimum: EdgeInsets.only(
             bottom: MediaQuery.viewInsetsOf(context).bottom,
@@ -488,9 +466,20 @@ class _ChatsTabState extends State<ChatsTab> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 12, 16),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                 child: Row(
                   children: [
+                    // 标题左边的小 logo。
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SvgPicture.asset(
+                        'assets/icons/baocodex.svg',
+                        key: const ValueKey('drawer-logo'),
+                        width: 24,
+                        height: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'BaoCodeX',
@@ -500,17 +489,29 @@ class _ChatsTabState extends State<ChatsTab> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    FilledButton.icon(
-                      key: const ValueKey('drawer-new-conversation'),
-                      onPressed: () => _showNew(),
-                      style: FilledButton.styleFrom(
-                        // 黑金：浅金底、黑字，侧栏里唯一的重点按钮。
-                        backgroundColor: MobileAccent.goldFill,
-                        foregroundColor: MobileAccent.goldInk,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                    // 白底胶囊里的新对话，和顶栏一致。
+                    Material(
+                      color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(999),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        key: const ValueKey('drawer-new-conversation'),
+                        onTap: () => _showNew(),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const LucideIcon('message-circle-plus', size: 18),
+                              const SizedBox(width: 6),
+                              Text(state.tr('新对话', 'New chat')),
+                            ],
+                          ),
+                        ),
                       ),
-                      icon: const LucideIcon('message-circle-plus', size: 18),
-                      label: Text(state.tr('新对话', 'New chat')),
                     ),
                   ],
                 ),
@@ -519,6 +520,7 @@ class _ChatsTabState extends State<ChatsTab> {
                 state: state,
                 controller: _search,
                 outlined: true,
+                hint: state.tr('搜索对话', 'Search conversations'),
                 onChanged: (value) => setState(
                   () => _filters = _filters.copyWith(query: value),
                 ),
@@ -589,6 +591,18 @@ class _ChatsTabState extends State<ChatsTab> {
                       ),
                       TextButton(
                         onPressed: _clearFilters,
+                        // 与「展开剩余」同字号、同主题色，右缘与列表对齐。
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 0,
+                            vertical: 8,
+                          ),
+                          minimumSize: const Size(0, 36),
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          textStyle: MobileTheme.hintStyleOf(context),
+                        ),
                         child: Text(state.tr('清除', 'Clear')),
                       ),
                     ],
@@ -598,14 +612,14 @@ class _ChatsTabState extends State<ChatsTab> {
                 child: ListView(
                   key: const ValueKey('conversation-navigation-list'),
                   children: [
-                    ..._navigationRows(projects, bots, home, groups),
-                    if (projects.isEmpty && home.isEmpty && bots.isEmpty)
+                    ..._navigationRows(projects, bots, groups),
+                    if (projects.isEmpty && bots.isEmpty)
                       _emptyNote(state, desktopId),
                   ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
                 child: Row(
                   children: [
                     Expanded(
@@ -649,7 +663,6 @@ class _ChatsTabState extends State<ChatsTab> {
                   current?.title ?? state.tr('新对话', 'New conversation'),
               projectUnavailable: project == null,
               onOpenNavigation: _openNavigation,
-              onOpenFiles: () => _openFiles(project),
               onNewConversation: () => _showNew(),
               onCloseConversation: current == null ? null : _back,
               onSessionCreated: (session) =>
@@ -699,6 +712,7 @@ class _ChatsTabState extends State<ChatsTab> {
                     onPressed: targetProject == null ? null : () => _showNew(),
                   ),
                   IconButton(
+                    key: const ValueKey('chat-open-files'),
                     tooltip: state.tr('文件', 'Files'),
                     icon: const LucideIcon('folder', size: 22),
                     onPressed: () => _openFiles(null),
@@ -722,24 +736,24 @@ class _ChatsTabState extends State<ChatsTab> {
   static ButtonStyle _softButton(BuildContext context) =>
       IconButton.styleFrom(
         fixedSize: const Size.square(36),
+        padding: EdgeInsets.zero,
+        // 点击区域不再外扩，36 的圆就是布局宽度，右缘才和搜索框、时间对齐。
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
       );
 
-  Widget _sessionRow(AppState state, SessionRef ref, {bool favorite = false}) =>
-      projectSessionRow(
-        context,
-        state,
-        ref,
-        key: ValueKey(
-          '${favorite ? 'home' : 'session'}-${ref.desktopId}-${ref.session.id}',
-        ),
-        compact: true,
-        favorite: favorite,
-        selected: _conversation?.desktop == ref.desktopId &&
-            _conversation?.session == ref.session.id,
-        onTap: () => _showSession(ref),
-      );
+  Widget _sessionRow(AppState state, SessionRef ref) => projectSessionRow(
+    context,
+    state,
+    ref,
+    key: ValueKey('session-${ref.desktopId}-${ref.session.id}'),
+    compact: true,
+    selected: _conversation?.desktop == ref.desktopId &&
+        _conversation?.session == ref.session.id,
+    divider: false,
+    onTap: () => _showSession(ref),
+  );
 
   Widget _projectRow(AppState state, ConversationProject item) {
     final ref = item.ref;
@@ -757,32 +771,53 @@ class _ChatsTabState extends State<ChatsTab> {
             key: ValueKey('project-fold-${ref.desktopId}-${ref.project.id}'),
             compact: true,
             titleBold: false,
+            divider: false,
             leading: waitingAvatar(
               state,
               ProjectIconView(state: state, ref: ref, size: 22),
-              notOnHome(state, sessions),
+              sessions,
             ),
-            title: ref.project.name,
+            title: projectRowTitle(ref),
             aside: ref.project.pinned == true
                 ? const LucideIcon('pin', size: 16)
                 : null,
+            // 尾部元素不再自带左右留白：右缘和搜索框、时间同一条边线。
             trailing: collapsed
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      '${sessions.length}',
-                      key: ValueKey('project-count-${ref.desktopId}-${ref.project.id}'),
+                ? Text(
+                    '${sessions.length}',
+                    key: ValueKey(
+                      'project-count-${ref.desktopId}-${ref.project.id}',
                     ),
                   )
                 : IconButton(
-                    key: ValueKey('project-new-${ref.desktopId}-${ref.project.id}'),
+                    key: ValueKey(
+                      'project-new-${ref.desktopId}-${ref.project.id}',
+                    ),
                     tooltip: state.tr('新对话', 'New conversation'),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 28,
+                      height: 28,
+                    ),
+                    style: IconButton.styleFrom(
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                     icon: const LucideIcon('plus', size: 20),
                     onPressed: () => _showNew(ref),
                   ),
             onTap: () => _toggleGroup(key),
           ),
         ),
+        // 折叠时给这一组一条分割线，左右与搜索框、时间同一条边线。
+        if (collapsed)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Divider(
+              height: 1,
+              key: ValueKey('project-divider-${ref.desktopId}-${ref.project.id}'),
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
         if (!collapsed) ..._sessionChildren(key, sessions),
         if (!collapsed && sessions.isEmpty)
           Padding(
@@ -799,27 +834,42 @@ class _ChatsTabState extends State<ChatsTab> {
 
   List<Widget> _sessionChildren(
     (String, String, String) key,
-    List<SessionRef> sessions, {
-    bool favorite = false,
-  }) {
+    List<SessionRef> sessions,
+  ) {
     final state = widget.state;
     final all = _showAll.contains(key);
     return [
       for (final ref in all ? sessions : sessions.take(5))
-        _sessionRow(state, ref, favorite: favorite),
+        _sessionRow(state, ref),
       if (sessions.length > 5)
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            key: ValueKey('${key.$1 == 'project' ? 'project' : 'group'}-more-${key.$2}-${key.$3}'),
-            onPressed: () => setState(() {
-              if (!_showAll.remove(key)) _showAll.add(key);
-            }),
-            child: Text(
-              all
-                  ? state.tr('收起过多对话', 'Show fewer conversations')
-                  : state.tr('展开剩余 ${sessions.length - 5} 条',
-                      'Show ${sessions.length - 5} more'),
+        Padding(
+          // 与搜索框、会话行同一条左边界。
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              key: ValueKey(
+                '${key.$1 == 'project' ? 'project' : 'group'}-more-${key.$2}-${key.$3}',
+              ),
+              onPressed: () => setState(() {
+                if (!_showAll.remove(key)) _showAll.add(key);
+              }),
+              // 和「按状态」「按更新日期」同一档字号，用主题金而不是绿色。
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 0,
+                  vertical: 8,
+                ),
+                minimumSize: const Size(0, 36),
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                textStyle: MobileTheme.hintStyleOf(context),
+              ),
+              child: Text(
+                all
+                    ? state.tr('收起过多对话', 'Show fewer conversations')
+                    : state.tr('展开剩余 ${sessions.length - 5} 条',
+                        'Show ${sessions.length - 5} more'),
+              ),
             ),
           ),
         ),
@@ -830,25 +880,22 @@ class _ChatsTabState extends State<ChatsTab> {
     (String, String, String) key,
     String title,
     String icon,
-    List<SessionRef> sessions, {
-    bool favorite = false,
-  }) => Column(
+    List<SessionRef> sessions,
+  ) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       ListRow(
         key: ValueKey('conversation-group-${key.$1}-${key.$3}'),
         compact: true,
         titleBold: false,
+        divider: false,
         leading: LucideIcon(icon, size: 22),
         title: title,
-        trailing: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text('${sessions.length}'),
-        ),
+        trailing: Text('${sessions.length}'),
         onTap: () => _toggleGroup(key),
       ),
       if (!_collapsed.contains(key))
-        ..._sessionChildren(key, sessions, favorite: favorite),
+        ..._sessionChildren(key, sessions),
     ],
   );
 
@@ -866,18 +913,14 @@ class _ChatsTabState extends State<ChatsTab> {
             key: ValueKey('bot-fold-${ref.desktopId}-${ref.bot.id}'),
             compact: true,
             titleBold: false,
+            divider: false,
             leading: Badge(
               isLabelVisible: ref.bot.unread > 0,
               label: Text('${ref.bot.unread}'),
               child: const LucideIcon('bot', size: 22),
             ),
             title: ref.bot.name,
-            trailing: collapsed
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('1'),
-                  )
-                : null,
+            trailing: collapsed ? const Text('1') : null,
             onTap: () => _toggleGroup(key),
           ),
         ),
@@ -903,13 +946,9 @@ class _ChatsTabState extends State<ChatsTab> {
   List<Widget> _navigationRows(
     List<ConversationProject> projects,
     List<BotRef> bots,
-    List<SessionRef> home,
     List<_SessionGroup> groups,
   ) {
     final state = widget.state;
-    final favorites = _filters.copyWith(query: '').sessions(
-      home, state.desktopName,
-    );
     final order = {for (final (index, ref) in bots.indexed) ref.bot.id: index};
     final orderedBots = List.of(bots)..sort((a, b) {
       final pin = (state.botPinned(b) ? 1 : 0) - (state.botPinned(a) ? 1 : 0);
@@ -920,14 +959,6 @@ class _ChatsTabState extends State<ChatsTab> {
       return order[a.bot.id]!.compareTo(order[b.bot.id]!);
     });
     return [
-      if (favorites.isNotEmpty)
-        _sessionGroupRow(
-          ('home', state.selectedDesktopId ?? '', 'favorites'),
-          state.tr('常用对话', 'Favorites'),
-          'pin',
-          favorites,
-          favorite: true,
-        ),
       if (_filters.grouping == ConversationGrouping.project)
         for (final item in projects) _projectRow(state, item)
       else
@@ -1150,6 +1181,20 @@ class ProjectChatsPage extends StatelessWidget {
   );
 }
 
+/// 侧栏里的项目标题：远程项目写成「用户名 · 设备名」，本地就是文件夹名。
+String projectRowTitle(ProjectRef ref) {
+  final id = ref.project.id;
+  if (!id.startsWith('ssh://')) return ref.project.name;
+  final rest = id.substring(6);
+  final slash = rest.indexOf('/');
+  if (slash <= 0) return ref.project.name;
+  final host = rest.substring(0, slash);
+  if (host.startsWith('wsl+')) return ref.project.name;
+  final at = host.indexOf('@');
+  if (at <= 0 || at == host.length - 1) return host;
+  return '${host.substring(0, at)} · ${host.substring(at + 1)}';
+}
+
 /// A conversation in a project's list: in the project's page, the home list
 /// filtered to the project, and under a project unfolded there.
 Widget projectSessionRow(
@@ -1159,11 +1204,9 @@ Widget projectSessionRow(
   Key? key,
   VoidCallback? onTap,
   bool compact = false,
-  bool favorite = false,
   bool selected = false,
+  bool divider = true,
 }) {
-  // 放到首页的：提醒在首页那行，这里只灰着标出来。
-  final home = state.onHome(ref);
   final flags = statusFlags(context, state, [ref], counted: false);
   return SessionPressRow(
     key: key ?? ValueKey('session-${ref.desktopId}-${ref.session.id}'),
@@ -1173,65 +1216,41 @@ Widget projectSessionRow(
       compact: compact,
       titleBold: false,
       highlighted: selected,
+      divider: divider,
       leading: compact
           ? Center(
-              // 选中的对话前面换成像素点阵标记；其余仍是状态小圆点。
-              child: selected
-                  ? const PixelMark(size: 14)
-                  : Tooltip(
-                      message: !state.isOnline(ref.desktopId)
-                          ? linkStatusLabel(
-                              state,
-                              state.linkStatus(ref.desktopId),
-                            )
-                          : flags.firstOrNull?.$1 ?? state.tr('空闲', 'Idle'),
-                      child: Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: flags.firstOrNull?.$2 ??
-                              Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
+              // 状态小圆点，按状态换颜色；选中的更实一点。
+              child: Tooltip(
+                message: !state.isOnline(ref.desktopId)
+                    ? linkStatusLabel(state, state.linkStatus(ref.desktopId))
+                    : flags.firstOrNull?.$1 ?? state.tr('空闲', 'Idle'),
+                child: Container(
+                  width: selected ? 9 : 7,
+                  height: selected ? 9 : 7,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: flags.firstOrNull?.$2 ??
+                        Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             )
-          : home
-          ? homeWaitingDot(context, state, ref, LetterAvatar(ref.session.title))
           : waitingAvatar(state, LetterAvatar(ref.session.title), [ref]),
       title: ref.session.title,
-      note: !compact && home ? state.tr('常用', 'Favorite') : null,
+      note: null,
       aside: compact ? null : modelTag(context, state, ref),
-      flags: compact
-          ? const []
-          : home
-          ? [
-              for (final (label, _) in flags)
-                (label, Theme.of(context).hintColor),
-            ]
-          : flags,
-      subtitle: compact
-          ? favorite
-                ? state.projects
-                        .where((p) => p.desktopId == ref.desktopId &&
-                            p.project.id == ref.session.project)
-                        .firstOrNull?.project.name ?? ref.session.project
-                : null
-          : lastLine(state, ref),
+      flags: compact ? const [] : flags,
+      subtitle: compact ? null : lastLine(state, ref),
       time: _sessionTime(state, ref.session.updatedAt),
       status: compact
           ? null
           : ref.session.pinned
           ? const LucideIcon('pin', size: 16)
-          : selected
-          ? const LucideIcon('check', size: 16)
           : null,
       trailing: !compact
           ? null
           : ref.session.pinned
           ? const LucideIcon('pin', size: 16)
-          : selected
-          ? const LucideIcon('check', size: 16)
           : null,
       onTap: onTap ?? () => openPage<void>(
         context,
@@ -1264,32 +1283,6 @@ Widget waitingAvatar(
     child: avatar,
   );
 }
-
-/// [avatar] with a grey dot when [ref] waits on the user: the red count is
-/// on the conversation's own row on the home list, this only points there.
-/// In a project's list the row carries the 首页 tag, so a red count here
-/// would read as work to do in the project, and two counts would disagree.
-Widget homeWaitingDot(
-  BuildContext context,
-  AppState state,
-  SessionRef ref,
-  Widget avatar,
-) {
-  final counts = state.countByStatus([ref]);
-  final waiting = counts.needsInput + counts.done;
-  return Badge(
-    key: ValueKey('home-waiting-dot-${ref.desktopId}-${ref.session.id}'),
-    isLabelVisible: waiting > 0,
-    smallSize: 7,
-    backgroundColor: Theme.of(context).hintColor,
-    child: avatar,
-  );
-}
-
-/// The conversations [project] stands for on the home list: those put on
-/// the home list have rows of their own, and are counted there instead.
-Iterable<SessionRef> notOnHome(AppState state, Iterable<SessionRef> project) =>
-    project.where((ref) => !state.onHome(ref));
 
 String _sessionTime(AppState state, DateTime date, [DateTime? now]) =>
     relativeTimeText(state, date, now: now);
@@ -1367,53 +1360,4 @@ Widget? modelTag(BuildContext context, AppState state, SessionRef ref) {
       Flexible(child: Text(modelShortName(model.id, model.label))),
     ],
   );
-}
-
-/// 选中对话前面的像素点阵：3×3 小方块，静态绘制，不驱动帧。
-class PixelMark extends StatelessWidget {
-  const PixelMark({super.key, this.size = 14, this.color});
-
-  final double size;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) => SizedBox.square(
-    key: const ValueKey('session-pixel-mark'),
-    dimension: size,
-    child: CustomPaint(
-      painter: _PixelMarkPainter(
-        color ?? Theme.of(context).colorScheme.onSurface,
-      ),
-    ),
-  );
-}
-
-class _PixelMarkPainter extends CustomPainter {
-  const _PixelMarkPainter(this.color);
-
-  final Color color;
-
-  static const _alpha = [1.0, .55, .25, .55, 1.0, .55, .25, .55, 1.0];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cell = size.width / 3;
-    final gap = cell * .18;
-    final paint = Paint();
-    for (var i = 0; i < 9; i++) {
-      paint.color = color.withValues(alpha: _alpha[i]);
-      final left = (i % 3) * cell;
-      final top = (i ~/ 3) * cell;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(left + gap / 2, top + gap / 2, cell - gap, cell - gap),
-          Radius.circular(cell * .18),
-        ),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_PixelMarkPainter old) => old.color != color;
 }

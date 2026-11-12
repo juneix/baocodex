@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'dropdown_panel.dart';
 
 class PressMenuItem {
-  const PressMenuItem(this.label, this.onSelected);
+  const PressMenuItem(this.label, this.onSelected, {this.color});
 
   final String label;
   final VoidCallback onSelected;
+
+  /// 危险或需谨慎的操作用不同颜色，如删除的红、移除的黄。
+  final Color? color;
 }
 
 /// 长按 [child] 时高亮这一行，并在手指处弹出菜单；下方放不下时翻到上方。
@@ -35,7 +38,10 @@ class _PressMenuRowState extends State<PressMenuRow> {
     final picked = await showMenuPanelAt<PressMenuItem>(
       context,
       details.globalPosition,
-      [for (final item in widget.items) MenuPanelItem(item, item.label)],
+      [
+        for (final item in widget.items)
+          MenuPanelItem(item, item.label, color: item.color),
+      ],
     );
     if (mounted) setState(() => _open = false);
     picked?.onSelected();

@@ -64,7 +64,8 @@ void main() {
     expect(tester.widget<Scaffold>(find.byType(Scaffold).first).bottomNavigationBar, isNull);
     expect(tester.widget<ChatPage>(find.byType(ChatPage)).sessionId, isNull);
     expect(find.byTooltip('新对话'), findsOneWidget);
-    expect(find.byKey(const ValueKey('chat-open-files')), findsOneWidget);
+    // 顶栏右侧只有一个胶囊：新对话和二级菜单，不再单独放文件按钮。
+    expect(find.byKey(const ValueKey('chat-open-session-menu')), findsOneWidget);
     expect(find.text('今天想做点什么？'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -134,7 +135,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(find.byType(TextField).first).controller!.text,
         '保留这份草稿');
-    await tester.tap(find.byKey(const ValueKey('chat-open-files')));
+    // 文件从会话抽屉的快捷入口进。
+    await tester.tap(find.byKey(const ValueKey('chat-open-session-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('session-menu-files')));
     await tester.pumpAndSettle();
     expect(find.byType(FilesPage), findsOneWidget);
     await tester.binding.handlePopRoute();

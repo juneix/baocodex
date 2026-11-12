@@ -1,10 +1,10 @@
 // YCode — GPL-3.0-only.
 import 'package:flutter/material.dart';
 
-import '../../theme/app_theme.dart';
 import '../widgets/lucide_icon.dart';
 
-/// Send affordance for the standard chat composer.
+/// Send affordance for the standard chat composer: the gold icon itself, no
+/// extra round background — the composer is already a surface.
 class ChatComposerAction extends StatelessWidget {
   const ChatComposerAction({
     super.key,
@@ -25,26 +25,24 @@ class ChatComposerAction extends StatelessWidget {
     Widget icon() {
       if (busy) {
         return const SizedBox(
-          width: 16,
-          height: 16,
+          width: 18,
+          height: 18,
           child: CircularProgressIndicator(strokeWidth: 2),
         );
       }
-      return const LucideIcon('circle-arrow-up', size: 22);
+      return const LucideIcon('circle-arrow-up', size: 20);
     }
 
-    return IconButton.filled(
+    return IconButton(
       tooltip: tooltip,
       onPressed: enabled ? onSend : null,
       style: IconButton.styleFrom(
-        fixedSize: const Size.square(34),
-        minimumSize: const Size.square(34),
+        fixedSize: const Size.square(32),
+        minimumSize: const Size.square(32),
         padding: EdgeInsets.zero,
-        // 黑金：浅金底、黑图标。
-        backgroundColor: MobileAccent.goldFill,
-        foregroundColor: MobileAccent.goldInk,
-        disabledBackgroundColor: scheme.onSurfaceVariant.withValues(alpha: .14),
-        disabledForegroundColor: scheme.onSurfaceVariant.withValues(alpha: .7),
+        backgroundColor: Colors.transparent,
+        // 主题色直接落在图标上：黑金是浅金，禁用时退成灰。
+        foregroundColor: enabled ? scheme.primary : scheme.onSurfaceVariant,
       ),
       icon: icon(),
     );

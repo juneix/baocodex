@@ -90,7 +90,7 @@ void main() {
         find.byKey(const ValueKey('project-actions-a-same')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('删除该项目'));
+      await tester.tap(find.text('移除'));
       await tester.pumpAndSettle();
     }
 
@@ -123,7 +123,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('置顶'), findsNothing);
-    await tester.tap(find.text('删除该项目'));
+    await tester.tap(find.text('移除'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, '移除'));
     await tester.pumpAndSettle();

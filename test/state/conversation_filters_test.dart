@@ -87,7 +87,7 @@ void main() {
     ).projects(projects, sessions, (id) => id);
     expect(result.map((p) => p.ref.project.id), ['ssh://dev/q', 'ssh://dev/p']);
   });
-  test('SSH / WSL 范围同时包含两类远程项目但不含本机', () {
+  test('SSH 范围同时包含两类远程项目但不含本机', () {
     const projects = [
       ProjectRef('a', ProjectInfo(id: 'ssh://dev/p', name: 'ssh', path: '/p')),
       ProjectRef(

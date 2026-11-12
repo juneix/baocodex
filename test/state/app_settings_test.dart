@@ -37,19 +37,24 @@ void main() {
     expect(settings.codeFontSize, 10);
   });
 
-  test('旧首页选择仍作为常用对话与置顶 Bot 按电脑读回', () {
-    final settings = AppSettings()
-      ..homeSessions.add(('desk', 'session'))
-      ..pinnedBots.add(('desk', 'bot'));
+  test('置顶 Bot 按电脑读回，旧首页选择不再保留', () {
+    final settings = AppSettings()..pinnedBots.add(('desk', 'bot'));
     final back = AppSettings.fromJson(
       Map<String, Object?>.from(
         jsonDecode(jsonEncode(settings.toJson())) as Map,
       ),
     );
-    expect(back.homeSessions, {('desk', 'session')});
     expect(back.pinnedBots, {('desk', 'bot')});
-    expect(AppSettings.fromJson({}).homeSessions, isEmpty);
     expect(AppSettings.fromJson({}).pinnedBots, isEmpty);
+    // 旧存储里的常用对话键被忽略，不再有对应功能。
+    expect(
+      AppSettings.fromJson({
+        'homeSessions': [
+          ['desk', 'session'],
+        ],
+      }).toJson().containsKey('homeSessions'),
+      isFalse,
+    );
   });
 
   test('每台电脑的上次项目独立保存并兼容旧设置', () {

@@ -118,42 +118,41 @@ class _ChatEmptyStateState extends State<ChatEmptyState>
       builder: (context, constraints) => SingleChildScrollView(
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          // 内容比屏幕高时由外层滚动，不再用 IntrinsicHeight 硬撑；
-          // 装得下时整块垂直居中。
-          child: Center(
+          // 装得下时整块偏上放置，项目卡片落在约 40% 高度处；
+          // 装不下就交给外层滚动，不用 IntrinsicHeight 硬撑。
+          child: Align(
+            alignment: const Alignment(0, -.45),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 28, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Bot 保持原来的吉祥物开场；编程对话用应用标志。
-                  if (widget.bot) ...[
-                    Image.asset(
-                      'assets/icons/bot.png',
-                      key: const ValueKey('bot-mascot'),
-                      height: 156,
-                      fit: BoxFit.contain,
-                      semanticLabel: state.tr('Bot 吉祥物', 'Bot mascot'),
-                      errorBuilder: (_, _, _) => const SizedBox(
-                        height: 156,
-                        child: Center(child: LucideIcon('bot', size: 72)),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ] else
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 20),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(22),
-                        child: SvgPicture.asset(
-                          'assets/icons/baocodex.svg',
-                          key: const ValueKey('chat-logo'),
-                          width: 96,
-                          height: 96,
-                        ),
-                      ),
-                    ),
+                  // 吉祥物居中，比之前更大。
+                  Center(
+                    child: widget.bot
+                        ? Image.asset(
+                            'assets/icons/bot.png',
+                            key: const ValueKey('bot-mascot'),
+                            height: 176,
+                            fit: BoxFit.contain,
+                            semanticLabel: state.tr('Bot 吉祥物', 'Bot mascot'),
+                            errorBuilder: (_, _, _) => const SizedBox(
+                              height: 176,
+                              child: Center(child: LucideIcon('bot', size: 88)),
+                            ),
+                          )
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(26),
+                            child: SvgPicture.asset(
+                              'assets/icons/baocodex.svg',
+                              key: const ValueKey('chat-logo'),
+                              width: 132,
+                              height: 132,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(height: 20),
                   Text(
                     _greeting(),
                     key: const ValueKey('chat-greeting'),
@@ -174,145 +173,128 @@ class _ChatEmptyStateState extends State<ChatEmptyState>
                     ),
                   ],
                   if (widget.project case final project?) ...[
-                    const SizedBox(height: 28),
-                    // 项目选择框在页面正中，不拉满整行。
-                    Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 420),
-                        child: Material(
-                          color: colors.surfaceContainerLowest,
-                          borderRadius: BorderRadius.circular(MobileSizes.radius),
-                          clipBehavior: Clip.antiAlias,
-                          child: Builder(
-                            builder: (anchor) => InkWell(
-                              key: const ValueKey('new-chat-project'),
-                              onTap: widget.onSwitchProject == null
-                                  ? null
-                                  : () => widget.onSwitchProject!(anchor),
-                              child: Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: Row(
-                                  children: [
-                                    LucideIcon(
-                                      'folder',
-                                      size: 28,
-                                      color: colors.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            project.project.name,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleMedium,
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            shortPath(project.project.path),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: MobileTheme.hintStyleOf(
-                                              context,
-                                            ),
-                                          ),
-                                        ],
+                    const SizedBox(height: 24),
+                    // 项目选择框与输入区同一条左右边线。
+                    Material(
+                      color: colors.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(MobileSizes.radius),
+                      clipBehavior: Clip.antiAlias,
+                      child: Builder(
+                        builder: (anchor) => InkWell(
+                          key: const ValueKey('new-chat-project'),
+                          onTap: widget.onSwitchProject == null
+                              ? null
+                              : () => widget.onSwitchProject!(anchor),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Row(
+                              children: [
+                                LucideIcon(
+                                  'folder',
+                                  size: 28,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        project.project.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium,
                                       ),
-                                    ),
-                                    if (widget.onSwitchProject != null) ...[
-                                      const SizedBox(width: 8),
-                                      LucideIcon(
-                                        'chevrons-up-down',
-                                        size: 20,
-                                        color: colors.onSurfaceVariant,
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        shortPath(project.project.path),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: MobileTheme.hintStyleOf(context),
                                       ),
                                     ],
-                                  ],
+                                  ),
                                 ),
-                              ),
+                                if (widget.onSwitchProject != null) ...[
+                                  const SizedBox(width: 8),
+                                  LucideIcon(
+                                    'chevrons-up-down',
+                                    size: 20,
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 28),
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (final (index, pick) in picks.indexed)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: TextButton(
-                                onPressed: widget.canSuggest
-                                    ? () => widget.onSuggestion(
-                                        state.tr(pick.$1, pick.$2),
-                                      )
-                                    : null,
-                                style: TextButton.styleFrom(
-                                  foregroundColor: colors.onSurface,
-                                  // 相邻两条底色略深/略浅交替，和参考图一致。
-                                  backgroundColor: index.isEven
-                                      ? colors.surfaceContainerLowest
-                                      : colors.surfaceContainerHighest,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 10,
-                                  ),
-                                  alignment: Alignment.centerLeft,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    LucideIcon(
-                                      pick.$3,
-                                      size: 16,
-                                      color: colors.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        state.tr(pick.$1, pick.$2),
-                                        softWrap: true,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          TextButton.icon(
-                            key: const ValueKey('refresh-suggestions'),
-                            onPressed: () => setState(
-                              () => _batch = (_batch + 3) % pool.length,
-                            ),
-                            style: TextButton.styleFrom(
-                              foregroundColor: colors.onSurfaceVariant,
-                              backgroundColor: colors.surfaceContainerLowest,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            icon: const LucideIcon('refresh-cw', size: 16),
-                            label: Text(state.tr('换一换', 'Try others')),
+                  const SizedBox(height: 24),
+                  // 建议框整行铺满，左边缘固定：换一换不会改变位置。
+                  // 三条统一白底，不交替深浅，也不像被选中。
+                  for (final pick in picks)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: TextButton(
+                        onPressed: widget.canSuggest
+                            ? () => widget.onSuggestion(
+                                state.tr(pick.$1, pick.$2),
+                              )
+                            : null,
+                        style: TextButton.styleFrom(
+                          foregroundColor: colors.onSurface,
+                          backgroundColor: colors.surfaceContainerLowest,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
                           ),
-                        ],
+                          alignment: Alignment.centerLeft,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            LucideIcon(
+                              pick.$3,
+                              size: 16,
+                              color: colors.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                state.tr(pick.$1, pick.$2),
+                                softWrap: true,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                    ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: const ValueKey('refresh-suggestions'),
+                      onPressed: () =>
+                          setState(() => _batch = (_batch + 3) % pool.length),
+                      style: TextButton.styleFrom(
+                        foregroundColor: colors.onSurfaceVariant,
+                        // 换一换用浅灰，和上面三条白底建议区分开。
+                        backgroundColor: colors.surfaceContainerHighest,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const LucideIcon('refresh-cw', size: 16),
+                      label: Text(state.tr('换一换', 'Try others')),
                     ),
                   ),
                 ],

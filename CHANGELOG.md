@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.5
+
+Black-gold palette everywhere, cleaner sidebars, and a tidier composer.
+
+- The default accent is black-gold (the desktop's): pale-gold fills with black icons for the primary actions, white circles and pills for the secondary ones, over the gray page. A stored green from an older build migrates to it.
+- New-conversation screen: the app mark sits above a greeting that uses the profile name; the project card and the three suggestions share one left edge, and the suggestions are plain white with a gray Try others below.
+- Composer: the model name sits next to the plus and ellipsizes when long; Send and Stop are theme-colored icons without their own round backgrounds, sized to match the text.
+- Sidebar: the project's colored icon is back (no folder badge), the selected conversation is a pale-gold row, search is an outlined pill, conversation titles are not bold, dividers are gone, times line up in a fixed column, and SSH projects read as user · host.
+- Long-press menus: a project offers Pin and Remove (amber, since the folder stays); a conversation offers Pin, Rename, Archive and Delete (red). Favorites are removed.
+- All bottom sheets keep a safe margin and one of three shared heights; filtering, choosing a desktop and choosing a project rise from the bottom.
+- Device footer uses monitor-smartphone and a plain LAN / Relay line without latency; the desktop and project pickers highlight the current choice in pale gold.
+
 ## 1.0.4
 
 Black-gold look, reworked navigation and input, and a smoother first screen.

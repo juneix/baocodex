@@ -117,7 +117,7 @@ class _SwitcherChevron extends StatelessWidget {
       isLabelVisible: othersWaiting,
       smallSize: 7,
       child: LucideIcon(
-        'chevron-down',
+        'chevrons-up-down',
         size: 16,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
@@ -166,7 +166,7 @@ class DesktopSwitcherTitle extends StatelessWidget {
               children: [
                 LucideIcon(
                   'monitor-smartphone',
-                  size: 20,
+                  size: 26,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: MobileSpace.sm),
@@ -658,15 +658,19 @@ class _DeviceRow extends StatelessWidget {
     final theme = Theme.of(context);
     final status = this.status;
     return Padding(
+      // 8 + 8：整行内容左缘与弹层标题、其它弹窗的 16 对齐。
       padding: const EdgeInsets.symmetric(
-        horizontal: MobileSpace.md,
+        horizontal: MobileSpace.sm,
         vertical: MobileSpace.xs,
       ),
       child: Semantics(
         selected: selected,
         child: Material(
+          // 选中的电脑和侧栏选中的对话一样：浅金圆角高亮，不用灰块。
           color: selected
-              ? theme.colorScheme.surfaceContainerHighest
+              ? (theme.brightness == Brightness.dark
+                    ? MobileAccent.goldFill.withValues(alpha: .22)
+                    : MobileAccent.goldFill.withValues(alpha: .55))
               : Colors.transparent,
           borderRadius: BorderRadius.circular(MobileSizes.radius),
           clipBehavior: Clip.antiAlias,
@@ -679,7 +683,7 @@ class _DeviceRow extends StatelessWidget {
                     constraints: const BoxConstraints(minHeight: 64),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: MobileSpace.lg,
+                        horizontal: MobileSpace.sm,
                         vertical: MobileSpace.sm,
                       ),
                       child: Row(

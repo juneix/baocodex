@@ -602,18 +602,11 @@ extension _Composer on _ChatPageState {
     ),
   );
 
-  /// 输入栏次要按钮的白色圆形浮层。
-  ButtonStyle _softCircle(BuildContext context) => IconButton.styleFrom(
-    fixedSize: const Size.square(34),
-    backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-    foregroundColor: Theme.of(context).colorScheme.onSurface,
-  );
-
   /// 运行中的独立停止操作，不因输入或排队消息而消失。
   Widget _stopAction({required double size}) => StopActionButton(
     busy: _commandBusy,
     size: size,
-    iconSize: 22,
+    iconSize: 20,
     tooltip: _commandBusy
         ? tr('正在停止…', 'Stopping…')
         : tr('停止生成', 'Stop generation'),
@@ -761,7 +754,7 @@ extension _Composer on _ChatPageState {
       children: [
         if (bot && live) BotWorkingLine(tr: tr, since: _turnStart(buffer)),
         Container(
-          padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -860,9 +853,13 @@ extension _Composer on _ChatPageState {
       child: IconButton(
         key: const ValueKey('composer-add'),
         tooltip: tr('更多输入选项', 'More input options'),
-        style: _softCircle(context),
+        // 加号属于输入框本身，不再套一层白底圆。
+        style: IconButton.styleFrom(
+          fixedSize: const Size.square(34),
+          foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         onPressed: _sending || _picking ? null : _toggleAdd,
-        icon: const LucideIcon('plus', size: 20),
+        icon: const LucideIcon('plus', size: 18),
       ),
     );
     Widget contextUsage() => usage == null
@@ -881,7 +878,7 @@ extension _Composer on _ChatPageState {
         final actions = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (live) _stopAction(size: 36),
+            if (live) _stopAction(size: 32),
             if (!live || hasDraft || _sending)
               Padding(
                 padding: const EdgeInsets.only(left: 4, right: 8),
@@ -894,16 +891,15 @@ extension _Composer on _ChatPageState {
               ),
           ],
         );
-        // 模型紧挨加号，上下文和发送靠右；模型名用省略号让出宽度。
+        // 左：加号 + 模型（可省略）；中：留白；右：上下文与发送/停止。
+        // 左侧与留白 5 : 2 弹性分配，右侧按内容取宽：360dp 下无上下文环
+        // 约 55% / 20% / 25%，有环约 50% / 18% / 32%，窄屏先压模型名。
         return Row(
           children: [
             add,
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: _modelButton(ready),
-              ),
-            ),
+            const SizedBox(width: 2),
+            Expanded(flex: 5, child: _modelButton(ready)),
+            const Spacer(flex: 2),
             contextUsage(),
             actions,
           ],
@@ -976,8 +972,9 @@ extension _Composer on _ChatPageState {
                                   width: tile,
                                   height: tile,
                                   decoration: BoxDecoration(
-                                    color: scheme.surfaceContainerLowest,
-                                    borderRadius: BorderRadius.circular(14),
+                                    // 弹层本身已是白底，图标块要比它深一档才看得见。
+                                    color: scheme.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Center(
                                     child: LucideIcon(icon, size: tile * .44,
@@ -997,65 +994,69 @@ extension _Composer on _ChatPageState {
                     ),
                 ],
               ),
-              // 权限和模式同一行，左右与相册、命令两个图标的外缘对齐。
+              // 权限和模式各占一行，左右与相册、命令两个图标的外缘对齐。
               if (!bot &&
-                  ((permission?.options.isNotEmpty ?? false) ||
-                      (mode?.options.isNotEmpty ?? false))) ...[
+                  permission != null &&
+                  permission.options.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Padding(
-                  // 第一列的图标左缘和最后一列的图标右缘，各让进 (width-tile)/2。
+                  padding: EdgeInsets.symmetric(
+                    horizontal: math.max(0, (width - tile) / 2),
+                  ),
+                  child: _settingRow(permission, ready),
+                ),
+              ],
+              if (!bot && mode != null && mode.options.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: math.max(0, (width - tile) / 2),
                   ),
                   child: Row(
                     children: [
-                      if (permission != null && permission.options.isNotEmpty)
-                        Expanded(
-                          flex: 3,
-                          child: _settingRow(permission, ready),
-                        ),
-                      if (mode != null && mode.options.isNotEmpty) ...[
-                        const SizedBox(width: 12),
-                        Flexible(
-                          flex: 4,
-                          child: IgnorePointer(
-                            ignoring: !ready || _commandBusy,
-                            child: SegmentBar<String>(
-                              key: const ValueKey('composer-mode'),
-                              values: [
-                                for (final option in mode.options) option.id,
-                              ],
-                              selected: mode.selected ?? '',
-                              label: (id) => _choicePresentation(
-                                'mode',
-                                mode.options.firstWhere(
-                                  (option) => option.id == id,
-                                ),
-                              ).$1,
-                              onSelected: (option) {
-                                if (!mounted ||
-                                    !ready ||
-                                    !_online ||
-                                    _commandBusy ||
-                                    !_hasSession ||
-                                    _sessionId != session ||
-                                    _binding.generation != generation) {
-                                  return;
-                                }
-                                runUi(
-                                  context,
-                                  () => _command(LinkMethods.choose, {
-                                    'kind': 'mode',
-                                    'option': option,
-                                  }),
-                                  errorMessage: (error) =>
-                                      userMessage(widget.state, error),
-                                );
-                              },
-                            ),
+                      Text(
+                        tr('模式', 'Mode'),
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: IgnorePointer(
+                          ignoring: !ready || _commandBusy,
+                          child: SegmentBar<String>(
+                            key: const ValueKey('composer-mode'),
+                            values: [
+                              for (final option in mode.options) option.id,
+                            ],
+                            selected: mode.selected ?? '',
+                            label: (id) => _choicePresentation(
+                              'mode',
+                              mode.options.firstWhere(
+                                (option) => option.id == id,
+                              ),
+                            ).$1,
+                            onSelected: (option) {
+                              if (!mounted ||
+                                  !ready ||
+                                  !_online ||
+                                  _commandBusy ||
+                                  !_hasSession ||
+                                  _sessionId != session ||
+                                  _binding.generation != generation) {
+                                return;
+                              }
+                              runUi(
+                                context,
+                                () => _command(LinkMethods.choose, {
+                                  'kind': 'mode',
+                                  'option': option,
+                                }),
+                                errorMessage: (error) =>
+                                    userMessage(widget.state, error),
+                              );
+                            },
                           ),
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),

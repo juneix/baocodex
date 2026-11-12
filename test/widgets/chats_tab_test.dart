@@ -212,6 +212,14 @@ void main() {
     expect(find.byType(ProjectChatsPage), findsNothing);
     expect(find.text('审批任务'), findsNothing);
     expect(find.byKey(const ValueKey('project-count-在线-p')), findsOneWidget);
+    // 折叠时这一组有一条分割线，左右各留 16，不贴着边缘。
+    final divider = find.byKey(const ValueKey('project-divider-在线-p'));
+    expect(divider, findsOneWidget);
+    final width = tester.getSize(
+      find.byKey(const ValueKey('conversation-drawer')),
+    ).width;
+    expect(tester.getRect(divider).left, closeTo(16, 1));
+    expect(tester.getRect(divider).right, closeTo(width - 16, 1));
     expect(state.calls, isEmpty);
     await tester.tap(find.byKey(const ValueKey('project-fold-在线-p')));
     await tester.pump();
@@ -355,7 +363,7 @@ void main() {
     expect(state.calls, isEmpty);
   });
 
-  testWidgets('选中的对话用浅金圆角高亮和像素点阵标记', (tester) async {
+  testWidgets('选中的对话用浅金圆角高亮，左侧仍是状态圆点', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     await _mount(tester, state);
@@ -364,7 +372,6 @@ void main() {
     await tester.pumpAndSettle();
     await _drawer(tester);
     final row = find.byKey(const ValueKey('session-在线-会话甲'));
-    expect(find.descendant(of: row, matching: find.byKey(const ValueKey('session-pixel-mark'))), findsOneWidget);
     final tiles = tester.widgetList<Material>(
       find.descendant(of: row, matching: find.byType(Material)),
     );
@@ -372,6 +379,11 @@ void main() {
     expect(
       tiles.any((tile) => tile.color != null && tile.color!.r > tile.color!.b),
       isTrue,
+    );
+    // 不再用对勾标记选中。
+    expect(
+      find.descendant(of: row, matching: find.byIcon(Icons.check)),
+      findsNothing,
     );
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -396,22 +408,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('旧首页选择成为常用，移除常用不删除项目内会话', (tester) async {
-    final state = _State()..settings.homeSessions.add(('在线', '会话甲'));
-    addTearDown(state.dispose);
-    await _mount(tester, state);
-    await _drawer(tester);
-    final favorite = find.byKey(const ValueKey('home-在线-会话甲'));
-    await tester.longPress(favorite);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('从常用移除'));
-    await tester.pumpAndSettle();
-    expect(favorite, findsNothing);
-    expect(find.byKey(const ValueKey('session-在线-会话甲')), findsOneWidget);
-    expect(state.settings.homeSessions, isEmpty);
-    expect(state.calls, isEmpty);
-  });
-
   testWidgets('辅助筛选不再提供第二套项目选择，也不发送请求', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
@@ -419,7 +415,7 @@ void main() {
     await _drawer(tester);
     await tester.tap(find.byTooltip('筛选对话'));
     await tester.pumpAndSettle();
-    expect(find.text('SSH / WSL'), findsOneWidget);
+    expect(find.text('SSH'), findsWidgets);
     expect(find.text('全部项目'), findsNothing);
     await tester.tap(find.text('进行中'));
     await tester.pump();

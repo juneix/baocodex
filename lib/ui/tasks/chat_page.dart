@@ -78,14 +78,12 @@ class ChatPage extends StatefulWidget {
     this.active = true,
     this.onSwitchProject,
     this.onOpenNavigation,
-    this.onOpenFiles,
     this.onNewConversation,
     this.onCloseConversation,
     this.onSessionCreated,
   });
   final bool projectUnavailable, active;
   final VoidCallback? onOpenNavigation,
-      onOpenFiles,
       onNewConversation,
       onCloseConversation;
   final ValueChanged<String>? onSessionCreated;
@@ -760,7 +758,7 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                     row(
                       'delete',
-                      tr('删除对话', 'Delete conversation'),
+                      tr('删除', 'Delete'),
                       'trash-2',
                       enabled: _online,
                       destructive: true,
@@ -1289,17 +1287,22 @@ class _ChatPageState extends State<ChatPage> {
             .toDouble(),
     centerTitle: false,
     titleSpacing: 4,
+    // 顶栏两侧与内容区、输入区同一条边线。
+    leadingWidth: widget.onOpenNavigation != null ? 52 : null,
     leading: widget.onOpenNavigation != null
-        ? Center(
-            child: IconButton(
-              tooltip: tr('项目与对话', 'Projects and conversations'),
-              style: _roundButton(context),
-              icon: const LucideIcon('menu', size: 20),
-              onPressed: () {
-                _composerFocus.unfocus();
-                _closeAdd();
-                widget.onOpenNavigation!();
-              },
+        ? Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Center(
+              child: IconButton(
+                tooltip: tr('项目与对话', 'Projects and conversations'),
+                style: _circleButton(context),
+                icon: const LucideIcon('menu', size: 20),
+                onPressed: () {
+                  _composerFocus.unfocus();
+                  _closeAdd();
+                  widget.onOpenNavigation!();
+                },
+              ),
             ),
           )
         : widget.botId == null
@@ -1341,89 +1344,86 @@ class _ChatPageState extends State<ChatPage> {
               ],
             ),
     ),
+    // 右侧一个胶囊里放「新对话」和「更多」，白底黑图标。
     actions: [
-      if (widget.botId == null && widget.onNewConversation != null)
-        Center(
-          child: IconButton(
-            tooltip: tr('新对话', 'New conversation'),
-            style: _goldPillStyle(),
-            icon: const LucideIcon('message-circle-plus', size: 20),
-            onPressed: _sending ? null : widget.onNewConversation,
-          ),
-        ),
-      if (widget.botId == null && (widget.onOpenFiles != null || _project != null))
-        Center(
-          child: IconButton(
-            key: const ValueKey('chat-open-files'),
-            tooltip: tr('文件', 'Files'),
-            style: _roundButton(context),
-            icon: const LucideIcon('folder', size: 20),
-            onPressed: widget.onOpenFiles ??
-                (_online && _project != null
-                    ? () => openPage<void>(
-                        context,
-                        FilesPage(state: widget.state, project: _project!),
-                      )
-                    : null),
-          ),
-        ),
-      if (bot != null)
-        Center(
-          child: IconButton(
-            tooltip: tr('资料', 'Profile'),
-            style: _pillButtonStyle(context),
-            icon: const LucideIcon('ellipsis', size: 20),
-            onPressed: () => openPage<void>(
-              context,
-              BotProfilePage(state: widget.state, ref: bot, fromChat: true),
+      if (widget.botId != null)
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: Center(
+            child: IconButton(
+              tooltip: tr('资料', 'Profile'),
+              style: _circleButton(context),
+              icon: const LucideIcon('ellipsis', size: 20),
+              onPressed: () => openPage<void>(
+                context,
+                BotProfilePage(state: widget.state, ref: bot!, fromChat: true),
+              ),
             ),
           ),
         )
       else
-        Center(
-          child: IconButton(
-            key: const ValueKey('chat-open-session-menu'),
-            tooltip: tr('更多', 'More'),
-            style: _pillButtonStyle(context),
-            icon: Badge(
-              isLabelVisible: buffer.tasks.any(
-                (task) => task.status == 'running',
-              ),
-              child: const LucideIcon('ellipsis', size: 20),
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: Center(
+            child: _capsule(
+              context,
+              children: [
+                if (widget.onNewConversation != null)
+                  IconButton(
+                    tooltip: tr('新对话', 'New conversation'),
+                    style: _capsuleButton(context),
+                    icon: const LucideIcon('message-circle-plus', size: 20),
+                    onPressed: _sending ? null : widget.onNewConversation,
+                  ),
+                IconButton(
+                  key: const ValueKey('chat-open-session-menu'),
+                  tooltip: tr('更多', 'More'),
+                  style: _capsuleButton(context),
+                  icon: Badge(
+                    isLabelVisible: buffer.tasks.any(
+                      (task) => task.status == 'running',
+                    ),
+                    child: const LucideIcon('ellipsis', size: 20),
+                  ),
+                  onPressed: _openSessionPanel,
+                ),
+              ],
             ),
-            onPressed: _openSessionPanel,
           ),
         ),
     ],
   );
 
-  /// 顶栏次要动作：白底圆形/胶囊浮层，在灰底页面上才立得住。
-  ButtonStyle _roundButton(BuildContext context) =>
+  /// 白底圆形按钮：灰底页面上才立得住。
+  ButtonStyle _circleButton(BuildContext context) =>
       IconButton.styleFrom(
-        fixedSize: const Size.square(34),
+        fixedSize: const Size.square(36),
         padding: EdgeInsets.zero,
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
         shape: const CircleBorder(),
       );
 
-  ButtonStyle _pillButtonStyle(BuildContext context) =>
+  /// 胶囊里的一个动作，不各自带底色。
+  ButtonStyle _capsuleButton(BuildContext context) =>
       IconButton.styleFrom(
-        fixedSize: const Size(52, 34),
+        fixedSize: const Size.square(40),
         padding: EdgeInsets.zero,
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+        backgroundColor: Colors.transparent,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
-        shape: const StadiumBorder(),
+        shape: const CircleBorder(),
       );
 
-  /// 新对话：黑金重点按钮，浅金底黑图标。
-  ButtonStyle _goldPillStyle() => IconButton.styleFrom(
-    fixedSize: const Size(52, 34),
-    padding: EdgeInsets.zero,
-    backgroundColor: MobileAccent.goldFill,
-    foregroundColor: MobileAccent.goldInk,
-    shape: const StadiumBorder(),
-  );
+  /// 一个白底胶囊装下几个动作。
+  Widget _capsule(BuildContext context, {required List<Widget> children}) =>
+      Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Row(mainAxisSize: MainAxisSize.min, children: children),
+      );
 
   Widget _goalTile(BuildContext context, Map<String, Object?> goal) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 12),

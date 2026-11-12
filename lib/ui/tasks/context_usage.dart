@@ -102,7 +102,8 @@ class ContextRing extends StatelessWidget {
       'Context ${usage.percent}% used',
     );
     final ring = SizedBox.square(
-      dimension: 18,
+      // 和模型名、百分比文字同一视觉高度。
+      dimension: 16,
       child: TweenAnimationBuilder<double>(
         tween: Tween(end: usage.fraction),
         duration: const Duration(milliseconds: 400),
@@ -127,8 +128,9 @@ class ContextRing extends StatelessWidget {
         style: TextButton.styleFrom(
           foregroundColor: colors.onSurfaceVariant,
           padding: const EdgeInsets.symmetric(horizontal: 6),
-          minimumSize: const Size(0, 44),
-          textStyle: Theme.of(context).textTheme.labelSmall,
+          minimumSize: const Size(0, 36),
+          // 与模型名同字号，图标和文字才齐平。
+          textStyle: Theme.of(context).textTheme.bodySmall,
         ),
         icon: ring,
         label: Text(

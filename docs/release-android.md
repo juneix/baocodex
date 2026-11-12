@@ -1,6 +1,6 @@
 # BaoCodeX：Android 云构建、签名与发布
 
-应用显示名 **BaoCodeX**，安装包名固定为 `juneix.baocodex`。当前源码版本为 `1.0.4`，只发布 arm64 APK。
+应用显示名 **BaoCodeX**，安装包名固定为 `juneix.baocodex`。当前源码版本为 `1.0.5`，只发布 arm64 APK。
 
 这是独立安装，不覆盖原 YCode 或 YCode Preview，也不自动迁移它们的配对与草稿。保留旧应用，在 BaoCodeX 中重新配对；之后 BaoCodeX 的覆盖更新必须保持同一包名、同一签名和更高版本号。
 
@@ -36,7 +36,7 @@ APK 的静态分析、Flutter 测试、构建、签名与签名校验全部在 G
 
 ## 版本与产物命名
 
-`pubspec.yaml` 的 `version` 只写三段数字，本版 `1.0.4`：
+`pubspec.yaml` 的 `version` 只写三段数字，本版 `1.0.5`：
 
 - 版本号按三段数字比较；新版本递增，如 `1.0.4`。
 - Android 的 `versionCode` 由版本名派生（`major*10000 + minor*100 + patch`，如 `1.0.3 → 10003`），保证覆盖安装递增；不需要手写构建号。

@@ -96,13 +96,10 @@ class StopActionButton extends StatelessWidget {
       constraints: BoxConstraints.tight(Size.square(size)),
       style: IconButton.styleFrom(
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        backgroundColor: enabled
-            ? MobileAccent.goldFill
-            : Theme.of(context).colorScheme.onSurfaceVariant.withValues(
-                alpha: .14,
-              ),
+        // 和发送一样：主题色直接落在图标上，不另加圆底。
+        backgroundColor: Colors.transparent,
         foregroundColor: enabled
-            ? MobileAccent.goldInk
+            ? Theme.of(context).colorScheme.primary
             : Theme.of(context).colorScheme.onSurfaceVariant,
       ),
       icon: busy

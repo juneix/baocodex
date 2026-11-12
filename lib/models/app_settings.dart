@@ -33,9 +33,6 @@ class AppSettings {
   /// conversation: the phone's own, sent as the desktop's Keep.
   bool autoKeep = false;
 
-  /// 常用对话，按 (desktop, session) 保存；保留旧存储键，不改变电脑置顶。
-  Set<(String, String)> homeSessions = {};
-
   /// The bots pinned on the lists, as (desktop, bot): the phone's own choice,
   /// the desktop keeps no pin for a bot.
   Set<(String, String)> pinnedBots = {};
@@ -53,8 +50,10 @@ class AppSettings {
     };
     settings.themeMode =
         ThemeMode.values.asNameMap()[json['theme']] ?? ThemeMode.system;
-    // 'accent' held only the first default (blue), never a choice: read anew.
-    settings.accent = json['accentColor'] as String? ?? 'amber';
+    // 旧版本默认是绿色，存下来的 'green' 多半只是旧默认值；统一读成
+    // 现在的黑金，避免升级后还是一片微信绿。
+    final stored = json['accentColor'] as String?;
+    settings.accent = stored == null || stored == 'green' ? 'amber' : stored;
     settings.desktop = json['desktop'] as String?;
     if (json['lastProjectByDesktop'] case final Map<dynamic, dynamic> projects) {
       settings.lastProjectByDesktop = {
@@ -83,11 +82,6 @@ class AppSettings {
     settings.notificationsAsked = json['notificationsAsked'] == true;
     settings.haptics = json['haptics'] != false;
     settings.autoKeep = json['autoKeepChanges'] == true;
-    settings.homeSessions = {
-      for (final entry in (json['homeSessions'] as List?) ?? const [])
-        if (entry case [final String desktop, final String session])
-          (desktop, session),
-    };
     settings.pinnedBots = {
       for (final entry in (json['pinnedBots'] as List?) ?? const [])
         if (entry case [final String desktop, final String bot]) (desktop, bot),
@@ -114,9 +108,6 @@ class AppSettings {
     'notificationsAsked': notificationsAsked,
     'haptics': haptics,
     'autoKeepChanges': autoKeep,
-    'homeSessions': [
-      for (final (desktop, session) in homeSessions) [desktop, session],
-    ],
     'pinnedBots': [
       for (final (desktop, bot) in pinnedBots) [desktop, bot],
     ],

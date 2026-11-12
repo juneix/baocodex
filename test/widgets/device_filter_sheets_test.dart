@@ -150,7 +150,9 @@ void main() {
     final material = tester.widget<Material>(
       find.descendant(of: row, matching: find.byType(Material)).first,
     );
-    expect(material.color, isNot(Colors.transparent));
+    // 选中的电脑是浅金高亮，不是普通灰块。
+    expect(material.color, isNotNull);
+    expect(material.color!.r, greaterThan(material.color!.b));
     expect(link.reconnects, isEmpty);
     await tester.tapAt(const Offset(2, 2));
     await tester.pumpAndSettle();
@@ -414,7 +416,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('项目 0'), findsOneWidget);
 
-    await tester.tap(find.text('SSH / WSL'));
+    await tester.tap(find.text('SSH').first);
     await tester.pumpAndSettle();
     expect(find.text('项目 0'), findsNothing);
     expect(find.text('远程项目'), findsOneWidget);

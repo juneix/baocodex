@@ -2,6 +2,7 @@ import 'package:bao_link/bao_link.dart';
 import 'package:flutter/material.dart';
 
 import '../../state/app_state.dart';
+import '../../theme/app_theme.dart';
 import '../widgets/mobile_widgets.dart';
 import '../widgets/press_menu.dart';
 
@@ -73,8 +74,10 @@ class _ProjectActionRowState extends State<ProjectActionRow> {
             () => _apply('pin'),
           ),
         PressMenuItem(
-          state.tr('删除该项目', 'Delete project'),
+          // 只是把项目从列表移除，不删电脑上的文件夹：用警示黄而非删除红。
+          state.tr('移除', 'Remove'),
           () => _apply('hide'),
+          color: MobileTheme.statusColorsOf(context).warning,
         ),
       ],
       child: widget.child,

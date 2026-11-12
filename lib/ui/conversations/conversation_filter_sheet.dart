@@ -10,7 +10,8 @@ String sourceLabel(AppState state, ConversationSource source) =>
     switch (source) {
       ConversationSource.all => state.tr('全部', 'All'),
       ConversationSource.local => state.tr('本机', 'Local'),
-      ConversationSource.remote => 'SSH / WSL',
+      // 远程统一叫 SSH，不再单独提 WSL。
+      ConversationSource.remote => 'SSH',
       ConversationSource.ssh => 'SSH',
       ConversationSource.wsl => 'WSL',
       ConversationSource.unknown => state.tr('未知来源', 'Unknown location'),
@@ -84,7 +85,7 @@ Future<void> showConversationFilters(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SectionLabel(state.tr('范围', 'Location'), inset: 0),
+                  SectionLabel(state.tr('范围', 'Location'), inset: 0, top: 0),
                   SegmentBar<ConversationSource>(
                     values: const [
                       ConversationSource.all,

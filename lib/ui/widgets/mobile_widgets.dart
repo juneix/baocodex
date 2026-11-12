@@ -328,12 +328,15 @@ class SegmentBar<T> extends StatelessWidget {
 }
 
 class SectionLabel extends StatelessWidget {
-  const SectionLabel(this.text, {super.key, this.inset = 16});
+  const SectionLabel(this.text, {super.key, this.inset = 16, this.top = 20});
   final String text;
   final double inset;
+
+  /// 上方的留白；紧跟弹层标题时可收紧。
+  final double top;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(inset, 20, inset, 8),
+    padding: EdgeInsets.fromLTRB(inset, top, inset, 8),
     child: Align(
       alignment: Alignment.centerLeft,
       child: Text(text, style: MobileTheme.hintStyleOf(context)),
@@ -709,6 +712,7 @@ class ListRow extends StatelessWidget {
     this.compact = false,
     this.titleBold = true,
     this.highlighted = false,
+    this.divider = true,
     this.note,
     this.aside,
     this.subtitle,
@@ -729,6 +733,9 @@ class ListRow extends StatelessWidget {
 
   /// 选中的对话：整行铺一层浅金色圆角矩形，和参考图一样。
   final bool highlighted;
+
+  /// 行间分割线；侧栏的对话列表不要。
+  final bool divider;
 
   /// A tag on the title's line, left of the time (such as “助理”).
   final String? note;
@@ -774,8 +781,11 @@ class ListRow extends StatelessWidget {
                 minHeight: compact ? 44 : MobileSizes.listRow,
               ),
               child: Padding(
+                // 选中行外面多套了 6 的内缩，这里减掉，内容左缘仍在同一条线上。
                 padding: EdgeInsets.symmetric(
-                  horizontal: MobileSpace.lg,
+                  horizontal: highlighted
+                      ? MobileSpace.lg - 6
+                      : MobileSpace.lg,
                   vertical: compact ? 8 : MobileSpace.md,
                 ),
                 child: Row(
@@ -803,6 +813,7 @@ class ListRow extends StatelessWidget {
                                           fontWeight: FontWeight.w500,
                                         )
                                       : text.bodyMedium,
+                                  // 侧栏里选中的对话不再另加对勾或色块。
                                 ),
                               ),
                               if (aside != null) ...[
@@ -827,7 +838,19 @@ class ListRow extends StatelessWidget {
                               ],
                               if (time != null) ...[
                                 const SizedBox(width: MobileSpace.sm),
-                                Text(time!, style: text.labelSmall),
+                                // 固定宽度：各行的相对时间右缘对齐。
+                                SizedBox(
+                                  width: MediaQuery.textScalerOf(context)
+                                      .scale(MobileSizes.timeColumn),
+                                  child: Text(
+                                    time!,
+                                    textAlign: TextAlign.end,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.clip,
+                                    softWrap: false,
+                                    style: text.labelSmall,
+                                  ),
+                                ),
                               ],
                             ],
                           ),
@@ -883,7 +906,7 @@ class ListRow extends StatelessWidget {
                 ),
               ),
             ),
-            if (!highlighted)
+            if (divider)
               const Divider(height: 1, indent: MobileSizes.listIndent),
           ],
         ),
@@ -956,7 +979,7 @@ class SearchCapsule extends StatelessWidget {
     return Align(
       alignment: Alignment.topCenter,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
         child: TextField(
           controller: controller,
           onChanged: onChanged,

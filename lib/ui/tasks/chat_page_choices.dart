@@ -148,9 +148,9 @@ extension _Choices on _ChatPageState {
   }
 
   Future<void> _modelSettings(String session, bool Function() isCurrent) =>
-      showBottomSheetSurface<void>(
-        context,
-        size: SheetSize.large,
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
         requestFocus: false,
         builder: (_) => ModelSettingsSheet(
           state: widget.state,
@@ -293,48 +293,59 @@ extension _Choices on _ChatPageState {
           ? _choiceTooltip(choice)
           : known == null ? tr('选择模型', 'Choose model') : '${_choiceLabel('model')}: $known',
       child: LayoutBuilder(
-        builder: (context, constraints) => TextButton(
-          key: const ValueKey('composer-model'),
-          onPressed: enabled
-              ? () => runUi(context, _openModelSettings,
-                  errorMessage: (error) => userMessage(widget.state, error))
-              : null,
-          style: TextButton.styleFrom(
-            foregroundColor: scheme.onSurfaceVariant,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            minimumSize: const Size(0, 40),
-            textStyle: Theme.of(context).textTheme.bodySmall,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (constraints.maxWidth >= 80) ...[
-                _fastOn
-                    ? Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          icon,
-                          Positioned(
-                            right: -5,
-                            top: -4,
-                            child: LucideIcon(
-                              'zap',
-                              key: const ValueKey('model-fast-badge'),
-                              size: 11,
-                              color: MobileTheme.statusColorsOf(context).warning,
+        builder: (context, constraints) {
+          final showIcon = constraints.maxWidth >= 80;
+          return TextButton(
+            key: const ValueKey('composer-model'),
+            onPressed: enabled
+                ? () => runUi(context, _openModelSettings,
+                    errorMessage: (error) => userMessage(widget.state, error))
+                : null,
+            style: TextButton.styleFrom(
+              foregroundColor: scheme.onSurfaceVariant,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              minimumSize: const Size(0, 40),
+              // 靠左、占满可用宽度，名字过长才省略，不会把按钮往右推。
+              alignment: Alignment.centerLeft,
+              textStyle: Theme.of(context).textTheme.bodySmall,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (showIcon) ...[
+                  _fastOn
+                      ? Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            icon,
+                            Positioned(
+                              right: -5,
+                              top: -4,
+                              child: LucideIcon(
+                                'zap',
+                                key: const ValueKey('model-fast-badge'),
+                                size: 11,
+                                color:
+                                    MobileTheme.statusColorsOf(context).warning,
+                              ),
                             ),
-                          ),
-                        ],
-                      )
-                    : icon,
-                const SizedBox(width: 5),
+                          ],
+                        )
+                      : icon,
+                  const SizedBox(width: 5),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                  ),
+                ),
               ],
-              Flexible(
-                child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

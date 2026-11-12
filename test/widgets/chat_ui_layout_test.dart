@@ -354,7 +354,87 @@ void main() {
     );
   }
 
-  testWidgets('加号弹层第一行四个入口，权限和模式在同一行', (tester) async {
+  testWidgets('三条建议统一白底，换一换是浅灰，不显得被选中', (tester) async {
+    final state = _State();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(_host(state));
+    await tester.pumpAndSettle();
+    Color? tint(String text) {
+      final button = find.ancestor(
+        of: find.text(text),
+        matching: find.byType(TextButton),
+      );
+      return (tester.widget<TextButton>(button).style!.backgroundColor!
+          .resolve({}));
+    }
+
+    final first = tint('讲讲这个项目的整体结构');
+    final second = tint('找出最近改动里的一个 bug 并修好');
+    final third = tint('给今天的改动补上测试');
+    // 三条同色，不交替深浅，也就没有"被选中"的错觉。
+    expect(first, second);
+    expect(second, third);
+    final refresh = find.byKey(const ValueKey('refresh-suggestions'));
+    final refreshTint = tester
+        .widget<TextButton>(refresh)
+        .style!
+        .backgroundColor!
+        .resolve({});
+    expect(refreshTint, isNot(first));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 400));
+  });
+
+  testWidgets('模型名过长时省略，不把右侧按钮挤出去', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final state = _State();
+    addTearDown(state.dispose);
+    state.history.choices = const [
+      LinkChoice(
+        kind: 'model',
+        selected: 'very-long',
+        options: [
+          LinkOption(
+            id: 'very-long',
+            label: '一个特别特别长的模型名称用来测试省略号是否生效',
+          ),
+        ],
+      ),
+    ];
+    await tester.pumpWidget(_host(state));
+    await tester.pumpAndSettle();
+    final label = find.descendant(
+      of: find.byKey(const ValueKey('composer-model')),
+      matching: find.byType(Text),
+    );
+    final text = tester.widget<Text>(label);
+    expect(text.overflow, TextOverflow.ellipsis);
+    expect(text.maxLines, 1);
+    // 模型按钮在加号右边、上下文和发送的左边，宽度不会压过它们。
+    final model = tester.getRect(find.byKey(const ValueKey('composer-model')));
+    final add = tester.getRect(find.byKey(const ValueKey('composer-add')));
+    expect(model.left, greaterThanOrEqualTo(add.right));
+    expect(
+      model.right,
+      lessThan(tester.getRect(find.byTooltip('发送')).left),
+    );
+    // 加号、发送图标和模型名高度接近，不一大一小。
+    final labelHeight = tester.getSize(label).height;
+    final plus = tester.getSize(
+      find.descendant(
+        of: find.byKey(const ValueKey('composer-add')),
+        matching: find.byType(SvgPicture),
+      ),
+    );
+    expect((plus.height - labelHeight).abs(), lessThan(6));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('加号弹层第一行四个入口，权限和模式各占一行', (tester) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -405,16 +485,15 @@ void main() {
     expect(find.byKey(const ValueKey('composer-setting-permission')), findsOneWidget);
     expect(find.byKey(const ValueKey('composer-mode')), findsOneWidget);
     expect(find.text('自动接受编辑'), findsOneWidget);
-    // 权限和模式在同一行。
+    // 权限和模式各占一行：模式整行在权限行下方。
     final permissionRow = tester.getRect(
       find.byKey(const ValueKey('composer-setting-permission')),
     );
     final modeRow = tester.getRect(
       find.byKey(const ValueKey('composer-mode')),
     );
-    expect(modeRow.top, lessThan(permissionRow.bottom));
-    expect(modeRow.bottom, greaterThan(permissionRow.top));
-    expect(modeRow.left, greaterThan(permissionRow.left));
+    expect(modeRow.top, greaterThan(permissionRow.bottom));
+    expect(modeRow.left, closeTo(permissionRow.left, 1));
     // 模型在输入栏，权限和模式在弹层中，不重复放成附件图标。
     for (final id in ['model', 'mode', 'permission', 'stickers']) {
       expect(find.byKey(ValueKey('chat-action-$id')), findsNothing);

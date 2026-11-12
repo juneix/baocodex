@@ -394,9 +394,9 @@ class _BotProfileViewState extends State<_BotProfileView> {
       await state.openSession(desktopId, session);
       try {
         if (!context.mounted) return;
-        await showBottomSheetSurface<void>(
-          context,
-          size: SheetSize.large,
+        await showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
           builder: (_) => ModelSettingsSheet(
             state: state,
             desktopId: desktopId,

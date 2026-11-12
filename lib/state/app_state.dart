@@ -855,22 +855,6 @@ class AppState extends ChangeNotifier {
     return write;
   }
 
-  /// 是否为手机上的常用对话，沿用原有首页选择数据。
-  bool onHome(SessionRef ref) =>
-      settings.homeSessions.contains((ref.desktopId, ref.session.id));
-
-  /// 加入或移除常用，不改变电脑上的置顶和会话数据。
-  Future<void> setOnHome(SessionRef ref, bool shown) async {
-    final key = (ref.desktopId, ref.session.id);
-    if (shown) {
-      settings.homeSessions.add(key);
-    } else {
-      settings.homeSessions.remove(key);
-    }
-    _notify();
-    await saveSettings();
-  }
-
   bool botPinned(BotRef ref) =>
       settings.pinnedBots.contains((ref.desktopId, ref.bot.id));
 

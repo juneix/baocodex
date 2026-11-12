@@ -58,6 +58,9 @@ abstract final class MobileSizes {
   /// 列表头像：会话、项目、Bot 一致。
   static const avatar = 44.0;
 
+  /// 列表右侧时间列的固定宽度，按「60分钟」「60小时」这类最长文案取。
+  static const timeColumn = 52.0;
+
   /// 双行列表行最小高度（头像上下各留 12）。
   static const listRow = 68.0;
 
@@ -94,7 +97,7 @@ enum MobileAccent {
   blue('蓝色', 'Blue', Color(0xFF1677FF), Color(0xFF4C8DF6)),
   graphite('石墨', 'Graphite', Color(0xFF262626), Color(0xFFE6E6E6)),
   indigo('靛紫', 'Indigo', Color(0xFF5856D6), Color(0xFF7D7AFF)),
-  amber('琥珀', 'Amber', Color(0xFF966A25), Color(0xFFE4B16A));
+  amber('琥珀', 'Amber', Color(0xFFC29A3A), Color(0xFFE4B16A));
 
   const MobileAccent(this.zh, this.en, this.light, this.dark);
   final String zh, en;
