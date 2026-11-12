@@ -69,10 +69,10 @@ internal class ChatClipboard(private val context: Context) : AutoCloseable {
             }
             imageFile
         }) { imageFile ->
-            val clip = if (imageFile == null) ClipData.newPlainText("YCode", text) else {
+            val clip = if (imageFile == null) ClipData.newPlainText("BaoCodeX", text) else {
                 val uri = FileProvider.getUriForFile(context,
                     "${context.packageName}.clipboard", imageFile)
-                ClipData("YCode", arrayOf(type!!, ClipDescription.MIMETYPE_TEXT_PLAIN),
+                ClipData("BaoCodeX", arrayOf(type!!, ClipDescription.MIMETYPE_TEXT_PLAIN),
                     ClipData.Item(text, null, null, uri))
             }
             clip.description.extras = PersistableBundle().apply {

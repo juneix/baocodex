@@ -165,7 +165,7 @@ class SettingsPage extends StatelessWidget {
           GroupCard(
             children: [
               SettingsRow(
-                state.tr('关于 YCode', 'About YCode'),
+                state.tr('关于 BaoCodeX', 'About BaoCodeX'),
                 icon: 'info',
                 onTap: () => openPage<void>(
                   context,
@@ -1375,7 +1375,7 @@ class VersionPage extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(22),
               child: SvgPicture.asset(
-                'assets/icons/ycode.svg',
+                'assets/icons/baocodex.svg',
                 width: 96,
                 height: 96,
               ),
@@ -1383,7 +1383,7 @@ class VersionPage extends StatelessWidget {
           ),
           const SizedBox(height: MobileSpace.xl),
           Text(
-            'YCode $appVersion',
+            'BaoCodeX $appVersion',
             textAlign: TextAlign.center,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w600,
@@ -1413,7 +1413,7 @@ class AboutPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(state.tr('关于 YCode', 'About YCode'))),
+      appBar: AppBar(title: Text(state.tr('关于 BaoCodeX', 'About BaoCodeX'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           MobileSpace.lg,
@@ -1426,7 +1426,7 @@ class AboutPage extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(22),
               child: SvgPicture.asset(
-                'assets/icons/ycode.svg',
+                'assets/icons/baocodex.svg',
                 width: 96,
                 height: 96,
               ),
@@ -1434,7 +1434,7 @@ class AboutPage extends StatelessWidget {
           ),
           const SizedBox(height: MobileSpace.lg),
           Text(
-            'YCode',
+            'BaoCodeX',
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
@@ -1449,8 +1449,8 @@ class AboutPage extends StatelessWidget {
           const SizedBox(height: MobileSpace.lg),
           Text(
             state.tr(
-              '把电脑上的 Claude Code 装进口袋：随时查看对话进展、回答提问、发起新任务，全程端到端加密。',
-              'Claude Code from your desktop, in your pocket: follow work as it happens, answer questions, start new tasks, all end-to-end encrypted.',
+              '把电脑上的对话带到手机：查看进展、回答提问、发起新任务，全程端到端加密。',
+              'Bring your desktop conversations to your phone: follow progress, answer questions and start tasks, all end-to-end encrypted.',
             ),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium,
@@ -1472,7 +1472,7 @@ class AboutPage extends StatelessWidget {
                 state.tr('开源许可', 'Open-source licenses'),
                 onTap: () => showLicensePage(
                   context: context,
-                  applicationName: 'YCode',
+                  applicationName: 'BaoCodeX',
                   applicationVersion: appVersion,
                 ),
               ),
@@ -1480,7 +1480,7 @@ class AboutPage extends StatelessWidget {
           ),
           const SizedBox(height: MobileSpace.xl),
           Text(
-            '© ${DateTime.now().year} YCode',
+            state.tr('基于 YCode · GPL-3.0-only', 'Based on YCode · GPL-3.0-only'),
             textAlign: TextAlign.center,
             style: MobileTheme.hintStyleOf(context),
           ),

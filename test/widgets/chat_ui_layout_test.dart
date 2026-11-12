@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bao_link/bao_link.dart';
+import 'package:clock/clock.dart';
 import 'package:baocode_mobile/link/phone_link.dart';
 import 'package:baocode_mobile/state/app_state.dart';
 import 'package:baocode_mobile/theme/app_theme.dart';
@@ -301,7 +302,7 @@ void main() {
 
   for (final contextLabel in ['1M', '']) {
     testWidgets(
-      '模型是纯图标，${contextLabel.isEmpty ? '缺少容量时不编数字' : '显示上下文 $contextLabel'}',
+      '模型显示名称与图标，${contextLabel.isEmpty ? '缺少容量时不编数字' : '提示上下文 $contextLabel'}',
       (tester) async {
         final state = _State();
         addTearDown(state.dispose);
@@ -330,9 +331,9 @@ void main() {
         );
         expect(
           find.descendant(of: model, matching: find.byType(Text)),
-          findsNothing,
+          findsOneWidget,
         );
-        expect(find.text('测试模型'), findsNothing);
+        expect(find.text('测试模型'), findsOneWidget);
         if (contextLabel.isNotEmpty) {
           expect(find.text(contextLabel), findsNothing);
         }
@@ -353,7 +354,7 @@ void main() {
     );
   }
 
-  testWidgets('微信功能区一行四列从左往右填，格子少也不压扁，模型模式权限不重复', (tester) async {
+  testWidgets('加号弹层第一行四个入口，权限和模式各在独立设置行', (tester) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -361,41 +362,56 @@ void main() {
     final state = _State();
     addTearDown(state.dispose);
     state.history.choices = const [
-      LinkChoice(kind: 'model', options: []),
-      LinkChoice(kind: 'mode', options: []),
-      LinkChoice(kind: 'permission', options: []),
+      LinkChoice(kind: 'model', selected: 'model',
+          options: [LinkOption(id: 'model', label: '测试模型')]),
+      LinkChoice(kind: 'mode', selected: 'agent', options: [
+        LinkOption(id: 'agent', label: 'Agent'),
+        LinkOption(id: 'ask', label: 'Ask'),
+        LinkOption(id: 'plan', label: 'Plan'),
+      ]),
+      LinkChoice(kind: 'permission', selected: 'acceptEdits', options: [
+        LinkOption(id: 'default', label: '逐项批准'),
+        LinkOption(id: 'acceptEdits', label: '自动接受编辑'),
+      ]),
     ];
     await tester.pumpWidget(_host(state, scale: 1.4));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('添加附件'));
+    await tester.tap(find.byTooltip('更多输入选项'));
     await tester.pumpAndSettle();
     Rect tile(String id) =>
         tester.getRect(find.byKey(ValueKey('chat-action-$id')));
     final album = tile('album');
     final camera = tile('camera');
     final file = tile('file');
-    // 三个格子在上面一行，从左往右排，等宽同高。
+    final command = tile('command');
+    // 四个入口同一行、等宽，按图片、相机、文件、命令排序。
     expect(camera.top, closeTo(album.top, .01));
     expect(file.top, closeTo(album.top, .01));
+    expect(command.top, closeTo(album.top, .01));
     expect(camera.width, closeTo(album.width, .01));
     expect(file.width, closeTo(album.width, .01));
+    expect(command.width, closeTo(album.width, .01));
     expect(camera.left, greaterThan(album.right));
     expect(file.left, greaterThan(camera.right));
-    // 整块面板铺满行宽，第一格贴着左边距；只有一行也占着键盘那么高。
+    expect(command.left, greaterThan(file.right));
+    expect(find.byType(BottomSheet), findsOneWidget);
+    // 弹层使用同一边距，设置不重复放成附件图标。
     final panel = find.byKey(const ValueKey('chat-actions'));
     expect(
       tester.getSize(panel).width,
       closeTo(tester.view.physicalSize.width, .01),
     );
     expect(tester.getRect(panel).left, closeTo(album.left - 16, .01));
-    expect(tester.getSize(panel).height, greaterThan(album.height * 2));
-    // 输入框下面那排已经有了，面板里不再放一份。
+    expect(find.byKey(const ValueKey('composer-setting-permission')), findsOneWidget);
+    expect(find.byKey(const ValueKey('composer-mode')), findsOneWidget);
+    expect(find.text('自动接受编辑'), findsOneWidget);
+    // 模型在输入栏，权限和模式在弹层中，不重复放成附件图标。
     for (final id in ['model', 'mode', 'permission', 'stickers']) {
       expect(find.byKey(ValueKey('chat-action-$id')), findsNothing);
     }
     expect(
-      tester.getTopLeft(find.byKey(const ValueKey('chat-actions'))).dy,
-      greaterThan(tester.getBottomLeft(find.byType(TextField)).dy),
+      tester.getBottomLeft(find.byKey(const ValueKey('chat-actions'))).dy,
+      lessThanOrEqualTo(tester.view.physicalSize.height),
     );
     expect(tester.takeException(), isNull);
   });
@@ -1147,7 +1163,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('输入框那排的模式入口复用真实选项并只提交所选ID', (tester) async {
+  testWidgets('加号弹层的模式分段复用真实选项并只提交所选ID', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     state.history.choices = const [
@@ -1162,10 +1178,13 @@ void main() {
     ];
     await tester.pumpWidget(_host(state));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('模式: Agent'));
+    await tester.tap(find.byTooltip('更多输入选项'));
     await tester.pumpAndSettle();
     expect(state.calls, isEmpty);
-    await tester.tap(find.widgetWithText(ListTile, 'Ask'));
+    await tester.tap(find.descendant(
+      of: find.byKey(const ValueKey('composer-mode')),
+      matching: find.text('Ask'),
+    ));
     await tester.pumpAndSettle();
     expect(state.calls, [LinkMethods.choose]);
     expect(state.lastParams, {
@@ -1223,8 +1242,8 @@ void main() {
     addTearDown(state.dispose);
     await tester.pumpWidget(_host(state));
     await tester.pumpAndSettle();
-    expect(find.text('要做点什么？'), findsOneWidget);
-    expect(find.text('端到端加密'), findsOneWidget);
+    expect(find.byKey(const ValueKey('chat-greeting')), findsOneWidget);
+    expect(find.text('今天想做点什么？'), findsOneWidget);
     // 路径和分支在同一行，与官方的项目卡片一致；分支名完整显示。
     expect(find.text('E:/project/测试项目'), findsOneWidget);
     expect(find.byKey(const ValueKey('new-chat-branch')), findsOneWidget);
@@ -1245,7 +1264,49 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   });
 
-  testWidgets('胶囊下方是设置，附件和次要操作保留明确入口', (tester) async {
+  for (final (hour, greeting) in [
+    (8, '早上好'),
+    (12, '中午好'),
+    (15, '下午好'),
+    (20, '晚上好'),
+    (2, '夜深了'),
+  ]) {
+    testWidgets('空态问候按本机时间显示$greeting', (tester) async {
+      await withClock(Clock.fixed(DateTime(2026, 11, 12, hour)), () async {
+        final state = _State();
+        addTearDown(state.dispose);
+        await tester.pumpWidget(_host(state));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<Text>(find.byKey(const ValueKey('chat-greeting'))).data,
+          greeting,
+        );
+        expect(find.text('今天想做点什么？'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(milliseconds: 400));
+      });
+    });
+  }
+
+  testWidgets('换一换只轮换内置提示，不发送请求也不改动草稿', (tester) async {
+    final state = _State();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(_host(state));
+    await tester.pumpAndSettle();
+    expect(find.text('讲讲这个项目的整体结构'), findsOneWidget);
+    expect(find.text('总结当前未提交的改动'), findsNothing);
+    await tester.ensureVisible(find.byKey(const ValueKey('refresh-suggestions')));
+    await tester.tap(find.byKey(const ValueKey('refresh-suggestions')));
+    await tester.pumpAndSettle();
+    expect(find.text('讲讲这个项目的整体结构'), findsNothing);
+    expect(find.text('总结当前未提交的改动'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
+    expect(state.calls, isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 400));
+  });
+
+  testWidgets('附件、模式与次要操作都有明确入口', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     state.history.choices = [
@@ -1257,27 +1318,23 @@ void main() {
     ];
     await tester.pumpWidget(_host(state));
     await tester.pumpAndSettle();
-    expect(
-      tester.getTopLeft(find.byTooltip('模式: Agent')).dy,
-      greaterThan(tester.getBottomLeft(find.byType(TextField)).dy),
-    );
-    await tester.tap(find.byTooltip('添加附件'));
+    await tester.tap(find.byTooltip('更多输入选项'));
     await tester.pumpAndSettle();
     expect(find.text('相册'), findsOneWidget);
-    expect(find.text('文件'), findsOneWidget);
+    expect(find.text('@ 文件'), findsOneWidget);
     expect(find.text('贴纸'), findsNothing);
-    await tester.tap(find.byTooltip('添加附件'));
-    await tester.pumpAndSettle();
-    expect(find.text('相册'), findsNothing);
-    await tester.tap(find.byTooltip('添加附件'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(TextField));
+    // 模式改为弹层里的分段选择，不再是输入栏的胶囊。
+    expect(find.byKey(const ValueKey('composer-mode')), findsOneWidget);
+    expect(find.text('Agent'), findsOneWidget);
+    // 返回键关掉弹层。
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('相册'), findsNothing);
     await tester.tap(find.byTooltip('更多'));
     await tester.pumpAndSettle();
-    expect(find.text('后台任务'), findsOneWidget);
-    expect(find.text('全部改动'), findsOneWidget);
+    expect(find.byKey(const ValueKey('session-drawer')), findsOneWidget);
+    expect(find.byKey(const ValueKey('session-menu-tasks')), findsOneWidget);
+    expect(find.byKey(const ValueKey('session-menu-changes')), findsOneWidget);
     expect(state.calls, isEmpty);
   });
 
@@ -1290,14 +1347,14 @@ void main() {
       expect(find.byTooltip('新对话'), findsNothing);
       await tester.tap(find.byTooltip('更多'));
       await tester.pumpAndSettle();
-      final first = tester.widget<PopupMenuItem<String>>(
-        find.byType(PopupMenuItem<String>).first,
+      final newRow = tester.widget<ListTile>(
+        find.byKey(const ValueKey('session-menu-new')),
       );
-      expect(first.value, 'new');
-      expect(first.enabled, isTrue);
+      expect(newRow.enabled, isTrue);
       expect(state.calls, isEmpty);
-      await tester.tap(find.text('新对话'));
+      await tester.tap(find.byKey(const ValueKey('session-menu-new')));
       await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('session-drawer')), findsNothing);
       expect(state.calls, isEmpty);
       final page = tester.widget<ChatPage>(find.byType(ChatPage));
       expect(page.sessionId, isNull);
@@ -1340,22 +1397,20 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('更多'));
     await tester.pumpAndSettle();
-    final entries = tester.widgetList<PopupMenuItem<String>>(
-      find.byType(PopupMenuItem<String>),
-    ).toList();
+    bool enabled(String action) => tester
+        .widget<ListTile>(find.byKey(ValueKey('session-menu-$action')))
+        .enabled;
     for (final action in ['files', 'pin', 'rename', 'archive', 'delete']) {
-      expect(entries.singleWhere((entry) => entry.value == action).enabled,
-          isFalse);
+      expect(enabled(action), isFalse, reason: action);
     }
     for (final action in ['new', 'changes', 'tasks']) {
-      expect(entries.singleWhere((entry) => entry.value == action).enabled,
-          isTrue);
+      expect(enabled(action), isTrue, reason: action);
     }
     expect(find.text('电脑离线，写操作暂不可用'), findsOneWidget);
     expect(state.calls, isEmpty);
   });
 
-  testWidgets('菜单打开后掉线也不发写请求，并说明操作未执行', (tester) async {
+  testWidgets('菜单打开后掉线，写操作随界面变灰且不发请求', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     await tester.pumpWidget(_host(state));
@@ -1365,10 +1420,15 @@ void main() {
     state.online = false;
     state.update();
     await tester.pump();
-    await tester.tap(find.text('置顶'));
+    expect(
+      tester
+          .widget<ListTile>(find.byKey(const ValueKey('session-menu-pin')))
+          .enabled,
+      isFalse,
+    );
+    await tester.tap(find.byKey(const ValueKey('session-menu-pin')));
     await tester.pumpAndSettle();
     expect(state.calls, isEmpty);
-    expect(find.text('电脑已离线，操作未执行。'), findsOneWidget);
   });
 
   testWidgets('更多菜单按真实置顶状态切换置顶和取消置顶', (tester) async {
@@ -1379,14 +1439,14 @@ void main() {
     await tester.tap(find.byTooltip('更多'));
     await tester.pumpAndSettle();
     expect(find.text('置顶'), findsNothing);
-    await tester.tap(find.text('取消置顶'));
+    await tester.tap(find.byKey(const ValueKey('session-menu-pin')));
     await tester.pumpAndSettle();
     expect(state.calls.last, LinkMethods.pin);
     expect(state.lastParams['pinned'], false);
     state.pinned = false;
     await tester.tap(find.byTooltip('更多'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('置顶'));
+    await tester.tap(find.byKey(const ValueKey('session-menu-pin')));
     await tester.pumpAndSettle();
     expect(state.lastParams['pinned'], true);
   });
@@ -1428,6 +1488,10 @@ void main() {
     expect(find.byTooltip('发送'), findsOneWidget);
     expect(find.byTooltip('上下文已用 20%'), findsOneWidget);
     expect(
+      tester.widget<Text>(find.byKey(const ValueKey('context-usage-value'))).data,
+      '20%',
+    );
+    expect(
       tester.getSize(find.byKey(const ValueKey('user-message-bubble'))).width,
       lessThan(290),
     );
@@ -1440,7 +1504,7 @@ void main() {
       .focusNode!
       .hasFocus;
 
-  testWidgets('点加号收起键盘并展开面板，再点加号回到键盘', (tester) async {
+  testWidgets('点加号收起键盘并弹出输入面板，点输入框回到键盘', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     await tester.pumpWidget(_host(state));
@@ -1449,18 +1513,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(composerFocused(tester), isTrue);
 
-    await tester.tap(find.byTooltip('添加附件'));
+    await tester.tap(find.byTooltip('更多输入选项'));
     await tester.pumpAndSettle();
     expect(composerFocused(tester), isFalse);
     expect(find.byKey(const ValueKey('chat-actions')), findsOneWidget);
 
-    await tester.tap(find.byTooltip('添加附件'));
+    // 面板是模态弹层，返回键收起它，再点输入框把键盘叫回来。
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('chat-actions')), findsNothing);
+    await tester.tap(find.byType(TextField).first);
     await tester.pumpAndSettle();
     expect(composerFocused(tester), isTrue);
-    expect(find.byKey(const ValueKey('chat-actions')), findsNothing);
   });
 
-  testWidgets('键盘还没收完就点加号，面板只占键盘让出的高度，不溢出', (tester) async {
+  testWidgets('键盘还占着时点加号，弹出面板不溢出且留在屏内', (tester) async {
     tester.view.physicalSize = const Size(1080, 1800);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -1473,40 +1540,29 @@ void main() {
     await tester.pumpAndSettle();
 
     // The keyboard is still fully up when the panel opens.
-    await tester.tap(find.byTooltip('添加附件'));
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-    final panel = find.byKey(const ValueKey('chat-actions'));
-    // 键盘还占着时面板没有高度。
-    expect(tester.getSize(panel).height, 0);
-
-    // 键盘让出多少，面板就长多少；让完后和键盘一样高，格子少也不压扁。
-    await tester.pumpWidget(_host(state, keyboard: 150));
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-    final partly = tester.getSize(panel).height;
-    expect(partly, closeTo(150, .01));
-
-    await tester.pumpWidget(_host(state));
+    await tester.tap(find.byTooltip('更多输入选项'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(tester.getSize(panel).height, closeTo(300, .01));
+    final panel = find.byKey(const ValueKey('chat-actions'));
+    expect(panel, findsOneWidget);
+    final height = tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    expect(tester.getTopLeft(panel).dy, greaterThanOrEqualTo(0));
+    expect(
+      tester.getBottomLeft(panel).dy,
+      lessThanOrEqualTo(height + .01),
+    );
+    expect(tester.takeException(), isNull);
   });
 
-  testWidgets('面板打开时点输入框关闭面板，返回键先关面板', (tester) async {
+  testWidgets('面板打开时返回键先关面板，再回到对话', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     await tester.pumpWidget(_host(state));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('添加附件'));
+    await tester.tap(find.byTooltip('更多输入选项'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('chat-actions')), findsOneWidget);
-    await tester.tap(find.byType(TextField).first);
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('chat-actions')), findsNothing);
 
-    await tester.tap(find.byTooltip('添加附件'));
-    await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('chat-actions')), findsNothing);

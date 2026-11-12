@@ -16,7 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../support/chat_page_harness.dart';
 
 void main() {
-  testWidgets('模式中文说明和图标不改变option id', (tester) async {
+  testWidgets('模式用分段切换并只提交所选option id', (tester) async {
     final state = ChineseChatPageState();
     addTearDown(state.dispose);
     state.history.choices = [
@@ -44,20 +44,16 @@ void main() {
     ];
     await tester.pumpWidget(chatHost(state));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('模式: Agent'));
+    // 模式在加号弹层里，用分段切换而不是下拉说明。
+    await tester.tap(find.byTooltip('更多输入选项'));
     await tester.pumpAndSettle();
-    expect(find.text('规划、编辑并运行代码'), findsOneWidget);
-    expect(find.text('只讨论和解答，给出改动建议'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('dropdown-panel')),
-        matching: find.byWidgetPredicate(
-          (widget) => widget is LucideIcon && widget.name == 'bot',
-        ),
-      ),
-      findsOneWidget,
-    );
-    await tester.tap(find.widgetWithText(ListTile, 'Ask'));
+    final mode = find.byKey(const ValueKey('composer-mode'));
+    expect(mode, findsOneWidget);
+    expect(find.descendant(of: mode, matching: find.text('Agent')), findsOneWidget);
+    expect(find.descendant(of: mode, matching: find.text('Ask')), findsOneWidget);
+    expect(find.descendant(of: mode, matching: find.text('Plan')), findsOneWidget);
+    expect(find.text('只讨论和解答，给出改动建议'), findsNothing);
+    await tester.tap(find.descendant(of: mode, matching: find.text('Ask')));
     await tester.pumpAndSettle();
     expect(state.calls.single.$2, {
       'session': 'session',
@@ -86,9 +82,13 @@ void main() {
     ];
     await tester.pumpWidget(chatHost(state));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('权限: 逐项批准'));
+    // 权限在加号弹层的设置行里。
+    await tester.tap(find.byTooltip('更多输入选项'));
     await tester.pumpAndSettle();
-    expect(find.text('应如何获得批准？'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('composer-setting-permission')));
+    await tester.pumpAndSettle();
+    // 权限弹层只列选项，不再另加标题。
+    expect(find.byKey(const ValueKey('dropdown-panel')), findsOneWidget);
     // 选完全访问不再弹确认框，直接切换。
     await tester.tap(find.widgetWithText(ListTile, '完全访问'));
     await tester.pumpAndSettle();
@@ -125,7 +125,9 @@ void main() {
     ];
     await tester.pumpWidget(chatHost(state));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('权限: 完全访问'));
+    await tester.tap(find.byTooltip('更多输入选项'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('composer-setting-permission')));
     await tester.pumpAndSettle();
     final detail = find.text('不做任何检查，编辑和命令直接执行');
     final style = tester.widget<Text>(detail).style;

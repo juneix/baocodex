@@ -1,65 +1,66 @@
-# YCode
+# BaoCodeX
 
 **English** · [简体中文](README_CN.md)
 
-[Download Android previews](https://github.com/juneix/ycode/releases) · [Changelog](CHANGELOG.md) · [Upstream project](https://github.com/shuishani/ycode)
+[Android preview releases](https://github.com/juneix/ycode/releases) · [Changelog](CHANGELOG.md) · [YCode upstream](https://github.com/shuishani/ycode)
 
-YCode is an independent, unofficial Android client for the BaoCode desktop app, maintained by shuishan and built with Flutter. It pairs with your computer over BaoCode's official link v2 protocol (iroh/QUIC, Ed25519, end-to-end encrypted), so you can follow and continue your desktop conversations from your phone.
+BaoCodeX is an independent, unofficial Android client for BaoCode desktops, based on the open-source YCode project and built with Flutter. It pairs with your computer over link v2 (iroh/QUIC, Ed25519 and end-to-end encryption), so you can follow and continue desktop conversations from your phone.
 
-This repository is a personal preview fork. Its `YCode Preview` APK uses a separate package and fixed personal signing key, so it can be installed beside the original YCode without replacing its pairings or data.
+The app uses the independent package `juneix.baocodex`. It does not replace YCode or YCode Preview, and does not automatically migrate their pairings or local drafts. Keep the old app installed and pair BaoCodeX separately.
 
-The screenshots below show the upstream 0.1.1 interface; captures of the new preview navigation are pending device verification.
+The current source targets **1.0.3**. The screenshots below show the upstream 0.1.1 interface, not the new layout; new captures follow signed cloud builds and device verification.
 
 | Home | Conversation |
 | :---: | :---: |
 | ![Home](docs/screenshots/home.jpg) | ![Conversation](docs/screenshots/chat.jpg) |
 
-YCode is not an official BaoCode product and is not supported by the BaoCode team. Model calls, credentials and task execution stay on the desktop. Only connect to computers you trust.
+This is not an official BaoCode product and does not represent support from the BaoCode team. Model calls, credentials and task execution stay on the computer. Only connect to computers you trust.
 
 ## Install and update
 
-- **Install BaoCode on your computer first**: website <https://baocode.dev>, download <https://baocode.dev/download>. In the desktop app, open Settings → Mobile to show a QR code, then scan it with YCode to pair.
-- **Install the preview**: download the APK from this fork's [pre-releases](https://github.com/juneix/ycode/releases). It runs on arm64 devices with Android 7.0 or later. The package is `local.ycode.mobile.test`; keep the original YCode installed. iOS is not supported yet.
-- **Updates**: preview builds are downloaded manually from pre-releases. Automatic update checks use the build's configured repository and only its stable releases. Keep the same personal signing key for later preview APKs; do not uninstall just to update.
+- **Install BaoCode on your computer first**: website <https://baocode.dev>, download <https://baocode.dev/download>. In Settings → Mobile, display a QR code and scan it with BaoCodeX.
+- **Install a preview**: use this repository's [pre-releases](https://github.com/juneix/ycode/releases). BaoCodeX targets arm64 devices with Android 7.0 or later; iOS is not currently supported. The app name is BaoCodeX and its package is exactly `juneix.baocodex`, without a preview suffix.
+- **Updates**: preview APKs are downloaded manually. Automatic update checks use the repository configured into the build and only its stable releases. Later BaoCodeX updates must keep the package and signing key and increase the Android build number; do not uninstall just to update.
+- **Repository renaming**: rename the repository before building the first APK intended for long-term use. GitHub Actions embeds its actual repository into the update source; strict URL checks do not promise automatic adaptation to a later rename.
 
 ## Features
 
-- Conversation-first home with local drafts and shared project navigation; five conversations per project before expanding. Bots, Files and Settings remain available; Chinese/English and system/light/dark themes.
-- Pair by QR code, pasted link or LAN discovery; multiple computers; reconnects after drops.
-- Search, filter, pin and archive projects and conversations, and unfold a project's conversations right on the home list; streaming messages, queued and immediate sends, images and @ files, / commands.
-- Edit and resend an earlier message, optionally undoing the files the agent changed after it; a context usage ring in the composer (both need BaoCode desktop 1.9.3 or later).
-- Markdown, code highlighting, math and offline Mermaid; folded tools and thinking, approvals and questions, plans, subagents.
-- Switch models, modes and permissions with provider icons; quota checks need desktop support, and the official desktop shows them as unsupported.
-- Add, edit and chat with Bots, with avatars and memory.
-- File tree, search, preview and diffs, with keeping or undoing changes.
+- New-conversation home without bottom tabs. Open the 80% workspace sidebar with the menu or a right swipe; open the right-side session drawer (shortcuts plus session actions) with a left swipe or the top-right More button, and project files with the file button. Bots, Files and Settings use normal Back navigation.
+- Search and filter workspaces and conversations. Expand or collapse all groups, show five conversations before expanding, display relative times and group locally by project, last update date or status.
+- Keep one current conversation per Bot, with a mascot and a greeting using the profile name. Bot management remains available; inapplicable project-chat controls are hidden.
+- Time-of-day greetings and refreshed suggestions that only fill the draft. The central workspace button opens the project picker rather than the sidebar.
+- Images, camera, file mentions and slash commands in the input menu. Show the selected model name, real context usage and independent send/stop controls; use a native Android text dropdown for permissions and segmented modes.
+- Pair by QR code, pasted link or LAN discovery; multiple computers and reconnects. Preserve local drafts, streaming messages, queued and immediate sends, and editing/resending history.
+- Markdown, code highlighting, math and offline Mermaid; folded tools and thinking, approvals and questions, plans and subagents.
+- File tree, search, preview, source and diffs, with keeping or undoing changes. Directory list/grid controls live in the file toolbar.
+- Chinese/English and system/light/dark themes. Context usage and file rewind need desktop support; unsupported capabilities are not estimated or invented.
 
-## Development
+Existing archive actions are retained. Archive browsing/restoring and creation-time sorting are not added in 1.0.3; date grouping uses the last update date.
 
-Requires Flutter 3.47 / Dart 3.13, JDK 21, the Android SDK/NDK and Rust 1.97.1 (pinned by `vendor/bao_iroh/rust/rust-toolchain.toml`). Only the Android project exists; there is no iOS project.
+## Development and verification
 
-Keep the Android SDK and Flutter paths in your local `android/local.properties`, which is not committed. On Windows you can use `tool/prepare_android.ps1`, or follow the [build guide](docs/release-android.md).
+APK analysis, tests, building and signing run in GitHub Actions. The runner uses the configured exact Flutter 3.47.x version, Dart compatible with `^3.13.4`, JDK 21 and Rust 1.97.1. No local Android SDK, Gradle, signing tools or emulator installation is required for this workflow.
+
+The cloud checks run:
 
 ```sh
-flutter pub get
 flutter analyze --no-pub
-# Run the tests related to your change, for example:
-flutter test --no-pub test/state/update_check_test.dart test/state/apk_download_test.dart test/widgets/update_check_test.dart
-flutter run --dart-define=DEMO=true   # demo data, no desktop needed
+flutter test --no-pub
 ```
 
-Packaging, signing, installing and releasing are described in [docs/release-android.md](docs/release-android.md) (Chinese). `tool/fixture_desktop.dart` is a synthetic desktop for tests that never touches real repositories or models.
+The Android workflow also publishes a pre-release; triggering it is a release operation, not a checks-only run. Packaging and signing details are in [docs/release-android.md](docs/release-android.md). Real APK/device/computer checks are needed for native menus and external behavior; unit fixtures are not substitutes.
 
 ## Origin and license
 
-Copyright (C) 2026 shuishan. The project as a whole is released under **GPL-3.0-only**; see [LICENSE](LICENSE).
+Based on YCode, Copyright (C) 2026 shuishan. The project as a whole remains **GPL-3.0-only**; see [LICENSE](LICENSE).
 
-- The protocol package `vendor/bao_link` and the files copied or adapted from BaoCode are GPL-3.0-only, copyright the BaoCode authors. `vendor/bao_iroh` and `vendor/bao_editor` keep their MIT licenses and third-party licenses.
-- Icons come from Lucide, Remix Icon 4.8.0, theSVG, Simple Icons and Material Icon Theme; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the license texts and files. They are also listed in the app under Settings → About YCode → Open-source licenses.
-- The interface was designed and built independently from screenshots of the official BaoCode mobile app, and contains none of its code or image assets. The protocol's origin, our extension and the list of files from BaoCode are in [docs/upstream-sync.md](docs/upstream-sync.md).
-- The BaoCode name and logo, and the model providers' logos, belong to their respective owners.
+- `vendor/bao_link` and the files copied or adapted from BaoCode retain GPL-3.0-only and their authors' copyright. `vendor/bao_iroh` and `vendor/bao_editor` retain their MIT and third-party licenses.
+- Icons use Lucide 1.66.0, Remix Icon 4.8.0, theSVG, Simple Icons and Material Icon Theme. The Bot mascot is an authorized project asset. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); the app also lists licenses under Settings → About BaoCodeX → Open-source licenses.
+- Layout and interactions are designed independently. Protocol origins and upstream synchronization are documented in [docs/upstream-sync.md](docs/upstream-sync.md).
+- BaoCode and model-provider names and logos belong to their respective owners.
 
 ## Contributing
 
-Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Please report security issues privately as described in [SECURITY.md](SECURITY.md).
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
-Never include model credentials, pairing details, real chat logs, signing keys or signing passwords in commits or public issues.
+Do not commit or publish model credentials, pairing details, real chat logs, signing keys, signing passwords or build artifacts.

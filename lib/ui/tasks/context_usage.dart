@@ -85,36 +85,56 @@ class ContextRing extends StatelessWidget {
     required this.state,
     required this.usage,
     required this.onPressed,
+    this.showValue = false,
   });
 
   final AppState state;
   final ContextUsage usage;
   final VoidCallback onPressed;
+  final bool showValue;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final warn = usage.fraction >= ContextUsage.warnAt;
-    return IconButton(
-      tooltip: state.tr(
-        '上下文已用 ${usage.percent}%',
-        'Context ${usage.percent}% used',
-      ),
-      onPressed: onPressed,
-      icon: SizedBox.square(
-        dimension: 18,
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(end: usage.fraction),
-          duration: const Duration(milliseconds: 400),
-          builder: (context, value, _) => CustomPaint(
-            painter: _RingPainter(
-              value,
-              track: colors.outlineVariant,
-              arc: warn
-                  ? MobileTheme.statusColorsOf(context).warning
-                  : colors.onSurfaceVariant,
-            ),
+    final tooltip = state.tr(
+      '上下文已用 ${usage.percent}%',
+      'Context ${usage.percent}% used',
+    );
+    final ring = SizedBox.square(
+      dimension: 18,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(end: usage.fraction),
+        duration: const Duration(milliseconds: 400),
+        builder: (context, value, _) => CustomPaint(
+          painter: _RingPainter(
+            value,
+            track: colors.outlineVariant,
+            arc: warn
+                ? MobileTheme.statusColorsOf(context).warning
+                : colors.onSurfaceVariant,
           ),
+        ),
+      ),
+    );
+    if (!showValue) {
+      return IconButton(tooltip: tooltip, onPressed: onPressed, icon: ring);
+    }
+    return Tooltip(
+      message: tooltip,
+      child: TextButton.icon(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          foregroundColor: colors.onSurfaceVariant,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          minimumSize: const Size(0, 44),
+          textStyle: Theme.of(context).textTheme.labelSmall,
+        ),
+        icon: ring,
+        label: Text(
+          '${usage.percent}%',
+          key: const ValueKey('context-usage-value'),
+          maxLines: 1,
         ),
       ),
     );

@@ -440,14 +440,12 @@ extension _History on _ChatPageState {
               'This conversation shows once the desktop is connected.',
             ),
           )
-        // 欢迎页和建议都是说项目的；和 Bot 的新聊天就是空的。
-        : buffer.items.isEmpty && widget.botId != null
-        ? const SizedBox.expand()
         : buffer.items.isEmpty
         ? ChatEmptyState(
             state: widget.state,
             online: _online,
             project: _project,
+            bot: widget.botId != null,
             onSwitchProject:
                 widget.onSwitchProject == null || _sending
                 ? null

@@ -143,7 +143,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('Bot 同步时标题不多出一行', (tester) async {
+  testWidgets('Bot 同步时标题高度不变，电脑连接行保持可见', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     await tester.pumpWidget(
@@ -158,16 +158,18 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    final height = tester.getSize(find.byType(AppBar)).height;
     state.buffer('desktop', 'first').loading = true;
     state.publish('first');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('同步中…'), findsNothing);
+    expect(tester.getSize(find.byType(AppBar)).height, closeTo(height, 1));
+    expect(find.textContaining('电脑'), findsWidgets);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
 
-  testWidgets('Bot 加号面板只有相册和拍摄', (tester) async {
+  testWidgets('Bot 加号保留图片和表情，不出现项目命令权限和模式', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     await tester.pumpWidget(
@@ -182,19 +184,21 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('添加附件'));
+    await tester.tap(find.byKey(const ValueKey('composer-add')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('chat-action-album')), findsOneWidget);
     expect(find.byKey(const ValueKey('chat-action-camera')), findsOneWidget);
-    // 模型、模式、权限在输入框那排；Bot 不在项目里，没有文件可 @。
-    for (final id in ['file', 'model', 'mode', 'permission', 'stickers']) {
+    expect(find.byKey(const ValueKey('chat-action-emoji')), findsOneWidget);
+    for (final id in ['file', 'command', 'model', 'mode', 'permission', 'stickers']) {
       expect(find.byKey(ValueKey('chat-action-$id')), findsNothing);
     }
+    expect(find.byKey(const ValueKey('composer-mode')), findsNothing);
+    expect(find.byKey(const ValueKey('composer-setting-permission')), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
 
-  testWidgets('和 Bot 的空聊天不显示项目欢迎页和建议', (tester) async {
+  testWidgets('Bot 空态显示吉祥物和资料名回退，不显示项目建议', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     await tester.pumpWidget(
@@ -209,7 +213,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('要做点什么？'), findsNothing);
+    expect(find.byKey(const ValueKey('bot-mascot')), findsOneWidget);
+    expect(find.text('BaoCodeX，我帮你…'), findsOneWidget);
+    expect(state.settings.name, isEmpty);
+    state.settings.name = '测试资料';
+    state.publish('first');
+    await tester.pump();
+    expect(find.text('测试资料，我帮你…'), findsOneWidget);
     expect(find.text('讲讲这个项目的整体结构'), findsNothing);
     expect(
       find.byKey(const ValueKey('composer-input-surface')),
@@ -383,19 +393,11 @@ void main() {
     // 空心：里面的方块只有边框，没有填充色。
     expect(find.byKey(const ValueKey('hollow-stop')), findsOneWidget);
     expect(find.byIcon(Icons.stop_circle_outlined), findsNothing);
-    expect(
-      tester.getTopLeft(find.byTooltip('表情')).dx,
-      greaterThanOrEqualTo(input.right),
-    );
-    expect(
-      tester.getTopLeft(find.byTooltip('添加附件')).dx,
-      greaterThanOrEqualTo(input.right),
-    );
-    // 停止独立放在输入框上方，不挤占表情和附件的空间。
-    expect(
-      tester.getBottomLeft(find.byTooltip('停止生成')).dy,
-      lessThanOrEqualTo(input.top),
-    );
+    expect(input.contains(tester.getCenter(find.byKey(const ValueKey('composer-add')))), isTrue);
+    expect(input.contains(tester.getCenter(find.byTooltip('停止生成'))), isTrue);
+    expect(find.byKey(const ValueKey('composer-model')), findsOneWidget);
+    // 停止独立可达，表情移入加号弹层，不再占输入栏的一列。
+    expect(find.byTooltip('表情'), findsNothing);
 
     buffer.live = false;
     buffer.items.removeLast();
@@ -409,7 +411,7 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('表情面板内嵌在输入框下，插入和退格按完整字符，可和加号面板互切', (tester) async {
+  testWidgets('表情通过加号进入，插入和退格按完整字符并可切回输入', (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     await tester.pumpWidget(
@@ -424,11 +426,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('表情'));
+    await tester.tap(find.byKey(const ValueKey('composer-add')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('chat-action-emoji')));
     await tester.pumpAndSettle();
     final panel = find.byKey(const ValueKey('chat-emoji'));
     expect(panel, findsOneWidget);
-    expect(find.byTooltip('键盘'), findsOneWidget);
+    expect(find.byTooltip('键盘'), findsNothing);
     expect(find.byType(BottomSheet), findsNothing);
     expect(
       tester.getTopLeft(panel).dy,
@@ -451,18 +455,18 @@ void main() {
     await tester.pump();
     expect(field.controller!.text, '');
 
-    await tester.tap(find.byTooltip('添加附件'));
+    await tester.tap(find.byKey(const ValueKey('composer-add')));
     await tester.pumpAndSettle();
     expect(panel, findsNothing);
     expect(find.byKey(const ValueKey('chat-actions')), findsOneWidget);
-    await tester.tap(find.byTooltip('表情'));
+    await tester.tap(find.byKey(const ValueKey('chat-action-emoji')));
     await tester.pumpAndSettle();
     expect(panel, findsOneWidget);
 
-    await tester.tap(find.byTooltip('键盘'));
+    await tester.tap(find.byType(TextField).first);
     await tester.pumpAndSettle();
     expect(panel, findsNothing);
-    expect(find.byTooltip('表情'), findsOneWidget);
+    expect(find.byKey(const ValueKey('composer-add')), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });

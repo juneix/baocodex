@@ -18,7 +18,15 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.view.HapticFeedbackConstants
+import android.view.ContextThemeWrapper
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import android.widget.FrameLayout
+import android.widget.ListPopupWindow
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterView
+import kotlin.math.roundToInt
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
@@ -46,6 +54,9 @@ class PlatformBridge(
     private var exportBytes: ByteArray? = null
     private val permissionWaiters = mutableListOf<(Boolean) -> Unit>()
     private var permissionRequestPending = false
+    private var permissionMenu: ListPopupWindow? = null
+    private var permissionAnchor: View? = null
+    private var permissionMenuResult: MethodChannel.Result? = null
 
     private val localDiscovery = LocalDiscovery(activity.applicationContext, main)
     private val chatClipboard = ChatClipboard(activity.applicationContext)
@@ -80,6 +91,7 @@ class PlatformBridge(
                         null
                     }
                 }
+                "permissionMenu" -> showPermissionMenu(call, result)
                 "saveFile" -> saveFile(call, result)
                 "writeChatClipboard" -> chatClipboard.write(call, result)
                 "readChatClipboard" -> chatClipboard.read(result)
@@ -118,6 +130,100 @@ class PlatformBridge(
             result.error(if (error is IllegalArgumentException) "bad_arguments" else "platform_failed",
                 error.message, null)
         }
+    }
+
+    /** Flutter 坐标换成原生锚点；这里只展示选项，不申请系统权限。 */
+    private fun showPermissionMenu(call: MethodCall, result: MethodChannel.Result) {
+        val options = call.argument<List<*>>("options")?.map { entry ->
+            val value = entry as? Map<*, *> ?: throw IllegalArgumentException("Invalid option")
+            val id = value["id"] as? String ?: throw IllegalArgumentException("Missing option id")
+            val label = value["label"] as? String ?: throw IllegalArgumentException("Missing option label")
+            require(id.isNotEmpty() && label.isNotEmpty()) { "Empty option" }
+            id to label
+        } ?: throw IllegalArgumentException("Missing options")
+        require(options.isNotEmpty() && options.size <= 128) { "Invalid option count" }
+        fun coordinate(key: String): Int {
+            val value = call.argument<Number>(key)?.toDouble()
+                ?: throw IllegalArgumentException("Missing coordinate")
+            require(value.isFinite()) { "Invalid coordinate" }
+            return value.roundToInt()
+        }
+        val x = coordinate("x")
+        val y = coordinate("y")
+        val width = coordinate("width")
+        val height = coordinate("height")
+        require(width > 0 && height > 0) { "Invalid anchor size" }
+        val root = requireNotNull(activity.findViewById<FrameLayout>(android.R.id.content))
+        val flutter = findFlutterView(root) ?: root
+        val flutterAt = IntArray(2).also { flutter.getLocationOnScreen(it) }
+        val rootAt = IntArray(2).also { root.getLocationOnScreen(it) }
+        val density = activity.resources.displayMetrics.density
+        val dark = call.argument<Boolean>("dark") == true
+        val themed = ContextThemeWrapper(activity,
+            if (dark) android.R.style.Theme_Material_NoActionBar
+            else android.R.style.Theme_Material_Light_NoActionBar)
+        val anchor = View(activity).apply {
+            alpha = 0f
+            isClickable = false
+            isFocusable = false
+            translationX = (x + flutterAt[0] - rootAt[0]).toFloat()
+            translationY = (y + flutterAt[1] - rootAt[1]).toFloat()
+        }
+        val popup = ListPopupWindow(themed).apply {
+            setAdapter(ArrayAdapter(themed, android.R.layout.simple_list_item_1,
+                options.map { it.second }))
+            anchorView = anchor
+            isModal = true
+            inputMethodMode = ListPopupWindow.INPUT_METHOD_NOT_NEEDED
+            this.width = minOf(maxOf(width, (160 * density).roundToInt()),
+                (root.width - 32 * density).roundToInt().coerceAtLeast(1))
+            setOnItemClickListener { _, _, index, _ ->
+                if (index in options.indices) completePermissionMenu(options[index].first)
+            }
+            setOnDismissListener { completePermissionMenu(null) }
+        }
+        completePermissionMenu(null)
+        permissionMenu = popup
+        permissionAnchor = anchor
+        permissionMenuResult = result
+        root.addView(anchor, FrameLayout.LayoutParams(width, height))
+        anchor.post {
+            if (closed || permissionMenu !== popup) return@post
+            try {
+                popup.show()
+                val selected = call.argument<String>("selected")
+                val index = options.indexOfFirst { it.first == selected }
+                if (index >= 0) popup.setSelection(index)
+            } catch (_: Exception) {
+                val pending = permissionMenuResult
+                permissionMenuResult = null
+                completePermissionMenu(null)
+                pending?.error("platform_failed", "The menu could not be opened", null)
+            }
+        }
+    }
+
+    private fun findFlutterView(view: View): View? {
+        if (view is FlutterView) return view
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) {
+                findFlutterView(view.getChildAt(index))?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun completePermissionMenu(value: String?) {
+        val popup = permissionMenu
+        val anchor = permissionAnchor
+        val pending = permissionMenuResult
+        permissionMenu = null
+        permissionAnchor = null
+        permissionMenuResult = null
+        popup?.setOnDismissListener(null)
+        popup?.dismiss()
+        if (anchor != null) (anchor.parent as? ViewGroup)?.removeView(anchor)
+        pending?.success(value)
     }
 
     private fun requiredString(call: MethodCall, key: String, allowEmpty: Boolean = false): String {
@@ -344,6 +450,7 @@ class PlatformBridge(
     override fun close() {
         if (closed) return
         closed = true
+        completePermissionMenu(null)
         methods.setMethodCallHandler(null)
         events.setStreamHandler(null)
         localDiscovery.close()
@@ -367,6 +474,6 @@ class PlatformBridge(
         const val SAVE_DOCUMENT = 47122
         const val MAX_EXPORT_BYTES = 8 * 1024 * 1024
         const val NOTIFICATION_CHANNEL = "baocode.mobile.local"
-        const val NOTIFICATION_CHANNEL_NAME = "YCode"
+        const val NOTIFICATION_CHANNEL_NAME = "BaoCodeX"
     }
 }

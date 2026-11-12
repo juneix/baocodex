@@ -1,6 +1,6 @@
 # 第三方组件与许可
 
-YCode 整体按 [GPL-3.0-only](LICENSE) 发布。下面这些部分来自第三方，保留各自的版权与许可；应用内「设置 → 关于 YCode → 开源许可」也会列出随安装包分发的许可全文。第三方 Dart 包（`pubspec.lock` 中的依赖）的许可由 Flutter 自动收集并显示在同一页面。
+BaoCodeX 基于 YCode，整体按 [GPL-3.0-only](LICENSE) 发布。下面这些部分来自第三方，保留各自的版权与许可；应用内「设置 → 关于 BaoCodeX → 开源许可」也会列出随安装包分发的许可全文。第三方 Dart 包（`pubspec.lock` 中的依赖）的许可由 Flutter 自动收集并显示在同一页面。
 
 ## 代码
 
@@ -19,9 +19,9 @@ YCode 整体按 [GPL-3.0-only](LICENSE) 发布。下面这些部分来自第三�
 | `assets/model_icons/` 中标注 theSVG 的文件 | [theSVG](https://github.com/glincker/thesvg) | MIT | [assets/licenses/thesvg.txt](assets/licenses/thesvg.txt) |
 | `assets/model_icons/` 中标注 Simple Icons 的文件 | [Simple Icons](https://github.com/simple-icons/simple-icons) | CC0-1.0 | 无需附带 |
 | `assets/material_icons/` | [Material Icon Theme](https://github.com/material-extensions/vscode-material-icon-theme) | MIT | [assets/material_icons/LICENSE](assets/material_icons/LICENSE) |
-| `assets/icons/ycode.svg`、Android 应用图标 | YCode 自有 | GPL-3.0-only | — |
+| `assets/icons/bot.png`、`assets/icons/baocodex.svg`、Android 应用图标（`mipmap-*/app_icon.png`） | BaoCodeX 自制/生成的授权素材，可公开分发 | GPL-3.0-only | — |
 
-每个图标文件开头的注释记录了它的具体来源与许可。
+每个 SVG 图标文件开头的注释记录了它的具体来源与许可。BaoCodeX 新增的导航图标继续取自 lucide-static 1.66.0，统一为现有 1.75 笔触，不引入新图标依赖。
 
 **Remix Icon 只使用 4.8.0 及更早版本。** 从 4.9.0 起 Remix Icon 改用自定义许可，与本项目的 GPL 许可可能不兼容；更新这些图标时不要从新版本复制。
 
@@ -33,4 +33,4 @@ YCode 整体按 [GPL-3.0-only](LICENSE) 发布。下面这些部分来自第三�
 
 ## 商标
 
-`assets/model_icons/` 中的厂商标志仅用于标明对应的模型服务商，相关商标归各自所有者，不代表这些厂商认可或赞助本项目。BaoCode 名称与标识归其权利人所有；YCode 是独立的非官方客户端。
+`assets/model_icons/` 中的厂商标志仅用于标明对应的模型服务商，相关商标归各自所有者，不代表这些厂商认可或赞助本项目。BaoCode 名称与标识归其权利人所有；BaoCodeX 是基于 YCode 的独立非官方客户端。

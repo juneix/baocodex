@@ -44,7 +44,6 @@ class _FilesTabState extends State<FilesTab> {
       return Scaffold(
         appBar: AppBar(
           centerTitle: true,
-          automaticallyImplyLeading: false,
           title: DesktopSwitcherTitle(state: state),
         ),
         body: desktop == null
@@ -178,6 +177,40 @@ class _FilesPageState extends State<FilesPage> {
     }
   }
 
+  Widget _viewSwitch() {
+    final state = widget.state;
+    return Container(
+      key: const ValueKey('file-view-switch'),
+      padding: const EdgeInsets.all(3),
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(MobileSizes.radius),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final grid in [false, true])
+            Container(
+              key: ValueKey(grid ? 'file-grid-option' : 'file-list-option'),
+              decoration: BoxDecoration(
+                color: _grid == grid ? segmentThumbColor(context) : Colors.transparent,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: IconButton(
+                isSelected: _grid == grid,
+                tooltip: grid
+                    ? state.tr('网格视图', 'Grid view')
+                    : state.tr('列表视图', 'List view'),
+                onPressed: () => setState(() => _grid = grid),
+                icon: LucideIcon(grid ? 'layout-grid' : 'list', size: 20),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
@@ -194,8 +227,10 @@ class _FilesPageState extends State<FilesPage> {
               : widget.prefix.split('/').where((part) => part.isNotEmpty).last,
         ),
         actions: [
+          _viewSwitch(),
           if (widget.prefix.isEmpty)
             IconButton(
+              tooltip: state.tr('刷新', 'Refresh'),
               icon: const LucideIcon('refresh-cw', size: 20),
               onPressed: () => setState(_load),
             ),
@@ -208,66 +243,22 @@ class _FilesPageState extends State<FilesPage> {
             hint: state.tr('转到文件', 'Go to file'),
             onChanged: (text) => setState(() => _query = text),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 12, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: widget.prefix.isEmpty
-                      ? const SizedBox.shrink()
-                      : Text(
-                          [
-                            widget.project.project.name,
-                            ...widget.prefix
-                                .split('/')
-                                .where((part) => part.isNotEmpty),
-                          ].join(' › '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: Theme.of(context).hintColor),
-                        ),
+          if (widget.prefix.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 12, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  [
+                    widget.project.project.name,
+                    ...widget.prefix.split('/').where((part) => part.isNotEmpty),
+                  ].join(' › '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Theme.of(context).hintColor),
                 ),
-                Container(
-                  key: const ValueKey('file-view-switch'),
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(MobileSizes.radius),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (final grid in [false, true])
-                        Container(
-                          key: ValueKey(
-                            grid ? 'file-grid-option' : 'file-list-option',
-                          ),
-                          decoration: BoxDecoration(
-                            color: _grid == grid
-                                ? segmentThumbColor(context)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(9),
-                          ),
-                          child: IconButton(
-                            isSelected: _grid == grid,
-                            tooltip: grid
-                                ? state.tr('网格视图', 'Grid view')
-                                : state.tr('列表视图', 'List view'),
-                            onPressed: () => setState(() => _grid = grid),
-                            icon: LucideIcon(
-                              grid ? 'layout-grid' : 'list',
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
           Expanded(
             child: FutureBuilder<Map<String, Object?>>(
               future: _listing,

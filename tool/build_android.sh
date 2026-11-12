@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 打包 YCode 并覆盖安装到连着的手机（见 docs/release-android.md）。
+# 打包 BaoCodeX 并安装到连着的手机（见 docs/release-android.md）。
 #   tool/build_android.sh            打包、签名、安装
 #   tool/build_android.sh --no-install 只打包签名
 # 版本名和构建号取 pubspec.yaml（如 0.3.0+35）；构建号必须持续递增，
@@ -106,18 +106,10 @@ if grep -q integration_test "$registrant"; then
   exit 1
 fi
 
-preview_args=()
-if [ "${YCODE_TEST_INSTALL:-}" = true ]; then
-  preview_args+=(
-    -PtestInstall=true
-    --dart-define=YCODE_PREVIEW=true
-  )
-fi
-repository=${YCODE_REPOSITORY:-shuishani/ycode}
+repository=${YCODE_REPOSITORY:-juneix/ycode}
 
 flutter build apk --release --no-pub \
   --target-platform android-arm64 -P arm64Only=true \
-  "${preview_args[@]}" \
   --build-name="$name" --build-number="$number" \
   --dart-define=APP_VERSION="$version" \
   --dart-define=YCODE_REPOSITORY="$repository"
@@ -127,10 +119,10 @@ export YCODE_STORE_PASSWORD="$store_pass" YCODE_KEY_PASSWORD="$key_pass"
 "$apksigner" sign --ks "$keystore" \
   --ks-pass env:YCODE_STORE_PASSWORD --key-pass env:YCODE_KEY_PASSWORD \
   --ks-key-alias "$key_alias" \
-  --out "$out/ycode-$name-$number.apk" "$out/app-aligned.apk"
-"$apksigner" verify "$out/ycode-$name-$number.apk"
-echo "打好了：$out/ycode-$name-$number.apk"
+  --out "$out/BaoCodeX-$name-$number.apk" "$out/app-aligned.apk"
+"$apksigner" verify "$out/BaoCodeX-$name-$number.apk"
+echo "打好了：$out/BaoCodeX-$name-$number.apk"
 
 [ "${1:-}" = --no-install ] && exit 0
-adb install -r "$out/ycode-$name-$number.apk"
-adb shell dumpsys package local.ycode.mobile | grep -E 'versionName|lastUpdateTime'
+adb install -r "$out/BaoCodeX-$name-$number.apk"
+adb shell dumpsys package juneix.baocodex | grep -E 'versionName|lastUpdateTime'

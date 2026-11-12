@@ -24,12 +24,12 @@ String releaseJson({
 }) => jsonEncode({
   'tag_name': tag,
   'body': notes,
-  'html_url': 'https://github.com/shuishani/ycode/releases/tag/$tag',
+  'html_url': 'https://github.com/juneix/ycode/releases/tag/$tag',
   'assets': [
     {
-      'name': 'ycode-0.3.0.apk',
+      'name': 'BaoCodeX-0.3.0.apk',
       'browser_download_url':
-          'https://github.com/shuishani/ycode/releases/download/$tag/ycode-0.3.0.apk',
+          'https://github.com/juneix/ycode/releases/download/$tag/BaoCodeX-0.3.0.apk',
       'size': 4,
     },
   ],
@@ -135,7 +135,7 @@ void main() {
                   release: const ReleaseInfo(
                     version: '0.3.0',
                     notes: '',
-                    url: 'https://github.com/shuishani/ycode/releases/tag/v0.3.0',
+                    url: 'https://github.com/juneix/ycode/releases/tag/v0.3.0',
                   ),
                 ),
               ),

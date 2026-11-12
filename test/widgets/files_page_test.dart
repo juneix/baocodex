@@ -87,6 +87,10 @@ void main() {
     expect(find.text('lib'), findsOneWidget);
     expect(find.text('README.md'), findsOneWidget);
     expect(find.text('3 项'), findsOneWidget);
+    expect(find.descendant(
+      of: find.byType(AppBar),
+      matching: find.byKey(const ValueKey('file-view-switch')),
+    ), findsOneWidget);
 
     await tester.tap(find.byTooltip('网格视图'));
     await tester.pumpAndSettle();

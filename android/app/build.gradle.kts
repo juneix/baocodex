@@ -17,11 +17,9 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
     defaultConfig {
-        // -P testInstall=true: beside the installed one, its pairing untouched.
-        val testInstall = project.hasProperty("testInstall")
-        applicationId = "local.ycode.mobile" + if (testInstall) ".test" else ""
-        manifestPlaceholders["appLabel"] =
-            if (testInstall) "YCode Preview" else "YCode"
+        // Preview and later updates keep BaoCodeX's independent install identity.
+        applicationId = "juneix.baocodex"
+        manifestPlaceholders["appLabel"] = "BaoCodeX"
         minSdk = 24
         targetSdk = 36
         versionCode = flutter.versionCode

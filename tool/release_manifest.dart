@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
-const _defaultRepository = 'shuishani/ycode';
+const _defaultRepository = 'juneix/ycode';
 const _outputs = 'build/app/outputs/flutter-apk';
 
 void main(List<String> arguments) {
@@ -34,7 +34,7 @@ void main(List<String> arguments) {
   if (version == null) _fail('pubspec.yaml 的 version 不是「版本名+构建号」');
   final name = version[1]!;
   final tag = 'v$name';
-  final apkName = 'ycode-$name-${version[2]}.apk';
+  final apkName = 'BaoCodeX-$name-${version[2]}.apk';
   final apk = File('$_outputs/$apkName');
   if (!apk.existsSync()) {
     _fail('找不到 ${apk.path}，先运行 tool/build_android.sh --no-install');

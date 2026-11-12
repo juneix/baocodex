@@ -706,6 +706,7 @@ class ListRow extends StatelessWidget {
     super.key,
     required this.leading,
     required this.title,
+    this.compact = false,
     this.note,
     this.aside,
     this.subtitle,
@@ -716,9 +717,10 @@ class ListRow extends StatelessWidget {
     this.onTap,
   });
 
-  /// [MobileSizes.avatar] square.
+  /// [MobileSizes.avatar] square, or a small icon in a navigation row.
   final Widget leading;
   final String title;
+  final bool compact;
 
   /// A tag on the title's line, left of the time (such as “助理”).
   final String? note;
@@ -751,19 +753,21 @@ class ListRow extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: MobileSizes.listRow),
+              constraints: BoxConstraints(
+                minHeight: compact ? 44 : MobileSizes.listRow,
+              ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: MobileSpace.lg,
-                  vertical: MobileSpace.md,
+                  vertical: compact ? 8 : MobileSpace.md,
                 ),
                 child: Row(
                   children: [
                     SizedBox.square(
-                      dimension: MobileSizes.avatar,
+                      dimension: compact ? 22 : MobileSizes.avatar,
                       child: leading,
                     ),
-                    const SizedBox(width: MobileSpace.md),
+                    SizedBox(width: compact ? 10 : MobileSpace.md),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

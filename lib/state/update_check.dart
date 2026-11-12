@@ -9,7 +9,7 @@ import 'app_state.dart';
 
 const updateRepository = String.fromEnvironment(
   'YCODE_REPOSITORY',
-  defaultValue: 'shuishani/ycode',
+  defaultValue: 'juneix/ycode',
 );
 const projectUrl = 'https://github.com/$updateRepository';
 final _repositoryPattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_.-]+$');
@@ -158,7 +158,7 @@ ReleaseApk? _releaseApk(Object? assets, String tag, String repository) {
       continue;
     }
     final lower = name.toLowerCase();
-    if (!RegExp(r'^ycode[-\w.]*\.apk$').hasMatch(lower) ||
+    if (!RegExp(r'^baocodex[-\w.]*\.apk$').hasMatch(lower) ||
         lower.contains('x86') ||
         lower.contains('armeabi') ||
         lower.contains('debug')) {
@@ -205,7 +205,7 @@ Future<String> fetchLatestRelease(Uri url) async {
   final client = HttpClient()..connectionTimeout = updateCheckTimeout;
   try {
     final request = await client.getUrl(url).timeout(updateCheckTimeout);
-    request.headers.set(HttpHeaders.userAgentHeader, 'YCode-Android');
+    request.headers.set(HttpHeaders.userAgentHeader, 'BaoCodeX-Android');
     request.headers.set(
       HttpHeaders.acceptHeader,
       'application/vnd.github+json',

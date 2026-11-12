@@ -18,8 +18,17 @@ void main() {
   unawaited(
     LucideIcon.precache(const [
       'message-circle',
+      'message-circle-plus',
+      'menu',
+      'arrow-left',
       'bot',
       'folder',
+      'folder-open',
+      'folder-plus',
+      'folder-minus',
+      'list-sort-descending',
+      'calendar-days',
+      'slash',
       'settings',
       'list-filter',
       'circle-plus',
@@ -89,7 +98,7 @@ class _MobileAppState extends State<MobileApp> with WidgetsBindingObserver {
         messageScale: state.settings.textScale,
       );
       return MaterialApp(
-        title: 'YCode',
+        title: 'BaoCodeX',
         debugShowCheckedModeBanner: false,
         theme: themes.light,
         darkTheme: themes.dark,

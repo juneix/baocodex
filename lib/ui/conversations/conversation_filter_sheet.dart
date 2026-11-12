@@ -40,6 +40,10 @@ String filterSummary(AppState state, ConversationFilters filters) {
           ? state.tr('项目当前不可用', 'Project unavailable')
           : project.project.name,
     if (filters.sort == ConversationSort.name) state.tr('按名称', 'By name'),
+    if (filters.grouping == ConversationGrouping.date)
+      state.tr('按更新日期', 'By update date'),
+    if (filters.grouping == ConversationGrouping.status)
+      state.tr('按状态', 'By status'),
     if (filters.query.trim().isNotEmpty) state.tr('搜索结果', 'Search results'),
   ].join(' · ');
 }
@@ -119,6 +123,26 @@ Future<void> showConversationFilters(
                     },
                     onSelected: (value) => pick(draft.copyWith(status: value)),
                   ),
+                  SectionLabel(state.tr('分组', 'Group by'), inset: 0),
+                  SegmentBar<ConversationGrouping>(
+                    key: const ValueKey('conversation-grouping'),
+                    values: ConversationGrouping.values,
+                    selected: draft.grouping,
+                    label: (value) => switch (value) {
+                      ConversationGrouping.project => state.tr('项目', 'Project'),
+                      ConversationGrouping.date => state.tr('日期', 'Date'),
+                      ConversationGrouping.status => state.tr('状态', 'Status'),
+                    },
+                    onSelected: (value) => pick(draft.copyWith(grouping: value)),
+                  ),
+                  if (draft.grouping == ConversationGrouping.date)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        state.tr('按对话最近更新日期分组', 'Grouped by the last update date'),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
                   if (projectSelection) ...[
                     SectionLabel(state.tr('只看项目', 'Project'), inset: 0),
                     _ProjectOption(

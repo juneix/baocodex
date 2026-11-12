@@ -141,7 +141,6 @@ jobs:
           YCODE_RELEASE_KEY_ALIAS: ${{ secrets.YCODE_RELEASE_KEY_ALIAS }}
           YCODE_RELEASE_KEY_PASSWORD: ${{ secrets.YCODE_RELEASE_KEY_PASSWORD }}
           YCODE_REPOSITORY: ${{ github.repository }}
-          YCODE_TEST_INSTALL: 'true'
         run: |
           missing=()
           for name in \
@@ -194,14 +193,14 @@ jobs:
       - name: Name build artifact
         id: artifact
         shell: bash
-        run: echo "name=ycode-android-preview-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+        run: echo "name=baocodex-android-preview-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
 
       - name: Upload signed APK and metadata
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact.outputs.name }}
           path: |
-            build/app/outputs/flutter-apk/ycode-*.apk
+            build/app/outputs/flutter-apk/BaoCodeX-*.apk
             build/app/outputs/flutter-apk/latest.json
           if-no-files-found: error
           retention-days: 14
@@ -253,8 +252,8 @@ jobs:
             exit 1
           fi
           version="${tag#v}"
-          if [[ ! "$apk_name" =~ ^ycode-[0-9]+\.[0-9]+\.[0-9]+-[1-9][0-9]*\.apk$ ]] ||
-             [[ "$apk_name" != "ycode-$version-"* ]]; then
+          if [[ ! "$apk_name" =~ ^BaoCodeX-[0-9]+\.[0-9]+\.[0-9]+-[1-9][0-9]*\.apk$ ]] ||
+             [[ "$apk_name" != "BaoCodeX-$version-"* ]]; then
             echo "::error::APK 名称与版本不一致。"
             exit 1
           fi
@@ -310,7 +309,7 @@ jobs:
           jq -n \
             --arg tag_name "$TAG" \
             --arg target_commitish "$GITHUB_SHA" \
-            --arg name "YCode $VERSION Preview" \
+            --arg name "BaoCodeX $VERSION Preview" \
             --arg body "$(jq -er '.body' "$MANIFEST")" \
             '{tag_name: $tag_name, target_commitish: $target_commitish,
               name: $name, body: $body, draft: true, prerelease: true,

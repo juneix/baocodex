@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:bao_link/bao_link.dart' show BotStatus;
+import 'package:clock/clock.dart';
+
 import 'conversation_filters.dart';
 import 'conversation_filter_sheet.dart';
 import 'project_actions.dart';
@@ -22,7 +25,6 @@ import '../widgets/dropdown_panel.dart';
 import '../widgets/lucide_icon.dart';
 import '../widgets/mobile_widgets.dart';
 import '../widgets/model_icon.dart';
-import '../widgets/project_icon_view.dart';
 import '../widgets/formats.dart';
 
 /// A new conversation, as the desktop's own starts one: in the project
@@ -182,15 +184,8 @@ Future<ProjectRef?> pickProject(
 );
 
 class ChatsTab extends StatefulWidget {
-  const ChatsTab({
-    super.key,
-    required this.state,
-    this.active = true,
-    this.onSelectTab,
-  });
+  const ChatsTab({super.key, required this.state});
   final AppState state;
-  final bool active;
-  final ValueChanged<int>? onSelectTab;
   @override
   State<ChatsTab> createState() => _ChatsTabState();
 }
@@ -199,8 +194,9 @@ class _ChatsTabState extends State<ChatsTab> {
   ConversationFilters _filters = const ConversationFilters();
   final _search = TextEditingController();
   final _scaffold = GlobalKey<ScaffoldState>();
-  final _collapsed = <(String, String)>{};
-  final _showAll = <(String, String)>{};
+  final _collapsed = <(String, String, String)>{};
+  final _showAll = <(String, String, String)>{};
+  Timer? _timeTimer;
   String? _desktopId, _entryProjectId;
   ({String desktop, String project, String session, String title})?
       _conversation;
@@ -251,6 +247,7 @@ class _ChatsTabState extends State<ChatsTab> {
   @override
   void dispose() {
     widget.state.removeListener(_workspaceChanged);
+    _timeTimer?.cancel();
     _search.dispose();
     super.dispose();
   }
@@ -262,6 +259,19 @@ class _ChatsTabState extends State<ChatsTab> {
 
   void _openNavigation() => _scaffold.currentState?.openDrawer();
 
+  void _drawerChanged(bool open) {
+    _timeTimer?.cancel();
+    _timeTimer = open
+        ? Timer.periodic(const Duration(minutes: 1), (_) {
+            if (mounted) setState(() {});
+          })
+        : null;
+  }
+
+  void _toggleGroup((String, String, String) key) => setState(() {
+    if (!_collapsed.remove(key)) _collapsed.add(key);
+  });
+
   void _showNew([ProjectRef? project, bool closeDrawer = true]) {
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
@@ -271,7 +281,7 @@ class _ChatsTabState extends State<ChatsTab> {
       _new = true;
       _pageKey = Object();
       if (project != null) {
-        _collapsed.remove((project.desktopId, project.project.id));
+        _collapsed.remove(('project', project.desktopId, project.project.id));
       }
     });
     if (project != null) {
@@ -324,18 +334,76 @@ class _ChatsTabState extends State<ChatsTab> {
     }
   }
 
-  void _openTab(int index) {
+  void _openDestination(Widget page) {
     _scaffold.currentState?.closeDrawer();
-    final select = widget.onSelectTab;
-    if (select != null) {
-      select(index);
-    } else {
-      openPage<void>(context, switch (index) {
-        1 => BotsTab(state: widget.state),
-        2 => FilesTab(state: widget.state),
-        _ => SettingsPage(state: widget.state),
-      });
+    openPage<void>(context, page);
+  }
+
+  void _openFiles(ProjectRef? project) => _openDestination(
+    project != null && widget.state.isOnline(project.desktopId)
+        ? FilesPage(state: widget.state, project: project)
+        : FilesTab(state: widget.state),
+  );
+
+  List<_SessionGroup> _sessionGroups(
+    List<ConversationProject> projects,
+    List<SessionRef> home,
+  ) {
+    final state = widget.state;
+    if (_filters.grouping == ConversationGrouping.project) return const [];
+    final unique = <(String, String), SessionRef>{
+      for (final project in projects)
+        for (final ref in project.sessions)
+          (ref.desktopId, ref.session.id): ref,
+      for (final ref in home) (ref.desktopId, ref.session.id): ref,
+    };
+    final sessions = _filters.copyWith(query: '').sessions(
+      unique.values,
+      state.desktopName,
+    );
+    final buckets = <String, List<SessionRef>>{};
+    final now = clock.now().toLocal();
+    final today = DateTime.utc(now.year, now.month, now.day);
+    for (final ref in sessions) {
+      final String key;
+      if (_filters.grouping == ConversationGrouping.status) {
+        key = ref.session.status.name;
+      } else {
+        final date = ref.session.updatedAt.toLocal();
+        final days = today
+            .difference(DateTime.utc(date.year, date.month, date.day))
+            .inDays;
+        key = days <= 0
+            ? 'today'
+            : days == 1
+            ? 'yesterday'
+            : days < 7
+            ? 'week'
+            : 'earlier';
+      }
+      buckets.putIfAbsent(key, () => []).add(ref);
     }
+    final order = _filters.grouping == ConversationGrouping.status
+        ? const ['needsInput', 'running', 'idle']
+        : const ['today', 'yesterday', 'week', 'earlier'];
+    return [
+      for (final key in order)
+        if (buckets[key] case final rows?)
+          _SessionGroup(
+            key,
+            switch (key) {
+              'needsInput' => state.tr('等待回应', 'Needs input'),
+              'running' => state.tr('运行中', 'Running'),
+              'idle' => state.tr('空闲', 'Idle'),
+              'today' => state.tr('今天', 'Today'),
+              'yesterday' => state.tr('昨天', 'Yesterday'),
+              'week' => state.tr('最近七天', 'Last seven days'),
+              _ => state.tr('更早', 'Earlier'),
+            },
+            _filters.grouping == ConversationGrouping.date ? 'calendar-days' : 'clock',
+            rows,
+          ),
+    ];
   }
 
   @override
@@ -387,15 +455,26 @@ class _ChatsTabState extends State<ChatsTab> {
     final key = _pageKey;
     final targetDesktop = current?.desktop ?? desktopId;
     final targetProject = current?.project ?? _entryProjectId;
+    final groups = _sessionGroups(projects, home);
+    final keys = <(String, String, String)>[
+      if (home.isNotEmpty) ('home', desktopId ?? '', 'favorites'),
+      if (_filters.grouping == ConversationGrouping.project)
+        for (final item in projects)
+          ('project', item.ref.desktopId, item.ref.project.id)
+      else
+        for (final group in groups)
+          (_filters.grouping.name, desktopId ?? '', group.id),
+      for (final ref in bots) ('bot', ref.desktopId, ref.bot.id),
+    ];
+    final expanded = keys.isNotEmpty && keys.every((key) => !_collapsed.contains(key));
     return Scaffold(
       key: _scaffold,
       resizeToAvoidBottomInset: false,
       drawerEdgeDragWidth: 24,
+      onDrawerChanged: _drawerChanged,
       drawer: Drawer(
         key: const ValueKey('conversation-drawer'),
-        width: (MediaQuery.sizeOf(context).width * .88)
-            .clamp(0, 360)
-            .toDouble(),
+        width: MediaQuery.sizeOf(context).width * .8,
         child: SafeArea(
           minimum: EdgeInsets.only(
             bottom: MediaQuery.viewInsetsOf(context).bottom,
@@ -403,33 +482,28 @@ class _ChatsTabState extends State<ChatsTab> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
+                padding: const EdgeInsets.fromLTRB(16, 12, 12, 16),
                 child: Row(
                   children: [
                     Expanded(
-                      child: DesktopSwitcherTitle(
-                        state: state,
-                        onChanged: _clearFilters,
+                      child: Text(
+                        'BaoCodeX',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
-                    IconButton(
-                      tooltip: state.tr('关闭菜单', 'Close menu'),
-                      icon: const LucideIcon('x', size: 22),
-                      onPressed: () => _scaffold.currentState?.closeDrawer(),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      key: const ValueKey('drawer-new-conversation'),
+                      onPressed: () => _showNew(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      ),
+                      icon: const LucideIcon('message-circle-plus', size: 18),
+                      label: Text(state.tr('新对话', 'New chat')),
                     ),
                   ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    key: const ValueKey('drawer-new-conversation'),
-                    onPressed: () => _showNew(),
-                    icon: const LucideIcon('square-pen', size: 20),
-                    label: Text(state.tr('新对话', 'New conversation')),
-                  ),
                 ),
               ),
               SearchCapsule(
@@ -445,21 +519,33 @@ class _ChatsTabState extends State<ChatsTab> {
                   children: [
                     Expanded(
                       child: Text(
-                        _filters.restricted
-                            ? filterSummary(state, _filters)
-                            : state.tr('项目与对话', 'Projects and conversations'),
-                        style: Theme.of(context).textTheme.bodySmall,
+                        state.tr('工作区', 'Workspaces'),
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
-                    if (_filters.restricted)
-                      TextButton(
-                        onPressed: _clearFilters,
-                        child: Text(state.tr('清除', 'Clear')),
+                    IconButton(
+                      key: const ValueKey('toggle-all-groups'),
+                      tooltip: expanded
+                          ? state.tr('收起全部', 'Collapse all')
+                          : state.tr('展开全部', 'Expand all'),
+                      icon: LucideIcon(
+                        expanded ? 'folder-minus' : 'folder-plus',
+                        size: 20,
                       ),
+                      onPressed: keys.isEmpty
+                          ? null
+                          : () => setState(() {
+                              if (expanded) {
+                                _collapsed.addAll(keys);
+                              } else {
+                                _collapsed.removeAll(keys);
+                              }
+                            }),
+                    ),
                     Builder(
                       builder: (anchor) => IconButton(
                         tooltip: state.tr('筛选对话', 'Filter conversations'),
-                        icon: const LucideIcon('list-filter', size: 20),
+                        icon: const LucideIcon('list-sort-descending', size: 20),
                         onPressed: () => showConversationFilters(
                           anchor,
                           state,
@@ -476,42 +562,57 @@ class _ChatsTabState extends State<ChatsTab> {
                   ],
                 ),
               ),
+              if (_filters.restricted)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          filterSummary(state, _filters),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _clearFilters,
+                        child: Text(state.tr('清除', 'Clear')),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: ListView(
                   key: const ValueKey('conversation-navigation-list'),
                   children: [
-                    ..._navigationRows(projects, bots, home),
+                    ..._navigationRows(projects, bots, home, groups),
                     if (projects.isEmpty && home.isEmpty && bots.isEmpty)
                       _emptyNote(state, desktopId),
                   ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(8),
-                child: Wrap(
-                  alignment: WrapAlignment.center,
+                padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+                child: Row(
                   children: [
-                    TextButton(
-                      onPressed: () => _openTab(1),
-                      child: const Text('Bot'),
+                    Expanded(
+                      child: DesktopSwitcherTitle(
+                        state: state,
+                        onChanged: _clearFilters,
+                      ),
                     ),
-                    TextButton(
-                      onPressed: () => _openTab(2),
-                      child: Text(state.tr('文件', 'Files')),
+                    IconButton(
+                      key: const ValueKey('drawer-bots'),
+                      tooltip: state.tr('Bot 管理', 'Manage bots'),
+                      icon: const LucideIcon('bot', size: 22),
+                      onPressed: () => _openDestination(BotsTab(state: state)),
                     ),
-                    TextButton(
-                      onPressed: () => _openTab(3),
-                      child: Text(state.tr('设置', 'Settings')),
-                    ),
-                    TextButton(
-                      onPressed: () => openPage<void>(
-                        context, BotEditPage(state: state)),
-                      child: Text(state.tr('添加 Bot', 'Add bot')),
-                    ),
-                    TextButton(
-                      onPressed: () => openPage<void>(
-                        context, PairDevicePage(state: state)),
-                      child: Text(state.tr('配对新电脑', 'Pair a desktop')),
+                    IconButton(
+                      key: const ValueKey('drawer-settings'),
+                      tooltip: state.tr('设置', 'Settings'),
+                      icon: const LucideIcon('settings', size: 22),
+                      onPressed: () => _openDestination(SettingsPage(state: state)),
                     ),
                   ],
                 ),
@@ -532,25 +633,63 @@ class _ChatsTabState extends State<ChatsTab> {
                           ref.session.id == current?.session)
                       .firstOrNull?.session.title ??
                   current?.title ?? state.tr('新对话', 'New conversation'),
-              active: widget.active,
               projectUnavailable: project == null,
               onOpenNavigation: _openNavigation,
+              onOpenFiles: () => _openFiles(project),
               onNewConversation: () => _showNew(),
               onCloseConversation: current == null ? null : _back,
               onSessionCreated: (session) =>
                   _created(key, targetDesktop, targetProject, session),
-              onSwitchProject: _new
-                  ? (_) async => _openNavigation()
+              onSwitchProject: _new && project != null
+                  ? (anchor) async {
+                      final selected = await pickProject(
+                        anchor,
+                        state,
+                        current: project,
+                      );
+                      if (!mounted || selected == null ||
+                          selected.desktopId != _desktopId ||
+                          selected.project.id == project.project.id) {
+                        return;
+                      }
+                      _showNew(selected, false);
+                    }
                   : null,
             )
           : Scaffold(
               appBar: AppBar(
-                title: DesktopSwitcherTitle(state: state),
+                title: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(state.tr('新对话', 'New conversation')),
+                    Text(
+                      desktopId == null
+                          ? state.tr('未连接电脑', 'No computer connected')
+                          : '${state.desktopName(desktopId)} · ${linkStatusLabel(state, state.linkStatus(desktopId))}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
                 leading: IconButton(
-                  tooltip: state.tr('项目与对话', 'Projects and conversations'),
-                  icon: const Icon(Icons.menu, size: 22),
+                  tooltip: state.tr('打开菜单', 'Open menu'),
+                  icon: const LucideIcon('menu', size: 22),
                   onPressed: _openNavigation,
                 ),
+                actions: [
+                  IconButton(
+                    tooltip: state.tr('新对话', 'New conversation'),
+                    icon: const LucideIcon('message-circle-plus', size: 22),
+                    onPressed: targetProject == null ? null : () => _showNew(),
+                  ),
+                  IconButton(
+                    tooltip: state.tr('文件', 'Files'),
+                    icon: const LucideIcon('folder', size: 22),
+                    onPressed: () => _openFiles(null),
+                  ),
+                ],
               ),
               body: state.desktops.isEmpty
                   ? EmptyPanel(
@@ -564,9 +703,6 @@ class _ChatsTabState extends State<ChatsTab> {
             ),
     );
   }
-
-  Widget _homeSessionRow(AppState state, SessionRef ref) =>
-      _sessionRow(state, ref, favorite: true);
 
   Widget _sessionRow(AppState state, SessionRef ref, {bool favorite = false}) =>
       projectSessionRow(
@@ -586,9 +722,8 @@ class _ChatsTabState extends State<ChatsTab> {
   Widget _projectRow(AppState state, ConversationProject item) {
     final ref = item.ref;
     final sessions = item.sessions;
-    final key = (ref.desktopId, ref.project.id);
+    final key = ('project', ref.desktopId, ref.project.id);
     final collapsed = _collapsed.contains(key);
-    final all = _showAll.contains(key);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -597,63 +732,151 @@ class _ChatsTabState extends State<ChatsTab> {
           state: state,
           project: ref,
           child: ListRow(
-            leading: ProjectIconView(state: state, ref: ref),
+            key: ValueKey('project-fold-${ref.desktopId}-${ref.project.id}'),
+            compact: true,
+            leading: waitingAvatar(
+              state,
+              LucideIcon(collapsed ? 'folder' : 'folder-open', size: 22),
+              notOnHome(state, sessions),
+            ),
             title: ref.project.name,
-            subtitle: state.tr('${sessions.length} 段对话',
-                '${sessions.length} conversations'),
-            flags: statusFlags(context, state, sessions),
             aside: ref.project.pinned == true
                 ? const LucideIcon('pin', size: 16)
                 : null,
-            status: IconButton(
-              key: ValueKey('project-fold-${ref.desktopId}-${ref.project.id}'),
-              tooltip: collapsed
-                  ? state.tr('展开项目', 'Expand project')
-                  : state.tr('收起项目', 'Collapse project'),
-              icon: LucideIcon(collapsed ? 'chevron-right' : 'chevron-down', size: 18),
-              onPressed: () => setState(() {
-                if (collapsed) {
-                  _collapsed.remove(key);
-                } else {
-                  _collapsed.add(key);
-                }
-              }),
-            ),
-            onTap: () => _showNew(ref, false),
+            trailing: collapsed
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      '${sessions.length}',
+                      key: ValueKey('project-count-${ref.desktopId}-${ref.project.id}'),
+                    ),
+                  )
+                : IconButton(
+                    key: ValueKey('project-new-${ref.desktopId}-${ref.project.id}'),
+                    tooltip: state.tr('新对话', 'New conversation'),
+                    icon: const LucideIcon('plus', size: 20),
+                    onPressed: () => _showNew(ref),
+                  ),
+            onTap: () => _toggleGroup(key),
           ),
         ),
-        if (!collapsed) ...[
-          for (final session in all ? sessions : sessions.take(5))
-            Padding(
-              padding: const EdgeInsets.only(left: 12),
-              child: _sessionRow(state, session),
+        if (!collapsed) ..._sessionChildren(key, sessions),
+        if (!collapsed && sessions.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 0, 16, 12),
+            child: Text(
+              state.tr('还没有对话，直接开始新任务。',
+                  'No conversations yet. Start a new task.'),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-          if (sessions.length > 5)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                key: ValueKey('project-more-${ref.desktopId}-${ref.project.id}'),
-                onPressed: () => setState(() {
-                  if (all) {
-                    _showAll.remove(key);
-                  } else {
-                    _showAll.add(key);
-                  }
-                }),
-                child: Text(all
-                    ? state.tr('收起多余对话', 'Show fewer')
-                    : state.tr('展开剩余 ${sessions.length - 5} 条',
-                        'Show ${sessions.length - 5} more')),
+          ),
+      ],
+    );
+  }
+
+  List<Widget> _sessionChildren(
+    (String, String, String) key,
+    List<SessionRef> sessions, {
+    bool favorite = false,
+  }) {
+    final state = widget.state;
+    final all = _showAll.contains(key);
+    return [
+      for (final ref in all ? sessions : sessions.take(5))
+        Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: _sessionRow(state, ref, favorite: favorite),
+        ),
+      if (sessions.length > 5)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: ValueKey('${key.$1 == 'project' ? 'project' : 'group'}-more-${key.$2}-${key.$3}'),
+            onPressed: () => setState(() {
+              if (!_showAll.remove(key)) _showAll.add(key);
+            }),
+            child: Text(
+              all
+                  ? state.tr('收起过多对话', 'Show fewer conversations')
+                  : state.tr('展开剩余 ${sessions.length - 5} 条',
+                      'Show ${sessions.length - 5} more'),
+            ),
+          ),
+        ),
+    ];
+  }
+
+  Widget _sessionGroupRow(
+    (String, String, String) key,
+    String title,
+    String icon,
+    List<SessionRef> sessions, {
+    bool favorite = false,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      ListRow(
+        key: ValueKey('conversation-group-${key.$1}-${key.$3}'),
+        compact: true,
+        leading: LucideIcon(icon, size: 22),
+        title: title,
+        trailing: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text('${sessions.length}'),
+        ),
+        onTap: () => _toggleGroup(key),
+      ),
+      if (!_collapsed.contains(key))
+        ..._sessionChildren(key, sessions, favorite: favorite),
+    ],
+  );
+
+  Widget _botGroupRow(BotRef ref) {
+    final state = widget.state;
+    final key = ('bot', ref.desktopId, ref.bot.id);
+    final collapsed = _collapsed.contains(key);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        BotPressRow(
+          state: state,
+          ref: ref,
+          child: ListRow(
+            key: ValueKey('bot-fold-${ref.desktopId}-${ref.bot.id}'),
+            compact: true,
+            leading: Badge(
+              isLabelVisible: ref.bot.unread > 0,
+              label: Text('${ref.bot.unread}'),
+              child: const LucideIcon('bot', size: 22),
+            ),
+            title: ref.bot.name,
+            trailing: collapsed
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('1'),
+                  )
+                : null,
+            onTap: () => _toggleGroup(key),
+          ),
+        ),
+        if (!collapsed)
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: _BotChatRow(
+              key: ValueKey('bot-${ref.desktopId}-${ref.bot.id}'),
+              state: state,
+              ref: ref,
+              onTap: () => _openDestination(
+                ChatPage(
+                  state: state,
+                  desktopId: ref.desktopId,
+                  sessionId: ref.bot.session ?? 'bot:${ref.bot.id}',
+                  title: ref.bot.name,
+                  botId: ref.bot.id,
+                ),
               ),
             ),
-          if (sessions.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(28, 0, 16, 12),
-              child: Text(state.tr('还没有对话，直接开始新任务。',
-                  'No conversations yet. Start a new task.'),
-                  style: Theme.of(context).textTheme.bodySmall),
-            ),
-        ],
+          ),
       ],
     );
   }
@@ -662,6 +885,7 @@ class _ChatsTabState extends State<ChatsTab> {
     List<ConversationProject> projects,
     List<BotRef> bots,
     List<SessionRef> home,
+    List<_SessionGroup> groups,
   ) {
     final state = widget.state;
     final favorites = _filters.copyWith(query: '').sessions(
@@ -677,20 +901,25 @@ class _ChatsTabState extends State<ChatsTab> {
       return order[a.bot.id]!.compareTo(order[b.bot.id]!);
     });
     return [
-      if (favorites.isNotEmpty) ...[
-        SectionLabel(state.tr('常用对话', 'Favorites')),
-        for (final ref in favorites) _homeSessionRow(state, ref),
-      ],
-      for (final item in projects) _projectRow(state, item),
-      if (orderedBots.isNotEmpty) ...[
-        const SectionLabel('Bot'),
-        for (final ref in orderedBots)
-          _BotChatRow(
-            key: ValueKey('bot-${ref.desktopId}-${ref.bot.id}'),
-            state: state,
-            ref: ref,
+      if (favorites.isNotEmpty)
+        _sessionGroupRow(
+          ('home', state.selectedDesktopId ?? '', 'favorites'),
+          state.tr('常用对话', 'Favorites'),
+          'pin',
+          favorites,
+          favorite: true,
+        ),
+      if (_filters.grouping == ConversationGrouping.project)
+        for (final item in projects) _projectRow(state, item)
+      else
+        for (final group in groups)
+          _sessionGroupRow(
+            (_filters.grouping.name, state.selectedDesktopId ?? '', group.id),
+            group.title,
+            group.icon,
+            group.sessions,
           ),
-      ],
+      for (final ref in orderedBots) _botGroupRow(ref),
     ];
   }
 
@@ -751,38 +980,54 @@ class _ChatsTabState extends State<ChatsTab> {
 
 }
 
+class _SessionGroup {
+  const _SessionGroup(this.id, this.title, this.icon, this.sessions);
+  final String id, title, icon;
+  final List<SessionRef> sessions;
+}
+
 class _BotChatRow extends StatelessWidget {
-  const _BotChatRow({super.key, required this.state, required this.ref});
+  const _BotChatRow({
+    super.key,
+    required this.state,
+    required this.ref,
+    required this.onTap,
+  });
   final AppState state;
   final BotRef ref;
+  final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => BotPressRow(
     state: state,
     ref: ref,
     child: ListRow(
-      leading: Badge(
-        isLabelVisible: ref.bot.unread > 0,
-        label: Text('${ref.bot.unread}'),
-        offset: const Offset(6, -6),
-        child: BotAvatar(state: state, ref: ref),
+      compact: true,
+      leading: Center(
+        child: Tooltip(
+          message: ref.bot.status == BotStatus.typing
+              ? state.tr('正在输入', 'Typing')
+              : state.tr('Bot 对话', 'Bot conversation'),
+          child: Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: ref.bot.status == BotStatus.typing && state.isOnline(ref.desktopId)
+                  ? MobileTheme.statusColorsOf(context).success
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
       ),
-      title: ref.bot.name,
-      subtitle: ref.bot.last,
+      title: ref.bot.last?.trim().isNotEmpty == true
+          ? ref.bot.last!
+          : state.tr('与 ${ref.bot.name} 对话', 'Chat with ${ref.bot.name}'),
       time: switch (ref.bot.updatedAt) {
         final at? => _sessionTime(state, at),
         null => null,
       },
-      status: state.botPinned(ref) ? const LucideIcon('pin', size: 16) : null,
-      onTap: () => openPage<void>(
-        context,
-        ChatPage(
-          state: state,
-          desktopId: ref.desktopId,
-          sessionId: ref.bot.session ?? 'bot:${ref.bot.id}',
-          title: ref.bot.name,
-          botId: ref.bot.id,
-        ),
-      ),
+      trailing: state.botPinned(ref) ? const LucideIcon('pin', size: 16) : null,
+      onTap: onTap,
     ),
   );
 }
@@ -905,15 +1150,33 @@ Widget projectSessionRow(
     state: state,
     session: ref,
     child: ListRow(
+      compact: compact,
       leading: compact
-          ? const Center(child: LucideIcon('message-circle', size: 20))
+          ? Center(
+              child: Tooltip(
+                message: !state.isOnline(ref.desktopId)
+                    ? linkStatusLabel(state, state.linkStatus(ref.desktopId))
+                    : flags.firstOrNull?.$1 ?? state.tr('空闲', 'Idle'),
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: flags.firstOrNull?.$2 ??
+                        Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            )
           : home
           ? homeWaitingDot(context, state, ref, LetterAvatar(ref.session.title))
           : waitingAvatar(state, LetterAvatar(ref.session.title), [ref]),
       title: ref.session.title,
       note: !compact && home ? state.tr('常用', 'Favorite') : null,
-      aside: modelTag(context, state, ref),
-      flags: home && !compact
+      aside: compact ? null : modelTag(context, state, ref),
+      flags: compact
+          ? const []
+          : home
           ? [
               for (final (label, _) in flags)
                 (label, Theme.of(context).hintColor),
@@ -928,7 +1191,16 @@ Widget projectSessionRow(
                 : null
           : lastLine(state, ref),
       time: _sessionTime(state, ref.session.updatedAt),
-      status: ref.session.pinned
+      status: compact
+          ? null
+          : ref.session.pinned
+          ? const LucideIcon('pin', size: 16)
+          : selected
+          ? const LucideIcon('check', size: 16)
+          : null,
+      trailing: !compact
+          ? null
+          : ref.session.pinned
           ? const LucideIcon('pin', size: 16)
           : selected
           ? const LucideIcon('check', size: 16)
@@ -991,24 +1263,8 @@ Widget homeWaitingDot(
 Iterable<SessionRef> notOnHome(AppState state, Iterable<SessionRef> project) =>
     project.where((ref) => !state.onHome(ref));
 
-String _sessionTime(AppState state, DateTime date, [DateTime? now]) {
-  now ??= DateTime.now();
-  final days = DateTime(
-    now.year,
-    now.month,
-    now.day,
-  ).difference(DateTime(date.year, date.month, date.day)).inDays;
-  if (days <= 0) {
-    return formatClock(date);
-  }
-  if (days == 1) return state.tr('昨天', 'Yesterday');
-  if (days < 7) {
-    const zh = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    const en = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return state.tr(zh[date.weekday - 1], en[date.weekday - 1]);
-  }
-  return formatDay(state, date, now: now);
-}
+String _sessionTime(AppState state, DateTime date, [DateTime? now]) =>
+    relativeTimeText(state, date, now: now);
 
 /// 「2 个运行中 · 1 个待处理」 for a project, 「运行中」 for one conversation:
 /// the same words wherever a status shows. Nothing while the desktop is not

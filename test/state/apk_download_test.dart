@@ -23,7 +23,7 @@ void main() {
   );
 
   ReleaseApk asset(int size) => ReleaseApk(
-    name: 'ycode-0.3.0.apk',
+    name: 'BaoCodeX-0.3.0.apk',
     url: Uri.parse('http://127.0.0.1:${server.port}/ycode.apk'),
     size: size,
   );

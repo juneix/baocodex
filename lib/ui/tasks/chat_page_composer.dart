@@ -374,8 +374,10 @@ extension _Composer on _ChatPageState {
   }
 
   /// 输入框以 `/` 开头时的命令列表：内置的常用命令、电脑上的技能和项目命令。
-  Widget _slashMenu() {
-    final query = _editIndex == null ? slashQuery(_composer.text) : null;
+  Widget _slashMenu({bool force = false, VoidCallback? onPicked}) {
+    final query = _editIndex == null
+        ? force ? '' : slashQuery(_composer.text)
+        : null;
     if (query == null) return const SizedBox.shrink();
     if ((_projectCommands == null || _skills == null) &&
         _online &&
@@ -392,11 +394,14 @@ extension _Composer on _ChatPageState {
       commands: matches,
       projectLabel: tr('项目', 'Project'),
       onPick: (command) {
-        final text = '/${command.name} ';
+        final current = _composer.text;
+        final argument = force && !current.trimLeft().startsWith('/') ? current : '';
+        final text = '/${command.name} $argument';
         _composer.value = TextEditingValue(
           text: text,
           selection: TextSelection.collapsed(offset: text.length),
         );
+        onPicked?.call();
         _composerFocus.requestFocus();
       },
     );
@@ -529,7 +534,7 @@ extension _Composer on _ChatPageState {
   }
 
   Widget _draftImageStrip(List<GalleryImage> group) {
-    // Bot 的图片排在输入框上方，输入框仍是一行。
+    // Bot 的缩略图更紧凑，仍共享图片草稿与移除逻辑。
     final bot = widget.botId != null;
     final thumbnail = bot ? 64.0 : 76.0;
     final bottom = bot ? 0.0 : 8.0;
@@ -608,202 +613,6 @@ extension _Composer on _ChatPageState {
     onPressed: () => _command(LinkMethods.stop),
   );
 
-  /// 同一行放输入框和按钮，面板接在下方顶替键盘，和常见聊天软件一样。
-  Widget _botComposer(SessionBuffer buffer, bool ready) {
-    final scheme = Theme.of(context).colorScheme;
-    final line = BorderSide(color: scheme.outlineVariant, width: .5);
-    final notices = _composerNotices();
-    final emoji = _addOpen && _emojiPanel;
-    IconButton button(String tooltip, Widget icon, VoidCallback? onPressed) =>
-        IconButton(
-          tooltip: tooltip,
-          onPressed: onPressed,
-          padding: EdgeInsets.zero,
-          // 和单行输入框等高，底边对齐。
-          style: IconButton.styleFrom(
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          constraints: BoxConstraints.tight(const Size.square(44)),
-          iconSize: 28,
-          icon: icon,
-        );
-    final working = buffer.live && _online;
-    final bar = TapRegion(
-      onTapOutside: (_) => _closeAdd(),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.surfaceBright,
-          border: Border(top: line),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (notices.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: notices,
-                  ),
-                ),
-              if (working)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(tr('运行中', 'Running'))),
-                      _stopAction(size: 44),
-                    ],
-                  ),
-                ),
-              if (_images.isNotEmpty) _draftImages(),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: DecoratedBox(
-                        key: const ValueKey('composer-input-surface'),
-                        decoration: BoxDecoration(
-                          color: scheme.surfaceContainerLowest,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (_editIndex != null) _editHeader(buffer),
-                            _pasteScope(
-                              TextField(
-                                controller: _composer,
-                                focusNode: _composerFocus,
-                                contextMenuBuilder: _pasteMenu,
-                                onTap: _addToKeyboard,
-                                style: Theme.of(context).textTheme.bodyMedium,
-                                minLines: 1,
-                                maxLines: 5,
-                                decoration: InputDecoration(
-                                  filled: false,
-                                  isDense: true,
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                  contentPadding: EdgeInsets.fromLTRB(
-                                    12,
-                                    _editIndex != null ? 2 : 11,
-                                    12,
-                                    11,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    _clearButton(),
-                    button(
-                      emoji ? tr('键盘', 'Keyboard') : tr('表情', 'Emoji'),
-                      Icon(
-                        emoji
-                            ? Icons.keyboard_alt_outlined
-                            : Icons.sentiment_satisfied_alt,
-                      ),
-                      _toggleEmoji,
-                    ),
-                    button(
-                      tr('添加附件', 'Add attachment'),
-                      const Icon(Icons.add_circle_outline),
-                      ready ? _toggleAdd : null,
-                    ),
-                    ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _composer,
-                      builder: (context, value, _) =>
-                          value.text.trim().isEmpty && _images.isEmpty
-                          ? const SizedBox.shrink()
-                          : Padding(
-                              padding: const EdgeInsets.fromLTRB(4, 4, 6, 4),
-                              child: Tooltip(
-                                message: _editIndex != null
-                                    ? tr('重新发送', 'Resend')
-                                    : tr('发送', 'Send'),
-                                child: FilledButton(
-                                  style: FilledButton.styleFrom(
-                                    minimumSize: const Size(
-                                      56,
-                                      MobileSizes.button,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                  ),
-                                  onPressed:
-                                      ready && !_imagesMissing && _editReady
-                                      ? _send
-                                      : null,
-                                  child: Text(tr('发送', 'Send')),
-                                ),
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              if (_addOpen)
-                DecoratedBox(
-                  decoration: BoxDecoration(border: Border(top: line)),
-                  child: emoji
-                      ? SizedBox(
-                          key: const ValueKey('chat-emoji'),
-                          height: math.max(
-                            0,
-                            _panelHeight -
-                                MediaQuery.viewInsetsOf(context).bottom,
-                          ),
-                          child: EmojiPanel(
-                            composer: _composer,
-                            canSend: () =>
-                                ready && !_imagesMissing && _editReady,
-                            onPick: _insertEmoji,
-                            onDelete: _deleteBackward,
-                            onSend: _send,
-                            deleteLabel: tr('删除', 'Delete'),
-                            sendLabel: tr('发送', 'Send'),
-                          ),
-                        )
-                      : _addPanel(ready, topBorder: false),
-                )
-              else if (_reserve > 0)
-                SizedBox(
-                  height: math.max(
-                    0,
-                    _reserve - MediaQuery.viewInsetsOf(context).bottom,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (!working) return bar;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        BotWorkingLine(tr: tr, since: _turnStart(buffer)),
-        bar,
-      ],
-    );
-  }
-
   /// 加号面板里每格的图标边，和微信差不多大。
   static const _addTile = 60.0;
 
@@ -833,7 +642,65 @@ extension _Composer on _ChatPageState {
     });
   }
 
-  void _toggleAdd() => _togglePanel(emoji: false);
+  Future<void> _toggleAdd() async {
+    if (_actionsOpen) return;
+    _composerFocus.unfocus();
+    _closeAdd();
+    setState(() {
+      _actionsOpen = true;
+      _reserve = 0;
+    });
+    final sheet = showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      requestFocus: false,
+      builder: (sheetContext) => AnimatedBuilder(
+        animation: widget.state,
+        builder: (_, _) => _addPanel(
+          sheetContext,
+          _online && !_sending && !_picking,
+        ),
+      ),
+    );
+    // 这个弹层也包含会话设置；普通草稿沿用打开设置时才建立会话的规则。
+    if (widget.botId == null && !_hasSession && _online && _project != null) {
+      unawaited(runUi(context, () async {
+        await _ensureSession();
+        if (mounted) await _binding.settled;
+      }, errorMessage: (error) => userMessage(widget.state, error)));
+    }
+    try {
+      await sheet;
+    } finally {
+      if (mounted) setState(() => _actionsOpen = false);
+    }
+  }
+
+  Future<void> _openSlashMenu() async {
+    final loading = (_projectCommands == null || _skills == null) &&
+            _online && !clock.now().isBefore(_desktopCommandsDue)
+        ? _loadDesktopCommands()
+        : Future<void>.value();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      requestFocus: false,
+      builder: (sheetContext) => FutureBuilder<void>(
+        future: loading,
+        builder: (_, _) => Padding(
+          padding: const EdgeInsets.fromLTRB(12, 20, 12, 16),
+          child: SingleChildScrollView(
+            child: _slashMenu(
+              force: true,
+              onPicked: () => Navigator.pop(sheetContext),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _toggleEmoji() => _togglePanel(emoji: true);
 
@@ -884,32 +751,33 @@ extension _Composer on _ChatPageState {
       final inset = MediaQuery.viewInsetsOf(context).bottom;
       if (inset > math.max(_seenKeyboard ?? 0, 100)) _seenKeyboard = inset;
     }
-    if (widget.botId != null) return _botComposer(buffer, ready);
+    final bot = widget.botId != null;
     final live = buffer.live && _online;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (bot && live) BotWorkingLine(tr: tr, since: _turnStart(buffer)),
         Container(
           padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ..._composerNotices(),
-              // 只有真实会话才有任务与改动，不把本地草稿键交给电脑。
-              if (_hasSession) ChatActivityCard(
-                key: ValueKey((widget.desktopId, _sessionId)),
-                state: widget.state,
-                desktopId: widget.desktopId,
-                sessionId: _sessionId,
-                projectId: widget.projectId,
-                agents: projectRunningAgents(
-                  buffer.items.map(ChatCodec.decode).whereType<ChatItem>(),
-                  buffer.tasks,
+              if (_hasSession && !bot)
+                ChatActivityCard(
+                  key: ValueKey((widget.desktopId, _sessionId)),
+                  state: widget.state,
+                  desktopId: widget.desktopId,
+                  sessionId: _sessionId,
+                  projectId: widget.projectId,
+                  agents: projectRunningAgents(
+                    buffer.items.map(ChatCodec.decode).whereType<ChatItem>(),
+                    buffer.tasks,
+                  ),
+                  onOpenAgent: _openRunningAgent,
+                  foldSignal: _trayFold,
                 ),
-                onOpenAgent: _openRunningAgent,
-                foldSignal: _trayFold,
-              ),
-              _slashMenu(),
+              if (!bot) _slashMenu(),
               DecoratedBox(
                 key: const ValueKey('composer-input-surface'),
                 decoration: _composerDecoration,
@@ -923,8 +791,6 @@ extension _Composer on _ChatPageState {
                         controller: _composer,
                         focusNode: _composerFocus,
                         contextMenuBuilder: _pasteMenu,
-                        // Not outside the add panel: tapping here hands it to the
-                        // keyboard rather than dropping it.
                         groupId: _addRegion,
                         onTap: _addToKeyboard,
                         style: Theme.of(context).textTheme.bodyMedium,
@@ -937,234 +803,265 @@ extension _Composer on _ChatPageState {
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
                           disabledBorder: InputBorder.none,
+                          suffixIcon: _clearButton(),
+                          suffixIconConstraints: const BoxConstraints(),
                           contentPadding: EdgeInsets.fromLTRB(
                             16,
                             _editIndex != null ? 2 : 14,
                             16,
                             2,
                           ),
-                          hintText: tr('发消息…', 'Message…'),
+                          hintText: bot
+                              ? tr('发消息…', 'Message…')
+                              : tr('发消息，@files， /command', 'Message, @files, /command'),
                         ),
                       ),
                     ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              TapRegion(
-                                groupId: _addRegion,
-                                child: IconButton(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                  tooltip: tr('添加附件', 'Add attachment'),
-                                  onPressed: _sending || _picking
-                                      ? null
-                                      : _toggleAdd,
-                                  icon: const LucideIcon('plus', size: 22),
-                                ),
-                              ),
-                              for (final choice in _composerChoices(buffer))
-                                _choiceIconButton(choice, ready),
-                              _clearButton(),
-                            ],
-                          ),
-                        ),
-                        if (ContextUsage.parse(buffer.context)
-                            case final usage?)
-                          ContextRing(
-                            state: widget.state,
-                            usage: usage,
-                            onPressed: () =>
-                                showContextUsage(context, widget.state, usage),
-                          ),
-                        // 停止和发送分别可达；窄屏时左侧选项自动换行。
-                        ValueListenableBuilder<TextEditingValue>(
-                          valueListenable: _composer,
-                          builder: (context, value, _) {
-                            final hasDraft =
-                                value.text.trim().isNotEmpty ||
-                                _images.isNotEmpty;
-                            final canSend =
-                                ready &&
-                                !_sending &&
-                                hasDraft &&
-                                !_imagesMissing &&
-                                _editReady;
-                            return Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (live) _stopAction(size: 48),
-                                if (!live || hasDraft || _sending)
-                                  Padding(
-                                    padding: const EdgeInsets.only(
-                                      left: 4,
-                                      right: 8,
-                                    ),
-                                    child: ChatComposerAction(
-                                      busy: _sending,
-                                      enabled: canSend,
-                                      tooltip: _editIndex != null
-                                          ? tr('重新发送', 'Resend')
-                                          : tr('发送', 'Send'),
-                                      onSend: _send,
-                                    ),
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
+                    _composerToolbar(buffer, ready, live),
                   ],
                 ),
               ),
             ],
           ),
         ),
-        // 功能区铺满整行：灰底和上边线一直顶到屏幕两边才发现得出是另一块。
-        if (_addOpen && !_sending)
+        if (bot && _addOpen && _emojiPanel && !_sending)
           TapRegion(
             groupId: _addRegion,
-            onTapOutside: (_) => setState(() => _addOpen = false),
-            child: _addPanel(ready),
+            onTapOutside: (_) => _closeAdd(),
+            child: SizedBox(
+              key: const ValueKey('chat-emoji'),
+              height: math.max(0, _panelHeight - MediaQuery.viewInsetsOf(context).bottom),
+              child: EmojiPanel(
+                composer: _composer,
+                canSend: () => ready && !_imagesMissing && _editReady,
+                onPick: _insertEmoji,
+                onDelete: _deleteBackward,
+                onSend: _send,
+                deleteLabel: tr('删除', 'Delete'),
+                sendLabel: tr('发送', 'Send'),
+              ),
+            ),
           ),
         if (!_addOpen && _reserve > 0)
           SizedBox(
-            height: math.max(
-              0,
-              _reserve - MediaQuery.viewInsetsOf(context).bottom,
-            ),
+            height: math.max(0, _reserve - MediaQuery.viewInsetsOf(context).bottom),
           ),
       ],
     );
   }
 
-  Widget _addPanel(bool ready, {bool topBorder = true}) {
-    final scheme = Theme.of(context).colorScheme;
-    final media = MediaQuery.of(context);
-    // 选完东西回到输入框：键盘跟着回来，接着打字。
-    void pick(VoidCallback action) {
-      setState(() => _addOpen = false);
-      action();
-      _composerFocus.requestFocus();
-    }
-
-    final actions = <(String, String, String, VoidCallback?)>[
-      (
-        'album',
-        'images',
-        tr('相册', 'Photos'),
-        _picking || _sending ? null : _pickImages,
+  Widget _composerToolbar(SessionBuffer buffer, bool ready, bool live) {
+    final usage = ContextUsage.parse(buffer.context);
+    final add = TapRegion(
+      groupId: _addRegion,
+      child: IconButton(
+        key: const ValueKey('composer-add'),
+        tooltip: tr('更多输入选项', 'More input options'),
+        onPressed: _sending || _picking ? null : _toggleAdd,
+        icon: const LucideIcon('plus', size: 22),
       ),
-      (
-        'camera',
-        'camera',
-        tr('拍摄', 'Camera'),
-        _picking || _sending
-            ? null
-            : () => _pickImages(source: ImageSource.camera),
-      ),
-      // 模型、模式、权限在输入框下面那排，这里不再放一份；Bot 不在哪个项目里，没有文件可 @。
-      if (widget.botId == null)
-        (
-          'file',
-          'at-sign',
-          tr('文件', 'Files'),
-          ready && _project != null ? _mention : null,
-        ),
-    ];
-
-    return Container(
-      key: const ValueKey('chat-actions'),
-      // 铺满整行：放进居中的 Column 里也不会缩成内容宽，
-      // 灰底和上边线一直顶到两边。
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        border: topBorder
-            ? Border(top: BorderSide(color: scheme.outlineVariant, width: .5))
-            : null,
-      ),
-      // 和键盘一样高，格子少也不压扁；键盘还收着时先让出它占的高度，
-      // 滑下去时格子和键盘合起来不高过键盘原高，输入框不跳。
-      height: math.max(0, _panelHeight - media.viewInsets.bottom),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          const gap = 12.0, side = 16.0;
-          // 四列等宽，取整免得舍入误差把第四格挤到下一行。
-          final width =
-              ((constraints.maxWidth - side * 2 - gap * (_addColumns - 1)) /
-                      _addColumns)
-                  .floorToDouble();
-          // 格子尽量大，放大字号时也不超出一列。
-          final tile = math.min(media.textScaler.scale(_addTile), width);
-          return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(side, 16, side, 8),
-            // 一行四列，从左往右填，填满再换行。
-            child: Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              children: [
-                for (final (id, icon, title, onTap) in actions)
-                  SizedBox(
-                    key: ValueKey('chat-action-$id'),
-                    width: width,
-                    child: Tooltip(
-                      message: title,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: onTap == null ? null : () => pick(onTap),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 7),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: tile,
-                                height: tile,
-                                decoration: BoxDecoration(
-                                  color: scheme.surfaceContainerLowest,
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Center(
-                                  child: LucideIcon(
-                                    icon,
-                                    size: tile * .44,
-                                    color: onTap == null
-                                        ? scheme.onSurface.withValues(
-                                            alpha: .38,
-                                          )
-                                        : scheme.onSurface,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: MobileType.secondary,
-                                  color: onTap == null
-                                      ? scheme.onSurface.withValues(alpha: .38)
-                                      : scheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+    );
+    Widget contextUsage() => usage == null
+        ? const SizedBox.shrink()
+        : ContextRing(
+            state: widget.state,
+            usage: usage,
+            showValue: true,
+            onPressed: () => showContextUsage(context, widget.state, usage),
+          );
+    return LayoutBuilder(
+      builder: (context, constraints) => ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _composer,
+        builder: (context, value, _) {
+          final hasDraft = value.text.trim().isNotEmpty || _images.isNotEmpty;
+          final canSend = ready && !_sending && hasDraft && !_imagesMissing && _editReady;
+          final actions = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (live) _stopAction(size: 48),
+              if (!live || hasDraft || _sending)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, right: 8),
+                  child: ChatComposerAction(
+                    busy: _sending,
+                    enabled: canSend,
+                    tooltip: _editIndex != null ? tr('重新发送', 'Resend') : tr('发送', 'Send'),
+                    onSend: _send,
                   ),
+                ),
+            ],
+          );
+          final crowded = constraints.maxWidth < 330 ||
+              MediaQuery.textScalerOf(context).scale(14) > 18;
+          if (crowded) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(children: [add, Expanded(child: _modelButton(ready))]),
+                Row(children: [const Spacer(), contextUsage(), actions]),
               ],
-            ),
+            );
+          }
+          return Row(
+            children: [add, Expanded(child: _modelButton(ready)), contextUsage(), actions],
           );
         },
       ),
     );
   }
+
+  Widget _addPanel(BuildContext sheetContext, bool ready) {
+    final scheme = Theme.of(context).colorScheme;
+    final media = MediaQuery.of(context);
+    final bot = widget.botId != null;
+    final buffer = _buffer;
+    final blocked = _picking || _sending || !_binding.available;
+    final permission = buffer.choices.where((choice) => choice.kind == 'permission').firstOrNull;
+    final mode = buffer.choices.where((choice) => choice.kind == 'mode').firstOrNull;
+    final session = _sessionId;
+    final generation = _binding.generation;
+    void pick(VoidCallback action, bool focus) {
+      Navigator.pop(sheetContext);
+      if (!mounted) return;
+      action();
+      if (focus) _composerFocus.requestFocus();
+    }
+    final actions = <(String, String, String, VoidCallback?, bool)>[
+      ('album', 'images', tr('相册', 'Photos'), blocked ? null : _pickImages, true),
+      ('camera', 'camera', tr('拍照', 'Camera'),
+          blocked ? null : () => _pickImages(source: ImageSource.camera), true),
+      if (!bot) ...[
+        ('file', 'at-sign', tr('@ 文件', '@ Files'),
+            ready && _project != null ? _mention : null, true),
+        ('command', 'slash', tr('斜杠命令', 'Commands'),
+            blocked || _editIndex != null ? null : () => runUi(context, _openSlashMenu,
+                errorMessage: (error) => userMessage(widget.state, error)), false),
+      ] else
+        ('emoji', 'smile', tr('表情', 'Emoji'), blocked ? null : _toggleEmoji, false),
+    ];
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: media.size.height * .72),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            const gap = 12.0, side = 16.0;
+            final width = ((constraints.maxWidth - side * 2 - gap * (_addColumns - 1)) /
+                _addColumns).floorToDouble();
+            final tile = math.min(media.textScaler.scale(_addTile), width);
+            return SingleChildScrollView(
+              key: const ValueKey('chat-actions'),
+              padding: const EdgeInsets.fromLTRB(side, 20, side, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    children: [
+                      for (final (id, icon, title, onTap, focus) in actions)
+                        SizedBox(
+                          key: ValueKey('chat-action-$id'),
+                          width: width,
+                          child: Tooltip(
+                            message: title,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: onTap == null ? null : () => pick(onTap, focus),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 7),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: tile,
+                                      height: tile,
+                                      decoration: BoxDecoration(
+                                        color: scheme.surfaceContainerLowest,
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: Center(
+                                        child: LucideIcon(icon, size: tile * .44,
+                                            color: onTap == null ? scheme.onSurfaceVariant : scheme.onSurface),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(fontSize: MobileType.secondary,
+                                            color: scheme.onSurfaceVariant)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (!bot && permission != null && permission.options.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _settingRow(permission, ready),
+                  ],
+                  if (!bot && mode != null && mode.options.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    Text(tr('模式', 'Mode'), style: Theme.of(context).textTheme.bodyMedium),
+                    const SizedBox(height: 8),
+                    IgnorePointer(
+                      ignoring: !ready || _commandBusy,
+                      child: SegmentBar<String>(
+                        key: const ValueKey('composer-mode'),
+                        values: [for (final option in mode.options) option.id],
+                        selected: mode.selected ?? '',
+                        label: (id) => _choicePresentation('mode',
+                            mode.options.firstWhere((option) => option.id == id)).$1,
+                        onSelected: (option) {
+                          if (!mounted || !ready || !_online || _commandBusy || !_hasSession ||
+                              _sessionId != session || _binding.generation != generation) return;
+                          runUi(context, () => _command(LinkMethods.choose,
+                              {'kind': 'mode', 'option': option}),
+                              errorMessage: (error) => userMessage(widget.state, error));
+                        },
+                      ),
+                    ),
+                  ],
+                  if (!bot)
+                    for (final choice in _visibleChoices(buffer))
+                      if (!{'model', 'mode', 'permission'}.contains(choice.kind)) ...[
+                        const SizedBox(height: 16),
+                        _settingRow(choice, ready),
+                      ],
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _settingRow(LinkChoice choice, bool ready) => Builder(
+    builder: (anchor) => InkWell(
+      key: ValueKey('composer-setting-${choice.kind}'),
+      onTap: ready && !_commandBusy && _hasSession
+          ? () => runUi(context, () => _choices(anchor, choice),
+              errorMessage: (error) => userMessage(widget.state, error))
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Text(_choiceLabel(choice.kind)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(_chipValue(choice), textAlign: TextAlign.right,
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(width: 8),
+            const LucideIcon('chevron-right', size: 18),
+          ],
+        ),
+      ),
+    ),
+  );
 }

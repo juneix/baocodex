@@ -1,65 +1,66 @@
-# YCode
+# BaoCodeX
 
 [English](README.md) · **简体中文**
 
-[下载 Android 预览版](https://github.com/juneix/ycode/releases) · [更新日志](CHANGELOG_CN.md) · [上游项目](https://github.com/shuishani/ycode)
+[Android 预览版发布](https://github.com/juneix/ycode/releases) · [更新日志](CHANGELOG_CN.md) · [YCode 上游](https://github.com/shuishani/ycode)
 
-YCode 是 BaoCode 电脑版的独立、非官方 Android 客户端，由 shuishan 维护，使用 Flutter 开发。通过官方 link v2 协议（iroh/QUIC、Ed25519、端到端加密）配对电脑，在手机上查看和继续电脑上的对话。
+BaoCodeX 是基于开源 YCode、使用 Flutter 开发的 BaoCode 电脑版独立非官方 Android 客户端。通过 link v2（iroh/QUIC、Ed25519、端到端加密）配对电脑，在手机上查看和继续电脑上的对话。
 
-本仓库是个人预览修改版。`YCode Preview` 使用独立包名和固定个人签名，可与原 YCode 并存，不覆盖原应用的配对和数据。
+应用使用独立包名 `juneix.baocodex`，不覆盖 YCode 或 YCode Preview，也不会自动迁移它们的配对和本地草稿。保留旧应用，并为 BaoCodeX 单独重新配对。
 
-下方截图为上游 0.1.1 界面；新预览版导航的截图待真机验证后更新。
+当前源码目标版本为 **1.0.3**。下方截图是上游 0.1.1 的旧界面，不代表新布局；新截图随签名云构建与真机验收补充。
 
 | 首页 | 对话 |
 | :---: | :---: |
 | ![首页](docs/screenshots/home.jpg) | ![对话](docs/screenshots/chat.jpg) |
 
-本项目不属于 BaoCode 官方产品，不代表官方提供支持。电脑上的模型调用、凭据与任务执行仍由电脑端管理。请只连接自己信任的电脑。
+本项目不是 BaoCode 官方产品，不代表官方提供支持。模型调用、凭据与任务执行仍由电脑端管理。请只连接自己信任的电脑。
 
 ## 安装与更新
 
-- **先在电脑上安装 BaoCode**：官网 <https://baocode.dev>，下载 <https://baocode.dev/download>。在电脑端「设置 → 手机」显示二维码，用 YCode 扫码配对。
-- **安装预览版**：从本 fork 的 [pre-release](https://github.com/juneix/ycode/releases) 下载 APK，支持 Android 7.0 及以上的 arm64 设备。包名为 `local.ycode.mobile.test`，保留原 YCode 即可并存；暂不支持 iOS。
-- **更新**：预览版暂从 pre-release 手动下载。自动检查更新使用构建时配置的仓库，只查询稳定版本。后续预览包沿用同一把个人签名密钥，不要为了更新而卸载。
+- **先在电脑上安装 BaoCode**：官网 <https://baocode.dev>，下载 <https://baocode.dev/download>。在「设置 → 手机」显示二维码，用 BaoCodeX 扫码配对。
+- **安装预览版**：使用本仓库的 [pre-release](https://github.com/juneix/ycode/releases)。BaoCodeX 面向 Android 7.0 及以上的 arm64 设备，暂不支持 iOS。显示名为 BaoCodeX，包名精确为 `juneix.baocodex`，不附加预览后缀。
+- **更新**：预览 APK 暂时手动下载。自动检查使用构建时配置的仓库，只查询稳定版本。后续 BaoCodeX 更新保持同一包名、同一签名和更高的 Android 构建号，不要为了更新而卸载。
+- **仓库改名**：建议在首个长期使用的 APK 云构建前完成改名。GitHub Actions 会把实际仓库写入更新源；严格 URL 校验不保证自动适配之后的改名。
 
 ## 功能
 
-- 默认对话输入、本地草稿与共享项目导航，每项目默认五条会话，可展开更多；保留 Bot、文件、设置，中英文和系统／浅色／深色主题。
-- 扫码、粘贴或局域网发现配对，多台电脑，断线重连。
-- 项目和对话的搜索、筛选、置顶、归档，项目可在首页直接展开对话；流式消息、排队与立即插入、图片和 @ 文件、/ 命令。
-- 编辑历史消息重发，可撤回 Agent 之后改过的文件；输入栏显示上下文用量（需电脑版 1.9.3 及以上）。
-- Markdown、代码高亮、数学公式、离线 Mermaid；工具与思考折叠、审批与提问、计划、子代理。
-- 切换模型、模式和权限，显示厂商图标；额度查询需要电脑端支持，官方电脑端会显示不支持。
-- Bot 的添加、编辑、头像、记忆和聊天。
-- 文件树、搜索、预览、改动对比，以及保留或撤回改动。
+- 无底部栏的新对话首页；菜单或右滑打开 80% 工作区侧栏，左滑或右上角「更多」打开右侧会话抽屉（快捷入口 + 会话操作），文件按钮进入项目文件。Bot、文件、设置使用正常返回导航。
+- 搜索、筛选工作区与会话；全部展开/收起、默认五条与显示更多、相对时间，以及按项目、最近更新日期、状态的本地分组。
+- 每个 Bot 保留一条当前会话，提供吉祥物和资料名称问候；保留 Bot 管理，隐藏不适用的项目聊天入口。
+- 时间段问候和可“换一换”的提示词，点击只填草稿；中央工作区按钮打开项目选择弹窗，不等同于侧栏。
+- 图片、拍照、@ 文件、斜杠命令集中到输入菜单；显示模型名称、真实上下文用量和独立发送/停止，权限使用 Android 原生纯文字下拉，模式使用分段切换。
+- 扫码、粘贴或局域网发现配对，多台电脑与断线重连；保留本地草稿、流式消息、排队与立即插入、编辑历史消息重发。
+- Markdown、代码高亮、数学公式、离线 Mermaid；工具与思考折叠、审批与提问、计划和子代理。
+- 文件树、搜索、预览、源码、差异，以及保留/撤回改动；目录列表/网格切换位于文件标题栏。
+- 中英文与系统/浅色/深色主题；上下文用量和文件撤回需要电脑端支持，不估算或伪造不支持的能力。
 
-## 开发
+保留既有归档动作。1.0.3 不新增归档浏览/恢复或创建时间排序；日期分组使用最近更新日期。
 
-需要 Flutter 3.47 / Dart 3.13、JDK 21、Android SDK/NDK，以及 Rust 1.97.1（由 `vendor/bao_iroh/rust/rust-toolchain.toml` 固定）。当前仅提供 Android 工程，没有 iOS 工程。
+## 开发与验证
 
-Android SDK 和 Flutter 路径放在本机的 `android/local.properties` 中，不提交。Windows 可使用 `tool/prepare_android.ps1`；也可以参考 [构建说明](docs/release-android.md) 配置。
+APK 的分析、测试、构建与签名在 GitHub Actions 执行。Runner 使用配置的精确 Flutter 3.47.x、满足 `^3.13.4` 的 Dart、JDK 21 和 Rust 1.97.1；该流程不要求在本机安装 Android SDK、Gradle、签名工具或模拟器。
+
+云端检查执行：
 
 ```sh
-flutter pub get
 flutter analyze --no-pub
-# 运行与当前改动相关的测试，例如：
-flutter test --no-pub test/state/update_check_test.dart test/state/apk_download_test.dart test/widgets/update_check_test.dart
-flutter run --dart-define=DEMO=true   # 演示数据，不连电脑
+flutter test --no-pub
 ```
 
-打包、签名、安装与发布见 [docs/release-android.md](docs/release-android.md)。`tool/fixture_desktop.dart` 是测试用的合成电脑，不碰真实仓库和模型。
+Android 工作流还会发布 pre-release，触发整条属于发布操作，不是仅检查。打包与签名说明见 [docs/release-android.md](docs/release-android.md)。原生菜单与外部行为必须用真实 APK、真机和电脑验收；单元测试的合成数据不能代替。
 
 ## 来源与许可
 
-Copyright (C) 2026 shuishan。整体项目按 **GPL-3.0-only** 发布，见 [LICENSE](LICENSE)。
+基于 YCode，Copyright (C) 2026 shuishan。整体项目继续按 **GPL-3.0-only** 发布，见 [LICENSE](LICENSE)。
 
-- 来自 BaoCode 的协议包 `vendor/bao_link` 以及复制、改编的文件适用 GPL-3.0-only，版权归 BaoCode 作者。`vendor/bao_iroh`、`vendor/bao_editor` 保留各自的 MIT 许可及第三方许可。
-- 图标来自 Lucide、Remix Icon 4.8.0、theSVG、Simple Icons 和 Material Icon Theme，许可全文与对应文件见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。应用内「设置 → 关于 YCode → 开源许可」也会列出。
-- 界面参考官方 BaoCode 手机 App 的截图自行设计与实现，不包含官方 App 的代码或图片素材。协议来源、扩展和来自 BaoCode 的文件清单见 [docs/upstream-sync.md](docs/upstream-sync.md)。
-- BaoCode 名称与标识、各模型服务商的标志均归各自权利人所有。
+- `vendor/bao_link` 以及来自 BaoCode 的复制/改编文件保留 GPL-3.0-only 与原作者版权；`vendor/bao_iroh`、`vendor/bao_editor` 保留 MIT 和各自第三方许可。
+- 图标使用 Lucide 1.66.0、Remix Icon 4.8.0、theSVG、Simple Icons 和 Material Icon Theme；Bot 吉祥物为授权项目素材。详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，应用内「设置 → 关于 BaoCodeX → 开源许可」也会列出。
+- 布局与交互独立设计；协议来源及上游同步见 [docs/upstream-sync.md](docs/upstream-sync.md)。
+- BaoCode 及模型服务商的名称、标识归各自权利人所有。
 
 ## 参与贡献
 
 欢迎提交 Issue 和 Pull Request，见 [CONTRIBUTING.md](CONTRIBUTING.md)。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
 
-请勿提交或通过公开问题附带模型凭据、配对信息、真实聊天记录、签名密钥和签名口令。
+不提交或公开模型凭据、配对信息、真实聊天记录、签名密钥、签名口令及构建产物。

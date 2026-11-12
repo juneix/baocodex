@@ -15,7 +15,7 @@ import '../support/chat_page_harness.dart';
 void main() {
   for (final bot in [null, 'bot']) {
     testWidgets(
-      '${bot == null ? '对话待发图片在输入框内' : 'Bot 待发图片在输入框上方'}，可放大、返回、移除并保留发送内容',
+      '${bot == null ? '对话' : 'Bot'}待发图片在输入框内，可放大、返回、移除并保留发送内容',
       (tester) async {
         final state = ChineseChatPageState();
         addTearDown(state.dispose);
@@ -39,26 +39,16 @@ void main() {
         final thumbnail = find.byWidgetPredicate(
           (widget) => widget is Image && widget.semanticLabel == 'first.png',
         );
-        if (bot == null) {
-          expect(
-            tester.getRect(surface).contains(tester.getTopLeft(thumbnail)),
-            isTrue,
-          );
-          expect(
-            tester.getRect(surface).contains(tester.getBottomRight(thumbnail)),
-            isTrue,
-          );
-        } else {
-          // 输入框不被图片撑高，光标还在一行里；“+”和发送都在。
-          expect(
-            tester.getBottomLeft(thumbnail).dy,
-            lessThanOrEqualTo(tester.getTopLeft(surface).dy),
-          );
-          expect(tester.getSize(surface).height, lessThan(50));
-          expect(find.byTooltip('添加附件'), findsOneWidget);
-          expect(find.byTooltip('表情'), findsOneWidget);
-          expect(find.byTooltip('发送'), findsOneWidget);
-        }
+        expect(
+          tester.getRect(surface).contains(tester.getTopLeft(thumbnail)),
+          isTrue,
+        );
+        expect(
+          tester.getRect(surface).contains(tester.getBottomRight(thumbnail)),
+          isTrue,
+        );
+        expect(find.byKey(const ValueKey('composer-add')), findsOneWidget);
+        expect(find.byTooltip('发送'), findsOneWidget);
         expect(find.byTooltip('移除图片'), findsNWidgets(2));
         await tester.tap(thumbnail);
         await tester.pumpAndSettle();

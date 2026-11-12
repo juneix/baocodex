@@ -20,6 +20,7 @@ import '../../chat/message_view.dart';
 import '../../chat/widgets/pixel_loader.dart';
 import '../../link/chat_codec.dart';
 import '../../models/user_facing_error.dart';
+import '../../platform/permission_menu.dart';
 import '../../link/phone_link.dart' show DesktopLinkStatus;
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
@@ -76,12 +77,16 @@ class ChatPage extends StatefulWidget {
     this.active = true,
     this.onSwitchProject,
     this.onOpenNavigation,
+    this.onOpenFiles,
     this.onNewConversation,
     this.onCloseConversation,
     this.onSessionCreated,
   });
   final bool projectUnavailable, active;
-  final VoidCallback? onOpenNavigation, onNewConversation, onCloseConversation;
+  final VoidCallback? onOpenNavigation,
+      onOpenFiles,
+      onNewConversation,
+      onCloseConversation;
   final ValueChanged<String>? onSessionCreated;
 
   /// A new conversation, not begun yet, may go to another project: this
@@ -102,8 +107,10 @@ class _ChatPageState extends State<ChatPage> {
   List<ChatRow> _rows = const [];
   int _jumpTicket = 0;
   final _composerFocus = FocusNode();
+  final _scaffold = GlobalKey<ScaffoldState>();
   final _addRegion = Object();
-  bool _addOpen = false;
+  bool _addOpen = false, _actionsOpen = false;
+  double _navigationDrag = 0;
   // 打开的是表情面板，不是加号面板；只有 Bot 有。
   bool _emojiPanel = false;
   bool get _pinned => widget.state.sessions.any(
@@ -506,8 +513,13 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  /// The chat's ⋯ menu: browse the project's files, pin, rename, archive —
-  /// the same session operations the list's long-press offers.
+  /// 左滑和右上角「更多」都打开同一个右侧会话抽屉。
+  void _openSessionPanel() {
+    _composerFocus.unfocus();
+    _closeAdd();
+    _scaffold.currentState?.openEndDrawer();
+  }
+
   void _requireOnline() {
     if (!_online) {
       throw UserFacingError(
@@ -634,6 +646,151 @@ class _ChatPageState extends State<ChatPage> {
         if (!mounted) return;
         _closeConversation();
     }
+  }
+
+  /// 右侧会话抽屉：上半是快捷入口，下半是会话操作。点一行先关抽屉，
+  /// 再交给既有的 [_sessionMenu]，业务逻辑不在这里重写。
+  Widget _sessionDrawer(BuildContext context, SessionBuffer buffer) {
+    final colors = Theme.of(context).colorScheme;
+    final running = buffer.tasks.any((task) => task.status == 'running');
+    final canNew = _project != null || widget.onNewConversation != null;
+    void run(String action) {
+      // 用 Scaffold 的 API 关抽屉；Navigator.pop 会退掉整页。错误提示
+      // 挂在页面自己的 context 上，抽屉关掉后仍然有效。
+      _scaffold.currentState?.closeEndDrawer();
+      runUi(this.context, () => _sessionMenu(action));
+    }
+
+    Widget row(
+      String key,
+      String label,
+      String icon, {
+      bool enabled = true,
+      bool destructive = false,
+    }) => ListTile(
+      key: ValueKey('session-menu-$key'),
+      enabled: enabled,
+      leading: LucideIcon(
+        icon,
+        size: 22,
+        color: destructive && enabled ? colors.error : null,
+      ),
+      title: Text(
+        label,
+        style: destructive && enabled ? TextStyle(color: colors.error) : null,
+      ),
+      onTap: enabled ? () => run(key) : null,
+    );
+
+    return Drawer(
+      key: const ValueKey('session-drawer'),
+      width: MediaQuery.sizeOf(context).width * .8,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${widget.state.desktopName(widget.desktopId)} · '
+                    '${linkStatusLabel(widget.state, widget.state.linkStatus(widget.desktopId))}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: MobileTheme.hintStyleOf(context),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                children: [
+                  SectionLabel(tr('快捷入口', 'Shortcuts')),
+                  if (widget.projectId != null)
+                    row(
+                      'files',
+                      tr('浏览文件', 'Browse files'),
+                      'folder',
+                      enabled: _online && _project != null,
+                    ),
+                  row('changes', tr('全部改动', 'All changes'), 'file-diff'),
+                  row(
+                    'tasks',
+                    tr('后台任务', 'Background tasks'),
+                    'list-todo',
+                  ),
+                  SectionLabel(tr('会话', 'Conversation')),
+                  if (canNew)
+                    row(
+                      'new',
+                      tr('新对话', 'New conversation'),
+                      'square-pen',
+                      enabled: !_sending,
+                    ),
+                  // 置顶、重命名、归档、删除都针对真实会话；还没开始的
+                  // 新对话没有会话可改。
+                  if (_hasSession) ...[
+                    row(
+                      'pin',
+                      _pinned ? tr('取消置顶', 'Unpin') : tr('置顶', 'Pin'),
+                      'pin',
+                      enabled: _online,
+                    ),
+                    row(
+                      'rename',
+                      tr('重命名', 'Rename'),
+                      'pencil',
+                      enabled: _online,
+                    ),
+                    row(
+                      'archive',
+                      tr('归档', 'Archive'),
+                      'archive',
+                      enabled: _online,
+                    ),
+                    row(
+                      'delete',
+                      tr('删除对话', 'Delete conversation'),
+                      'trash-2',
+                      enabled: _online,
+                      destructive: true,
+                    ),
+                  ],
+                  if (!_online)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: Text(
+                        tr(
+                          '电脑离线，写操作暂不可用',
+                          'Computer offline; write actions are unavailable',
+                        ),
+                        style: MobileTheme.hintStyleOf(context),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (running)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Text(
+                  tr('有后台任务在运行', 'Background tasks are running'),
+                  style: MobileTheme.hintStyleOf(context),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _send() async {
@@ -959,7 +1116,14 @@ class _ChatPageState extends State<ChatPage> {
             )
             .firstOrNull;
         return Scaffold(
+          key: _scaffold,
           appBar: _appBar(context, buffer, bot),
+          endDrawer: widget.botId == null
+              ? _sessionDrawer(context, buffer)
+              : null,
+          // 手势由正文里的 GestureDetector 统一触发，避免和右侧抽屉的边缘
+          // 拖动重复打开。
+          endDrawerEnableOpenDragGesture: false,
           // What was running is only last known once disconnected: nothing
           // animates as if it were still at work.
           body: TickerMode(
@@ -1021,6 +1185,26 @@ class _ChatPageState extends State<ChatPage> {
                         _composerFocus.unfocus();
                         _closeAdd();
                       },
+                      onHorizontalDragStart: widget.onOpenNavigation == null || widget.botId != null
+                          ? null
+                          : (_) => _navigationDrag = 0,
+                      onHorizontalDragUpdate: widget.onOpenNavigation == null || widget.botId != null
+                          ? null
+                          : (details) => _navigationDrag += details.delta.dx,
+                      onHorizontalDragEnd: widget.onOpenNavigation == null || widget.botId != null
+                          ? null
+                          : (details) {
+                              final velocity = details.primaryVelocity ?? 0;
+                              if (_navigationDrag.abs() < 64 && velocity.abs() < 600) return;
+                              _composerFocus.unfocus();
+                              _closeAdd();
+                              final direction = _navigationDrag.abs() >= 64 ? _navigationDrag : velocity;
+                              if (direction > 0) {
+                                widget.onOpenNavigation?.call();
+                              } else {
+                                _openSessionPanel();
+                              }
+                            },
                       child: _historyArea(context, buffer, rows, bot, ready),
                     ),
                   ),
@@ -1102,12 +1286,12 @@ class _ChatPageState extends State<ChatPage> {
                 12)
             .clamp(56, double.infinity)
             .toDouble(),
-    centerTitle: widget.botId != null,
+    centerTitle: false,
     titleSpacing: 4,
     leading: widget.onOpenNavigation != null
         ? IconButton(
             tooltip: tr('项目与对话', 'Projects and conversations'),
-            icon: const Icon(Icons.menu, size: 22),
+            icon: const LucideIcon('menu', size: 22),
             onPressed: () {
               _composerFocus.unfocus();
               _closeAdd();
@@ -1119,7 +1303,7 @@ class _ChatPageState extends State<ChatPage> {
         : IconButton(
             tooltip: tr('返回', 'Back'),
             onPressed: () => Navigator.maybePop(context),
-            icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+            icon: const LucideIcon('arrow-left', size: 22),
           ),
     title: SessionSyncGate(
       online: _online,
@@ -1127,15 +1311,17 @@ class _ChatPageState extends State<ChatPage> {
       builder: (context, syncing) => widget.botId != null
           ? Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   bot?.bot.status == BotStatus.typing
                       ? tr('对方正在输入…', 'Typing…')
                       : bot?.bot.name ?? widget.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                // 同步时不多出一行：标题一上一下就是在闪。
-                if (_status != DesktopLinkStatus.online)
-                  _connectionLine(context, syncing: syncing, center: true),
+                const SizedBox(height: 3),
+                _connectionLine(context, syncing: syncing),
               ],
             )
           : Column(
@@ -1159,101 +1345,45 @@ class _ChatPageState extends State<ChatPage> {
             ),
     ),
     actions: [
-      if (widget.onNewConversation != null)
+      if (widget.botId == null && widget.onNewConversation != null)
         IconButton(
           tooltip: tr('新对话', 'New conversation'),
-          icon: const LucideIcon('square-pen', size: 22),
+          icon: const LucideIcon('message-circle-plus', size: 22),
           onPressed: _sending ? null : widget.onNewConversation,
         ),
-      if (widget.botId == null && !_hasSession)
+      if (widget.botId == null && (widget.onOpenFiles != null || _project != null))
         IconButton(
-          tooltip: tr('模型与权限', 'Model and permissions'),
-          icon: const LucideIcon('settings', size: 22),
-          onPressed: _online &&
-                  _project != null &&
-                  !_sending &&
-                  _creatingSession == null
-              ? () => runUi(context, () async {
-                  await _ensureSession();
-                  if (mounted) await _binding.settled;
-                })
-              : null,
+          key: const ValueKey('chat-open-files'),
+          tooltip: tr('文件', 'Files'),
+          icon: const LucideIcon('folder', size: 22),
+          onPressed: widget.onOpenFiles ??
+              (_online && _project != null
+                  ? () => openPage<void>(
+                      context,
+                      FilesPage(state: widget.state, project: _project!),
+                    )
+                  : null),
         ),
       if (bot != null)
         IconButton(
           tooltip: tr('资料', 'Profile'),
-          icon: const Icon(Icons.more_horiz),
+          icon: const LucideIcon('ellipsis', size: 22),
           onPressed: () => openPage<void>(
             context,
             BotProfilePage(state: widget.state, ref: bot, fromChat: true),
           ),
         )
-      else if (_hasSession)
-        PopupMenuButton<String>(
+      else
+        IconButton(
+          key: const ValueKey('chat-open-session-menu'),
           tooltip: tr('更多', 'More'),
           icon: Badge(
             isLabelVisible: buffer.tasks.any(
               (task) => task.status == 'running',
             ),
-            child: const Icon(Icons.more_horiz),
+            child: const LucideIcon('ellipsis', size: 22),
           ),
-          position: PopupMenuPosition.under,
-          constraints: const BoxConstraints(minWidth: 200),
-          onSelected: (action) => runUi(context, () => _sessionMenu(action)),
-          itemBuilder: (context) {
-            PopupMenuEntry<String> entry(
-              String value,
-              String label,
-              String icon, {
-              bool enabled = true,
-            }) => PopupMenuItem(
-              value: value,
-              enabled: enabled,
-              height: 52,
-              child: Row(
-                children: [
-                  LucideIcon(icon, size: 22),
-                  const SizedBox(width: MobileSpace.md),
-                  Expanded(child: Text(label)),
-                ],
-              ),
-            );
-            return [
-              if (_project != null && widget.onNewConversation == null)
-                entry(
-                  'new',
-                  tr('新对话', 'New conversation'),
-                  'square-pen',
-                  enabled: !_sending,
-                ),
-              if (widget.projectId != null)
-                entry(
-                  'files', tr('浏览文件', 'Browse files'), 'folder',
-                  enabled: _online && _project != null,
-                ),
-              entry('changes', tr('全部改动', 'All changes'), 'file-diff'),
-              entry('tasks', tr('后台任务', 'Background tasks'), 'list-todo'),
-              entry(
-                'pin',
-                _pinned ? tr('取消置顶', 'Unpin') : tr('置顶', 'Pin'),
-                'pin',
-                enabled: _online,
-              ),
-              entry('rename', tr('重命名', 'Rename'), 'pencil', enabled: _online),
-              entry('archive', tr('归档', 'Archive'), 'archive', enabled: _online),
-              if (_hasSession && widget.botId == null)
-                entry(
-                  'delete', tr('删除对话', 'Delete conversation'), 'trash-2',
-                  enabled: _online,
-                ),
-              if (!_online)
-                PopupMenuItem<String>(
-                  enabled: false,
-                  child: Text(tr('电脑离线，写操作暂不可用',
-                      'Computer offline; write actions are unavailable')),
-                ),
-            ];
-          },
+          onPressed: _openSessionPanel,
         ),
     ],
   );

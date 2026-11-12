@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.3
+
+BaoCodeX's conversation-first layout, based on YCode. The independent `juneix.baocodex` package does not replace the old app or migrate its pairings and drafts.
+
+- Remove the bottom tabs. Use an 80% sidebar for workspaces and conversations, and open Files, Bots and Settings as pages with Back navigation.
+- Open the workspace sidebar with a right swipe and a session drawer with a left swipe. The drawer's top half holds shortcuts (files, all changes, background tasks); the bottom half holds session actions (pin, rename, archive, delete). The top-right More button opens the same drawer. Keep the central workspace button as a project picker, not a sidebar shortcut.
+- Add expand/collapse all, five conversations per group with show-more controls, relative times and local grouping by project, last update date or status.
+- Add time-of-day greetings and refreshed suggestions that only fill the draft. Show the model name and a context-usage percentage beside the send/stop actions, with the ring drawn from real usage.
+- Put images, camera, file mentions and slash commands in the input menu; move permissions to a native Android text dropdown and modes to a segmented control.
+- Add the Bot mascot and profile-name greeting while retaining one current conversation per Bot and hiding inapplicable controls.
+- Move directory list/grid switching into the file toolbar. Preserve file preview, source, diffs and existing archive actions; archive browsing and creation-time sorting are not added.
+- Rename the app and APK release assets to BaoCodeX and retain the existing signing and update-safety checks. The app icon now uses `baocodex.svg` rendered with the standard rounded-corner mask; new layout screenshots and device validation follow cloud builds.
+
 ## 0.1.2
 
 Personal preview for testing, installed alongside the original YCode without replacing its pairing or data.

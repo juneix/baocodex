@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:bao_link/bao_link.dart';
+import 'package:clock/clock.dart';
 import 'package:baocode_mobile/models/user_facing_error.dart';
 import 'package:baocode_mobile/state/app_state.dart';
 import 'package:baocode_mobile/state/conversation_input.dart';
@@ -199,25 +200,115 @@ void main() {
     expect(state.calls, isEmpty);
   });
 
-  testWidgets('项目下直接列对话，选择项目不经过文件夹页也不发请求', (tester) async {
+  testWidgets('项目标题只折叠，加号进入对应新对话且不发请求', (tester) async {
     final state = _State()..withBot = true;
     addTearDown(state.dispose);
     await _mount(tester, state);
     await _drawer(tester);
     expect(find.text('置顶任务'), findsOneWidget);
     expect(find.text('审批任务'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('project-在线-p')));
+    await tester.tap(find.byKey(const ValueKey('project-fold-在线-p')));
     await tester.pump();
     expect(find.byType(ProjectChatsPage), findsNothing);
-    expect(find.text('审批任务'), findsOneWidget);
+    expect(find.text('审批任务'), findsNothing);
+    expect(find.byKey(const ValueKey('project-count-在线-p')), findsOneWidget);
     expect(state.calls, isEmpty);
-    expect(state.settings.lastProjectByDesktop['在线'], 'p');
-    await tester.ensureVisible(find.byKey(const ValueKey('project-在线-e')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('project-在线-e')));
+    await tester.tap(find.byKey(const ValueKey('project-fold-在线-p')));
     await tester.pump();
+    final other = find.byKey(const ValueKey('project-new-在线-e'));
+    await tester.ensureVisible(other);
+    await tester.pumpAndSettle();
+    await tester.tap(other);
+    await tester.pumpAndSettle();
+    expect(tester.widget<ChatPage>(find.byType(ChatPage)).projectId, 'e');
+    expect(state.settings.lastProjectByDesktop['在线'], 'e');
+    expect(state.calls, isEmpty);
+  });
+
+  testWidgets('中央工作区直接打开项目选择，不打开侧栏或创建会话', (tester) async {
+    final state = _State()..withBot = true;
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await tester.tap(find.byKey(const ValueKey('new-chat-project')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('pick-project-e')), findsOneWidget);
+    expect(tester.state<ScaffoldState>(find.byWidgetPredicate(
+      (widget) => widget is Scaffold && widget.drawer != null,
+    )).isDrawerOpen, isFalse);
+    await tester.tap(find.byKey(const ValueKey('pick-project-e')));
+    await tester.pumpAndSettle();
     expect(tester.widget<ChatPage>(find.byType(ChatPage)).projectId, 'e');
     expect(state.calls, isEmpty);
+    expect(state.settings.lastProjectByDesktop['在线'], 'e');
+  });
+
+  testWidgets('全部收起后再展开仍保留各组的显示更多选择', (tester) async {
+    final state = _Many();
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await _drawer(tester);
+    final more = find.byKey(const ValueKey('project-more-在线-p'));
+    await tester.ensureVisible(more);
+    await tester.tap(more);
+    await tester.pump();
+    expect(find.text('任务0'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('toggle-all-groups')));
+    await tester.pump();
+    expect(find.text('任务0'), findsNothing);
+    expect(find.byKey(const ValueKey('project-count-在线-p')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('toggle-all-groups')));
+    await tester.pump();
+    expect(find.text('任务0'), findsOneWidget);
+    expect(find.text('任务1'), findsOneWidget);
+    expect(find.text('收起过多对话'), findsOneWidget);
+    expect(state.calls, isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('日期和状态分组只改变手机展示，不发送请求', (tester) async {
+    await withClock(Clock.fixed(DateTime(2026, 11, 12, 12)), () async {
+      final state = _State();
+      addTearDown(state.dispose);
+      await _mount(tester, state);
+      await _drawer(tester);
+      Future<void> group(String label) async {
+        await tester.tap(find.byTooltip('筛选对话'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.descendant(
+          of: find.byKey(const ValueKey('conversation-grouping')),
+          matching: find.text(label),
+        ));
+        await tester.pump();
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+      }
+      await group('状态');
+      expect(find.byKey(const ValueKey('conversation-group-status-needsInput')), findsOneWidget);
+      expect(find.byKey(const ValueKey('conversation-group-status-idle')), findsOneWidget);
+      expect(find.text('审批任务'), findsOneWidget);
+      await group('日期');
+      expect(find.byKey(const ValueKey('conversation-group-date-earlier')), findsOneWidget);
+      expect(find.text('审批任务'), findsOneWidget);
+      expect(state.calls, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  });
+
+  testWidgets('多个 Bot 与项目同级，每个只有一个聊天入口且没有新建加号', (tester) async {
+    final state = _State()..withBot = true;
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await _drawer(tester);
+    expect(find.byKey(const ValueKey('bot-在线-b')), findsOneWidget);
+    expect(find.byKey(const ValueKey('bot-在线-c')), findsOneWidget);
+    expect(find.byKey(const ValueKey('project-new-在线-b')), findsNothing);
+    expect(find.byKey(const ValueKey('project-new-在线-c')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('bot-fold-在线-b')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('bot-在线-b')), findsNothing);
+    expect(find.byKey(const ValueKey('bot-在线-c')), findsOneWidget);
+    expect(state.calls, isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('每组默认五条，折叠外的待处理仍计数，展开后可收起', (tester) async {
@@ -227,7 +318,10 @@ void main() {
     await _drawer(tester);
     expect(find.text('任务0'), findsNothing);
     expect(find.text('任务1'), findsNothing);
-    expect(find.textContaining('2 个待处理'), findsOneWidget);
+    expect(find.descendant(
+      of: find.byKey(const ValueKey('project-在线-p')),
+      matching: find.text('2'),
+    ), findsOneWidget);
     final more = find.byKey(const ValueKey('project-more-在线-p'));
     await tester.ensureVisible(more);
     await tester.pumpAndSettle();
@@ -240,7 +334,10 @@ void main() {
     await tester.tap(more);
     await tester.pump();
     expect(find.text('任务0'), findsNothing);
-    expect(find.textContaining('2 个待处理'), findsOneWidget);
+    expect(find.descendant(
+      of: find.byKey(const ValueKey('project-在线-p')),
+      matching: find.text('2'),
+    ), findsOneWidget);
   });
 
   testWidgets('项目折叠独立保存，点项目名称直接重新展开', (tester) async {
@@ -416,15 +513,13 @@ void main() {
     addTearDown(state.dispose);
     await _mount(tester, state);
     await tester.enterText(find.byType(TextField).first, '项目甲草稿');
-    await tester.tap(find.byTooltip('模型与权限'));
+    await tester.tap(find.byKey(const ValueKey('composer-model')));
     await tester.pump();
     await _drawer(tester);
-    final other = find.byKey(const ValueKey('project-在线-e'));
+    final other = find.byKey(const ValueKey('project-new-在线-e'));
     await tester.ensureVisible(other);
     await tester.pumpAndSettle();
     await tester.tap(other);
-    await tester.pump();
-    await tester.tap(find.byTooltip('关闭菜单'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '空项目草稿');
     state.draftGate!.complete({'session': '过期会话'});

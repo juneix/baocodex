@@ -10,6 +10,8 @@ enum ConversationSort { recent, name }
 
 enum ConversationStatus { all, active, pinned }
 
+enum ConversationGrouping { project, date, status }
+
 ConversationSource projectSource(String location) {
   if (location.startsWith('ssh://')) {
     final rest = location.substring(6);
@@ -45,18 +47,23 @@ class ConversationFilters {
     this.sort = ConversationSort.recent,
     this.projectKey,
     this.status = ConversationStatus.all,
+    this.grouping = ConversationGrouping.project,
   });
   final String query;
   final ConversationSource source;
   final ConversationSort sort;
   final (String, String)? projectKey;
   final ConversationStatus status;
+  final ConversationGrouping grouping;
   bool get allowsBots =>
       source == ConversationSource.all &&
       projectKey == null &&
       status == ConversationStatus.all;
   bool get restricted =>
-      !allowsBots || query.trim().isNotEmpty || sort != ConversationSort.recent;
+      !allowsBots ||
+      query.trim().isNotEmpty ||
+      sort != ConversationSort.recent ||
+      grouping != ConversationGrouping.project;
 
   ConversationFilters copyWith({
     String? query,
@@ -65,12 +72,14 @@ class ConversationFilters {
     (String, String)? projectKey,
     bool clearProject = false,
     ConversationStatus? status,
+    ConversationGrouping? grouping,
   }) => ConversationFilters(
     query: query ?? this.query,
     source: source ?? this.source,
     sort: sort ?? this.sort,
     projectKey: clearProject ? null : projectKey ?? this.projectKey,
     status: status ?? this.status,
+    grouping: grouping ?? this.grouping,
   );
 
   /// Whether a project at [id] (its location) is in the chosen 范围.

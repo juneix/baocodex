@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 String releaseJson({
   String tag = 'v0.3.0',
   String notes = '更稳了',
-  String url = 'https://github.com/shuishani/ycode/releases/tag/v0.3.0',
+  String url = 'https://github.com/juneix/ycode/releases/tag/v0.3.0',
 }) => jsonEncode({'tag_name': tag, 'body': notes, 'html_url': url});
 
 void main() {
@@ -23,6 +23,7 @@ void main() {
       expect(compareVersions('1.0.0', 'v0.9.9'), greaterThan(0));
       expect(compareVersions('0.10.0', '0.9.0'), greaterThan(0));
       expect(compareVersions('v0.2.1', '0.2.0'), greaterThan(0));
+      expect(compareVersions('0.1.12', '0.1.2'), greaterThan(0));
     });
 
     test('不是三段数字的一律没法比', () {
@@ -52,16 +53,16 @@ void main() {
       'html_url': 'https://github.com/personal/ycode/releases/tag/v0.1.2',
       'assets': [
         {
-          'name': 'ycode-0.1.2-3.apk',
+          'name': 'BaoCodeX-0.1.2-3.apk',
           'browser_download_url':
-              'https://github.com/personal/ycode/releases/download/v0.1.2/ycode-0.1.2-3.apk',
+              'https://github.com/personal/ycode/releases/download/v0.1.2/BaoCodeX-0.1.2-3.apk',
           'size': 1234,
         },
       ],
     });
     final release = parseRelease(body, repository: 'personal/ycode');
     expect(release.version, '0.1.2');
-    expect(release.apk?.name, 'ycode-0.1.2-3.apk');
+    expect(release.apk?.name, 'BaoCodeX-0.1.2-3.apk');
     expect(() => parseRelease(body), throwsFormatException);
     expect(() => parseRelease(body, repository: '../personal/ycode'),
         throwsFormatException);
@@ -75,7 +76,7 @@ void main() {
   group('解析 release', () {
     test('取出标签、说明和页面，标签去掉 v', () {
       final release = parseRelease(
-        '{"tag_name":"v0.3.1","body":"修了几个问题","html_url":"https://github.com/shuishani/ycode/releases/tag/v0.3.1"}',
+        '{"tag_name":"v0.3.1","body":"修了几个问题","html_url":"https://github.com/juneix/ycode/releases/tag/v0.3.1"}',
       );
       expect(release.version, '0.3.1');
       expect(release.notes, '修了几个问题');
@@ -92,7 +93,7 @@ void main() {
     test('没有说明正文时为空', () {
       expect(
         parseRelease(
-          '{"tag_name":"v0.3.0","html_url":"https://github.com/shuishani/ycode/releases/tag/v0.3.0"}',
+          '{"tag_name":"v0.3.0","html_url":"https://github.com/juneix/ycode/releases/tag/v0.3.0"}',
         ).notes,
         '',
       );
@@ -128,37 +129,55 @@ void main() {
       final release = parseRelease(
         jsonEncode({
           'tag_name': 'v0.3.0',
-          'html_url': 'https://github.com/shuishani/ycode/releases/tag/v0.3.0',
+          'html_url': 'https://github.com/juneix/ycode/releases/tag/v0.3.0',
           'assets': [
             {
-              'name': 'ycode-0.3.0.apk',
-              'browser_download_url': 'https://github.com/shuishani/ycode/releases/download/v0.3.0/ycode-0.3.0.apk',
+              'name': 'BaoCodeX-0.3.0.apk',
+              'browser_download_url': 'https://github.com/juneix/ycode/releases/download/v0.3.0/BaoCodeX-0.3.0.apk',
               'size': 1234,
               'digest': 'sha256:${'a' * 64}',
             },
           ],
         }),
       );
-      expect(release.apk?.name, 'ycode-0.3.0.apk');
+      expect(release.apk?.name, 'BaoCodeX-0.3.0.apk');
       expect(release.apk?.size, 1234);
       expect(release.apk?.sha256, 'a' * 64);
+    });
+
+    test('新品牌附件可识别但旧 YCode 附件不能作为当前应用更新', () {
+      Map<String, Object?> body(String name) => {
+        'tag_name': 'v0.1.12',
+        'html_url': '$projectUrl/releases/tag/v0.1.12',
+        'assets': [
+          {
+            'name': name,
+            'browser_download_url': '$projectUrl/releases/download/v0.1.12/$name',
+            'size': 100,
+          },
+        ],
+      };
+      expect(parseRelease(jsonEncode(body('BaoCodeX-0.1.12-4.apk'))).apk?.name,
+          'BaoCodeX-0.1.12-4.apk');
+      expect(parseRelease(jsonEncode(body('ycode-0.1.12-4.apk'))).apk, isNull);
+      expect(updateRepository, 'juneix/ycode');
     });
 
     test('外部地址、错误架构和空安装包不能作为更新', () {
       for (final asset in [
         {
-          'name': 'ycode.apk',
+          'name': 'BaoCodeX.apk',
           'browser_download_url': 'https://example.com/a.apk',
           'size': 12,
         },
         {
-          'name': 'ycode-x86_64.apk',
-          'browser_download_url': 'https://github.com/shuishani/ycode/releases/download/v0.3.0/a.apk',
+          'name': 'BaoCodeX-x86_64.apk',
+          'browser_download_url': 'https://github.com/juneix/ycode/releases/download/v0.3.0/a.apk',
           'size': 12,
         },
         {
-          'name': 'ycode.apk',
-          'browser_download_url': 'https://github.com/shuishani/ycode/releases/download/v0.3.0/a.apk',
+          'name': 'BaoCodeX.apk',
+          'browser_download_url': 'https://github.com/juneix/ycode/releases/download/v0.3.0/a.apk',
           'size': 0,
         },
       ]) {
@@ -166,7 +185,7 @@ void main() {
           jsonEncode({
             'tag_name': 'v0.3.0',
             'html_url':
-                'https://github.com/shuishani/ycode/releases/tag/v0.3.0',
+                'https://github.com/juneix/ycode/releases/tag/v0.3.0',
             'assets': [asset],
           }),
         );
@@ -178,11 +197,11 @@ void main() {
   group('打开应用时自动检查', () {
     String withApk() => jsonEncode({
       'tag_name': 'v0.3.0',
-      'html_url': 'https://github.com/shuishani/ycode/releases/tag/v0.3.0',
+      'html_url': 'https://github.com/juneix/ycode/releases/tag/v0.3.0',
       'assets': [
         {
-          'name': 'ycode-0.3.0-40.apk',
-          'browser_download_url': 'https://github.com/shuishani/ycode/releases/download/v0.3.0/ycode-0.3.0-40.apk',
+          'name': 'BaoCodeX-0.3.0-40.apk',
+          'browser_download_url': 'https://github.com/juneix/ycode/releases/download/v0.3.0/BaoCodeX-0.3.0-40.apk',
           'size': 1234,
         },
       ],
@@ -375,11 +394,11 @@ void main() {
       }
       expect(
         updateManifestUrl,
-        'https://github.com/shuishani/ycode/releases/latest/download/latest.json',
+        'https://github.com/juneix/ycode/releases/latest/download/latest.json',
       );
       expect(
         updateReleaseApi,
-        contains('/repos/shuishani/ycode/releases/latest'),
+        contains('/repos/juneix/ycode/releases/latest'),
       );
     });
   });

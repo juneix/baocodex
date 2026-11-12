@@ -2,12 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../state/app_state.dart';
 import '../state/update_check.dart';
-import 'bots/bots_tab.dart';
-import 'conversations/chats_tab.dart';
-import 'files/files_tab.dart';
-import 'settings/settings_page.dart';
-import 'widgets/lucide_icon.dart';
 import '../theme/app_theme.dart';
+import 'conversations/chats_tab.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, required this.state, this.updateChecker});
@@ -20,10 +16,6 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
-  static const _settingsTab = 3;
-
-  final _pages = PageController();
-  int _tab = 0;
   late final _updates =
       widget.updateChecker ?? AutoUpdateChecker(currentVersion: appVersion);
 
@@ -41,8 +33,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     if (lifecycle == AppLifecycleState.resumed) _checkForUpdates();
   }
 
-  /// 有可下载的新版本才弹窗；没有或失败都不打扰。更新窗口已经开着时
-  /// （比如去系统设置允许安装后回来）不再弹第二个。
+  /// 有可下载的新版本才弹窗；没有或失败都不打扰。
   Future<void> _checkForUpdates() async {
     if (UpdateDialog.isOpen) return;
     final check = await _updates.check();
@@ -53,36 +44,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     );
   }
 
-  void _select(int index) {
-    widget.state.haptic();
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _tab = index);
-    if (index != _settingsTab) _pages.jumpToPage(index);
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _pages.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
-    final entries = [
-      ('message-circle', state.tr('对话', 'Chats')),
-      ('bot', 'Bot'),
-      ('folder', state.tr('文件', 'Files')),
-      ('settings', state.tr('设置', 'Settings')),
-    ];
-    // 只算当前这台电脑的，列表里也只有它的对话——别的电脑的在切换电脑那里标。
-    final desktopId = state.selectedDesktopId;
-    final unread =
-        state.awaitingOn(desktopId).waiting +
-        state.bots
-            .where((ref) => ref.desktopId == desktopId)
-            .fold(0, (sum, ref) => sum + ref.bot.unread);
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Column(
@@ -122,123 +92,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 ),
               ),
             ),
-          Expanded(
-            child: IndexedStack(
-              index: _tab == _settingsTab ? 1 : 0,
-              children: [
-                PageView(
-                  controller: _pages,
-                  allowImplicitScrolling: true,
-                  onPageChanged: (index) {
-                    if (index != _tab) {
-                      FocusManager.instance.primaryFocus?.unfocus();
-                    }
-                    setState(() => _tab = index);
-                  },
-                  children: [
-                    _KeptPage(
-                      child: ChatsTab(
-                        state: state,
-                        active: _tab == 0,
-                        onSelectTab: _select,
-                      ),
-                    ),
-                    _KeptPage(child: BotsTab(state: state)),
-                    _KeptPage(child: FilesTab(state: state)),
-                  ],
-                ),
-                SettingsPage(state: state),
-              ],
-            ),
-          ),
+          Expanded(child: ChatsTab(state: state)),
         ],
       ),
-      bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceBright,
-          border: Border(
-            top: BorderSide(color: Theme.of(context).dividerColor, width: .5),
-          ),
-        ),
-        child: SafeArea(
-          top: false,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 60),
-            child: Row(
-              children: [
-                for (var index = 0; index < entries.length; index++)
-                  Expanded(
-                    child: Semantics(
-                      selected: index == _tab,
-                      button: true,
-                      label: entries[index].$2,
-                      child: InkResponse(
-                        onTap: () => _select(index),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Badge(
-                                key: ValueKey('tab-badge-$index'),
-                                isLabelVisible: index == 0 && unread > 0,
-                                label: Text('$unread'),
-                                child: LucideIcon(
-                                  entries[index].$1,
-                                  size: 24,
-                                  color: index == _tab
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context).hintColor,
-                                ),
-                              ),
-                              const SizedBox(height: MobileSpace.xs),
-                              Text(
-                                entries[index].$2,
-                                style: MobileTheme.metaStyleOf(context)
-                                    .copyWith(
-                                      fontWeight: index == _tab
-                                          ? FontWeight.w600
-                                          : FontWeight.normal,
-                                      color: index == _tab
-                                          ? Theme.of(context)
-                                                .colorScheme
-                                                .primary
-                                          : Theme.of(context).hintColor,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
-  }
-}
-
-/// 滑走后保留页面状态，回来时滚动位置不变。
-class _KeptPage extends StatefulWidget {
-  const _KeptPage({required this.child});
-  final Widget child;
-
-  @override
-  State<_KeptPage> createState() => _KeptPageState();
-}
-
-class _KeptPageState extends State<_KeptPage>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return widget.child;
   }
 }

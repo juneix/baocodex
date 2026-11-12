@@ -23,17 +23,7 @@ extension _Choices on _ChatPageState {
         _binding.identity == identity &&
         _sessionId == session;
     if (choice.kind == 'model') {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        requestFocus: false,
-        builder: (_) => ModelSettingsSheet(
-          state: widget.state,
-          desktopId: widget.desktopId,
-          sessionId: session,
-          isCurrent: sameConversation,
-        ),
-      );
+      await _modelSettings(session, sameConversation);
       return;
     }
     // `fast` is the desktop's toggle setting (SelectsFast): the wire carries
@@ -45,7 +35,16 @@ extension _Choices on _ChatPageState {
       });
       return;
     }
-    final option = await showDropdownPanel<String>(
+    final option = choice.kind == 'permission' && nativePermissionMenus
+        ? await showNativePermissionMenu(
+            anchor,
+            options: [
+              for (final option in choice.options)
+                (id: option.id, label: _choicePresentation(choice.kind, option).$1),
+            ],
+            selected: choice.selected,
+          )
+        : await showDropdownPanel<String>(
       anchor,
       width: 640,
       requestFocus: false,
@@ -55,15 +54,14 @@ extension _Choices on _ChatPageState {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (choice.kind != 'permission')
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 14, 16, 6),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
-                      choice.kind == 'permission'
-                          ? tr('应如何获得批准？', 'How should actions be approved?')
-                          : _choiceLabel(choice.kind),
+                      _choiceLabel(choice.kind),
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                   ),
@@ -77,6 +75,7 @@ extension _Choices on _ChatPageState {
                 padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                 children: [
                   for (final option in options) ...[
+                    if (choice.kind != 'permission')
                     if ((option.groupLabel ?? option.group)
                         case final String group
                         when group.isNotEmpty && groups.add(group))
@@ -90,7 +89,8 @@ extension _Choices on _ChatPageState {
                     ListTile(
                       horizontalTitleGap: 12,
                       leading:
-                          _choicePresentation(choice.kind, option).$3 == null
+                          choice.kind == 'permission' ||
+                              _choicePresentation(choice.kind, option).$3 == null
                           ? null
                           : LucideIcon(
                               _choicePresentation(choice.kind, option).$3!,
@@ -111,10 +111,11 @@ extension _Choices on _ChatPageState {
                           .surfaceContainerHighest,
                       title: Text(_choicePresentation(choice.kind, option).$1),
                       subtitle:
-                          _choicePresentation(choice.kind, option).$2.isEmpty
+                          choice.kind == 'permission' ||
+                              _choicePresentation(choice.kind, option).$2.isEmpty
                           ? null
                           : Text(_choicePresentation(choice.kind, option).$2),
-                      trailing: choice.selected == option.id
+                      trailing: choice.kind != 'permission' && choice.selected == option.id
                           ? LucideIcon(
                               'check',
                               size: 20,
@@ -144,6 +145,35 @@ extension _Choices on _ChatPageState {
       return;
     }
     await _command(LinkMethods.choose, {'kind': choice.kind, 'option': option});
+  }
+
+  Future<void> _modelSettings(String session, bool Function() isCurrent) =>
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        requestFocus: false,
+        builder: (_) => ModelSettingsSheet(
+          state: widget.state,
+          desktopId: widget.desktopId,
+          sessionId: session,
+          isCurrent: isCurrent,
+        ),
+      );
+
+  Future<void> _openModelSettings() async {
+    if (!_hasSession) {
+      if (widget.botId != null) return;
+      await _ensureSession();
+      if (mounted) await _binding.settled;
+    }
+    if (!mounted || !_hasSession) return;
+    final session = _sessionId;
+    final identity = _binding.identity;
+    await _modelSettings(
+      session,
+      () => mounted && _binding.available &&
+          _binding.identity == identity && _sessionId == session,
+    );
   }
 
   (String, String, String?) _choicePresentation(
@@ -229,23 +259,6 @@ extension _Choices on _ChatPageState {
     ];
   }
 
-  bool _iconOnly(LinkChoice choice) =>
-      choice.kind == 'mode' ||
-      choice.kind == 'permission' ||
-      choice.kind == 'model';
-
-  /// Mode, permission, model, then anything else: all icon buttons.
-  List<LinkChoice> _composerChoices(SessionBuffer buffer) {
-    final choices = _visibleChoices(buffer);
-    int rank(LinkChoice choice) => switch (choice.kind) {
-      'mode' => 0,
-      'permission' => 1,
-      'model' => 2,
-      _ => 3,
-    };
-    return [...choices]..sort((a, b) => rank(a).compareTo(rank(b)));
-  }
-
   bool get _fastOn => _buffer.choices.any(
     (choice) => choice.kind == 'fast' && choice.selected == 'fast',
   );
@@ -256,36 +269,71 @@ extension _Choices on _ChatPageState {
         '${contextLabel == null ? '' : ' · ${_choiceLabel('context')} $contextLabel'}';
   }
 
-  Widget _choiceIconButton(LinkChoice choice, bool ready) {
-    final enabled = ready && !_commandBusy;
+  Widget _modelButton(bool ready) {
+    final choice = _buffer.choices.where((item) => item.kind == 'model').firstOrNull;
+    final enabled = ready && !_commandBusy &&
+        (_hasSession || widget.botId == null) && _creatingSession == null;
     final scheme = Theme.of(context).colorScheme;
-    final color = enabled
-        ? scheme.onSurfaceVariant
-        : scheme.onSurfaceVariant.withValues(alpha: .5);
-    final icon = _choiceIcon(choice, color, 20);
-    return Builder(
-      builder: (anchor) => IconButton(
-        tooltip: _choiceTooltip(choice),
-        visualDensity: VisualDensity.compact,
-        onPressed: enabled ? () => _choices(anchor, choice) : null,
-        icon: choice.kind == 'model' && _fastOn
-            ? Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  icon,
-                  Positioned(
-                    right: -5,
-                    top: -4,
-                    child: LucideIcon(
-                      'zap',
-                      key: const ValueKey('model-fast-badge'),
-                      size: 11,
-                      color: MobileTheme.statusColorsOf(context).warning,
-                    ),
-                  ),
-                ],
-              )
-            : icon,
+    final icon = _selectedModelIcon(scheme.onSurfaceVariant, 20);
+    final ref = widget.state.sessions.where((ref) =>
+        ref.desktopId == widget.desktopId && ref.session.id == _sessionId).firstOrNull;
+    final bot = widget.state.bots.where((ref) =>
+        ref.desktopId == widget.desktopId && ref.bot.id == widget.botId).firstOrNull;
+    final cached = ref == null ? null : widget.state.sessionModel(ref);
+    final known = bot?.bot.model ?? cached?.label;
+    final label = choice != null
+        ? modelShortName(choice.selected ?? '', _selectedLabel(choice))
+        : known == null || known.isEmpty
+        ? tr('选择模型', 'Choose model')
+        : modelShortName(cached?.id ?? known, known);
+    return Tooltip(
+      message: widget.botId != null && !_hasSession
+          ? '${known ?? label} · ${tr('先和它说句话，再换模型。', 'Send it a message first, then change the model.')}'
+          : choice != null
+          ? _choiceTooltip(choice)
+          : known == null ? tr('选择模型', 'Choose model') : '${_choiceLabel('model')}: $known',
+      child: LayoutBuilder(
+        builder: (context, constraints) => TextButton(
+          key: const ValueKey('composer-model'),
+          onPressed: enabled
+              ? () => runUi(context, _openModelSettings,
+                  errorMessage: (error) => userMessage(widget.state, error))
+              : null,
+          style: TextButton.styleFrom(
+            foregroundColor: scheme.onSurfaceVariant,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            minimumSize: const Size(0, 44),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (constraints.maxWidth >= 80) ...[
+                _fastOn
+                    ? Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          icon,
+                          Positioned(
+                            right: -5,
+                            top: -4,
+                            child: LucideIcon(
+                              'zap',
+                              key: const ValueKey('model-fast-badge'),
+                              size: 11,
+                              color: MobileTheme.statusColorsOf(context).warning,
+                            ),
+                          ),
+                        ],
+                      )
+                    : icon,
+                const SizedBox(width: 6),
+              ],
+              Flexible(
+                child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -306,30 +354,6 @@ extension _Choices on _ChatPageState {
       providerLabel: selected.groupLabel,
       size: size,
       color: color,
-    );
-  }
-
-  Widget _choiceIcon(LinkChoice choice, Color color, [double size = 18]) {
-    if (choice.kind == 'model') return _selectedModelIcon(color, size);
-    final selected = choice.options
-        .where((option) => option.id == choice.selected)
-        .firstOrNull;
-    final name = selected == null
-        ? null
-        : _choicePresentation(choice.kind, selected).$3;
-    if (name == null && !_iconOnly(choice)) {
-      return Icon(Icons.tune, size: size, color: color);
-    }
-    return LucideIcon(
-      name ??
-          switch (choice.kind) {
-            'permission' => 'shield',
-            _ => 'bot',
-          },
-      size: size,
-      color: choice.kind == 'permission' && selected?.id == 'bypassPermissions'
-          ? MobileTheme.statusColorsOf(context).warning
-          : color,
     );
   }
 

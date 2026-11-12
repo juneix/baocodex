@@ -25,3 +25,4 @@ vendor/**/build/
 dist/
 *.idsig
 __pycache__/
+AGENTS.md
