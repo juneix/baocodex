@@ -28,13 +28,13 @@ void main(List<String> arguments) {
   final releases = 'https://github.com/$repository/releases';
 
   final version = RegExp(
-    r'^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$',
+    r'^version:\s*(\d+\.\d+\.\d+)(?:\+\d+)?\s*$',
     multiLine: true,
   ).firstMatch(File('pubspec.yaml').readAsStringSync());
-  if (version == null) _fail('pubspec.yaml 的 version 不是「版本名+构建号」');
+  if (version == null) _fail('pubspec.yaml 的 version 必须是三段数字，如 1.0.3');
   final name = version[1]!;
   final tag = 'v$name';
-  final apkName = 'BaoCodeX-$name-${version[2]}.apk';
+  final apkName = 'BaoCodeX-$name.apk';
   final apk = File('$_outputs/$apkName');
   if (!apk.existsSync()) {
     _fail('找不到 ${apk.path}，先运行 tool/build_android.sh --no-install');

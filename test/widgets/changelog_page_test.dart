@@ -18,7 +18,7 @@ void main() {
   testWidgets('中英两份更新日志随包分发，都写着 pubspec 的这一版，按界面语言显示', (tester) async {
     final pubspec = File('pubspec.yaml').readAsStringSync();
     final version = RegExp(
-      r'^version:\s*(\d+\.\d+\.\d+)\+\d+',
+      r'^version:\s*(\d+\.\d+\.\d+)',
       multiLine: true,
     ).firstMatch(pubspec)!.group(1)!;
     for (final (state, file, title) in [

@@ -20,7 +20,7 @@ This is not an official BaoCode product and does not represent support from the 
 
 - **Install BaoCode on your computer first**: website <https://baocode.dev>, download <https://baocode.dev/download>. In Settings → Mobile, display a QR code and scan it with BaoCodeX.
 - **Install a preview**: use this repository's [pre-releases](https://github.com/juneix/ycode/releases). BaoCodeX targets arm64 devices with Android 7.0 or later; iOS is not currently supported. The app name is BaoCodeX and its package is exactly `juneix.baocodex`, without a preview suffix.
-- **Updates**: preview APKs are downloaded manually. Automatic update checks use the repository configured into the build and only its stable releases. Later BaoCodeX updates must keep the package and signing key and increase the Android build number; do not uninstall just to update.
+- **Updates**: preview APKs are downloaded manually. Automatic update checks use the repository configured into the build and only its stable releases. Later BaoCodeX updates must keep the package and signing key and increase the version number (for example 1.0.3 → 1.0.4); do not uninstall just to update.
 - **Repository renaming**: rename the repository before building the first APK intended for long-term use. GitHub Actions embeds its actual repository into the update source; strict URL checks do not promise automatic adaptation to a later rename.
 
 ## Features

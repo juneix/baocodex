@@ -20,7 +20,7 @@ BaoCodeX 是基于开源 YCode、使用 Flutter 开发的 BaoCode 电脑版独�
 
 - **先在电脑上安装 BaoCode**：官网 <https://baocode.dev>，下载 <https://baocode.dev/download>。在「设置 → 手机」显示二维码，用 BaoCodeX 扫码配对。
 - **安装预览版**：使用本仓库的 [pre-release](https://github.com/juneix/ycode/releases)。BaoCodeX 面向 Android 7.0 及以上的 arm64 设备，暂不支持 iOS。显示名为 BaoCodeX，包名精确为 `juneix.baocodex`，不附加预览后缀。
-- **更新**：预览 APK 暂时手动下载。自动检查使用构建时配置的仓库，只查询稳定版本。后续 BaoCodeX 更新保持同一包名、同一签名和更高的 Android 构建号，不要为了更新而卸载。
+- **更新**：预览 APK 暂时手动下载。自动检查使用构建时配置的仓库，只查询稳定版本。后续 BaoCodeX 更新保持同一包名、同一签名和更高的版本号（如 1.0.3 → 1.0.4），不要为了更新而卸载。
 - **仓库改名**：建议在首个长期使用的 APK 云构建前完成改名。GitHub Actions 会把实际仓库写入更新源；严格 URL 校验不保证自动适配之后的改名。
 
 ## 功能

@@ -1,8 +1,8 @@
 # BaoCodeX：Android 云构建、签名与发布
 
-应用显示名 **BaoCodeX**，安装包名固定为 `juneix.baocodex`。当前源码版本为 `1.0.3+1`，只发布 arm64 APK。
+应用显示名 **BaoCodeX**，安装包名固定为 `juneix.baocodex`。当前源码版本为 `1.0.3`，只发布 arm64 APK。
 
-这是独立安装，不覆盖原 YCode 或 YCode Preview，也不自动迁移它们的配对与草稿。保留旧应用，在 BaoCodeX 中重新配对；之后 BaoCodeX 的覆盖更新必须保持同一包名、同一签名和更高构建号。
+这是独立安装，不覆盖原 YCode 或 YCode Preview，也不自动迁移它们的配对与草稿。保留旧应用，在 BaoCodeX 中重新配对；之后 BaoCodeX 的覆盖更新必须保持同一包名、同一签名和更高版本号。
 
 ## 构建与验证环境
 
@@ -20,7 +20,7 @@ APK 的静态分析、Flutter 测试、构建、签名与签名校验全部在 G
 - 使用 JDK 21、Rust 1.97.1 和所选 Flutter。不再使用 `YCODE_TEST_INSTALL` / `YCODE_PREVIEW` 等历史预览标记；安装包名与显示名固定，不追加后缀。
 - 将 `${{ github.repository }}` 注入 `YCODE_REPOSITORY`。工具与应用的默认值为当前 fork `juneix/ycode`，不能误指上游发布源。
 - 签名 Secrets 保持 `YCODE_RELEASE_JKS_BASE64`、`YCODE_RELEASE_STORE_PASSWORD`、`YCODE_RELEASE_KEY_ALIAS`、`YCODE_RELEASE_KEY_PASSWORD`。名称不随应用改名重置；工作流不回退到随机或 debug 签名。
-- artifact 名为 `baocodex-android-preview-<run_id>-<run_attempt>`，包含 `BaoCodeX-<版本名>-<构建号>.apk` 与 `latest.json`。
+- artifact 名为 `baocodex-android-preview-<run_id>-<run_attempt>`，包含 `BaoCodeX-<版本名>.apk` 与 `latest.json`。
 - 版本标签为 `v<版本名>`，标题为 `BaoCodeX <版本名> Preview`，保持 pre-release、不标 latest。附件齐全前保持 draft，最后才公开。
 - 同名标签只能在仍指向当前提交时重跑；标签指向其他提交时应递增版本，不能强制移动。
 
@@ -36,13 +36,13 @@ APK 的静态分析、Flutter 测试、构建、签名与签名校验全部在 G
 
 ## 版本与产物命名
 
-`pubspec.yaml` 的格式为 `版本名+构建号`，本版 `1.0.3+1`：
+`pubspec.yaml` 的 `version` 只写三段数字，本版 `1.0.3`：
 
-- 版本名按三段数字比较；新版本的版本名递增。
-- 构建号独立维护，只增不减，不能重复或依赖 Git 提交数量。
+- 版本号按三段数字比较；新版本递增，如 `1.0.4`。
+- Android 的 `versionCode` 由版本名派生（`major*10000 + minor*100 + patch`，如 `1.0.3 → 10003`），保证覆盖安装递增；不需要手写构建号。
 - `APP_VERSION` 由云构建脚本传入；省略时设置页只能显示 `dev`。
-- APK 使用 `BaoCodeX-<版本名>-<构建号>.apk`，如 `BaoCodeX-1.0.3-1.apk`。构建脚本、manifest、上传 glob、发布正则和应用更新识别必须一致。
-- `README.md` / `README_CN.md`、`CHANGELOG.md` / `CHANGELOG_CN.md` 同步；新增版本日志使用 `## 0.1.12` 等数字节标题，历史记录不全局改名。
+- APK 使用 `BaoCodeX-<版本名>.apk`，如 `BaoCodeX-1.0.3.apk`。构建脚本、manifest、上传 glob、发布正则和应用更新识别必须一致。
+- `README.md` / `README_CN.md`、`CHANGELOG.md` / `CHANGELOG_CN.md` 同步；新增版本日志使用 `## 1.0.3` 等数字节标题，历史记录不全局改名。
 
 云端 `tool/build_android.sh --no-install` 保留 `GeneratedPluginRegistrant.java`，临时移除测试插件注册后无论成功/失败都恢复，不删除或提交生成代码变动。它构建 arm64，并用 runner 的 build-tools 对齐、签名和校验。
 
@@ -50,7 +50,7 @@ APK 的静态分析、Flutter 测试、构建、签名与签名校验全部在 G
 
 ## 安装与真实验收
 
-云端成功后，先检查产物包名、版本、构建号、签名和摘要，再在明确授权的真机上安装。只调试云端产物，不在本机签名、校验 APK 或运行 Android 测试套件。
+云端成功后，先检查产物包名、版本、签名和摘要，再在明确授权的真机上安装。只调试云端产物，不在本机签名、校验 APK 或运行 Android 测试套件。
 
 - 首次安装 BaoCodeX 保留旧应用，需要重新配对。
 - 后续覆盖安装确认配对与本地数据保留；包名/签名不一致不能覆盖，不能擅自卸载。
@@ -60,7 +60,7 @@ APK 的静态分析、Flutter 测试、构建、签名与签名校验全部在 G
 
 ## 更新安全策略
 
-应用只识别 BaoCodeX 安装附件，校验当前配置仓库、同一 Release 标签下的 GitHub URL、架构、大小和可用的 SHA-256。安装时继续校验本应用包名、同一签名、Release 版本和更高构建号，不为改名放宽策略。
+应用只识别 BaoCodeX 安装附件，校验当前配置仓库、同一 Release 标签下的 GitHub URL、架构、大小和可用的 SHA-256。安装时继续校验本应用包名、同一签名、Release 版本和更高版本号，不为改名放宽策略。
 
 预览渠道仍手动下载 pre-release；自动更新只查稳定版。系统安装器与“允许安装未知应用”流程保留用户确认，不静默安装、不绕过权限。
 

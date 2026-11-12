@@ -53,16 +53,16 @@ void main() {
       'html_url': 'https://github.com/personal/ycode/releases/tag/v0.1.2',
       'assets': [
         {
-          'name': 'BaoCodeX-0.1.2-3.apk',
+          'name': 'BaoCodeX-0.1.2.apk',
           'browser_download_url':
-              'https://github.com/personal/ycode/releases/download/v0.1.2/BaoCodeX-0.1.2-3.apk',
+              'https://github.com/personal/ycode/releases/download/v0.1.2/BaoCodeX-0.1.2.apk',
           'size': 1234,
         },
       ],
     });
     final release = parseRelease(body, repository: 'personal/ycode');
     expect(release.version, '0.1.2');
-    expect(release.apk?.name, 'BaoCodeX-0.1.2-3.apk');
+    expect(release.apk?.name, 'BaoCodeX-0.1.2.apk');
     expect(() => parseRelease(body), throwsFormatException);
     expect(() => parseRelease(body, repository: '../personal/ycode'),
         throwsFormatException);
@@ -157,9 +157,9 @@ void main() {
           },
         ],
       };
-      expect(parseRelease(jsonEncode(body('BaoCodeX-0.1.12-4.apk'))).apk?.name,
-          'BaoCodeX-0.1.12-4.apk');
-      expect(parseRelease(jsonEncode(body('ycode-0.1.12-4.apk'))).apk, isNull);
+      expect(parseRelease(jsonEncode(body('BaoCodeX-0.1.12.apk'))).apk?.name,
+          'BaoCodeX-0.1.12.apk');
+      expect(parseRelease(jsonEncode(body('ycode-0.1.12.apk'))).apk, isNull);
       expect(updateRepository, 'juneix/ycode');
     });
 
@@ -200,8 +200,8 @@ void main() {
       'html_url': 'https://github.com/juneix/ycode/releases/tag/v0.3.0',
       'assets': [
         {
-          'name': 'BaoCodeX-0.3.0-40.apk',
-          'browser_download_url': 'https://github.com/juneix/ycode/releases/download/v0.3.0/BaoCodeX-0.3.0-40.apk',
+          'name': 'BaoCodeX-0.3.0.apk',
+          'browser_download_url': 'https://github.com/juneix/ycode/releases/download/v0.3.0/BaoCodeX-0.3.0.apk',
           'size': 1234,
         },
       ],

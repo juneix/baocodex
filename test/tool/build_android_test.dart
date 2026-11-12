@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('构建号取显式版本且无论成败保留插件注册文件', () async {
+  test('版本号派生构建号且无论成败保留插件注册文件', () async {
     final directory = await Directory.systemTemp.createTemp(
       'ycode-build-test-',
     );
@@ -23,7 +23,7 @@ void main() {
       'tool/build_android.sh',
       await File('tool/build_android.sh').readAsString(),
     );
-    await write('pubspec.yaml', 'version: 0.3.0+35\n');
+    await write('pubspec.yaml', 'version: 1.0.3\n');
     const registrant =
         'android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java';
     const original =
@@ -63,8 +63,8 @@ void main() {
     expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
     final arguments = await File('${directory.path}/flutter-args')
         .readAsLines();
-    expect(arguments, contains('--build-number=35'));
-    expect(arguments, contains('--dart-define=APP_VERSION=0.3.0'));
+    expect(arguments, contains('--build-number=10003'));
+    expect(arguments, contains('--dart-define=APP_VERSION=1.0.3'));
     expect(
       await File('${directory.path}/$registrant').readAsString(),
       original,

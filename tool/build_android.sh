@@ -2,8 +2,8 @@
 # 打包 BaoCodeX 并安装到连着的手机（见 docs/release-android.md）。
 #   tool/build_android.sh            打包、签名、安装
 #   tool/build_android.sh --no-install 只打包签名
-# 版本名和构建号取 pubspec.yaml（如 0.3.0+35）；构建号必须持续递增，
-# 不依赖 Git 历史，这样重建仓库后仍能覆盖安装。
+# 版本号取 pubspec.yaml 的三段数字（如 1.0.3）；Android versionCode 由版本名
+# 派生（1.0.3 → 10003），版本递增即可覆盖安装，不依赖 Git 历史。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -30,10 +30,15 @@ apksigner="$BUILD_TOOLS/apksigner"
 
 release_version=$(sed -n 's/^version: *//p' pubspec.yaml | tr -d '\r')
 name=${release_version%%+*}
-number=${release_version#*+}
-if [[ ! "$name" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
-  [[ ! "$number" =~ ^[1-9][0-9]*$ ]] || [ "$number" -gt 2100000000 ]; then
-  echo "pubspec.yaml 必须显式设置版本名和递增构建号，如 version: 0.3.0+35。" >&2
+# 版本号只写三段数字；Android 覆盖安装需要递增的 versionCode，
+# 这里从版本名派生（1.0.3 → 10003，1.0.4 → 10004）。
+if [[ ! "$name" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+  echo "pubspec.yaml 的 version 必须是三段数字，如 1.0.3。" >&2
+  exit 1
+fi
+number=$((10#${BASH_REMATCH[1]} * 10000 + 10#${BASH_REMATCH[2]} * 100 + 10#${BASH_REMATCH[3]}))
+if [ "$number" -lt 1 ] || [ "$number" -gt 2100000000 ]; then
+  echo "由版本名派生的构建号 $number 超出范围。" >&2
   exit 1
 fi
 version=$name
@@ -119,10 +124,10 @@ export YCODE_STORE_PASSWORD="$store_pass" YCODE_KEY_PASSWORD="$key_pass"
 "$apksigner" sign --ks "$keystore" \
   --ks-pass env:YCODE_STORE_PASSWORD --key-pass env:YCODE_KEY_PASSWORD \
   --ks-key-alias "$key_alias" \
-  --out "$out/BaoCodeX-$name-$number.apk" "$out/app-aligned.apk"
-"$apksigner" verify "$out/BaoCodeX-$name-$number.apk"
-echo "打好了：$out/BaoCodeX-$name-$number.apk"
+  --out "$out/BaoCodeX-$name.apk" "$out/app-aligned.apk"
+"$apksigner" verify "$out/BaoCodeX-$name.apk"
+echo "打好了：$out/BaoCodeX-$name.apk"
 
 [ "${1:-}" = --no-install ] && exit 0
-adb install -r "$out/BaoCodeX-$name-$number.apk"
+adb install -r "$out/BaoCodeX-$name.apk"
 adb shell dumpsys package juneix.baocodex | grep -E 'versionName|lastUpdateTime'
