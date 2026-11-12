@@ -328,12 +328,14 @@ void main() {
       expect(find.byTooltip('Send'), findsNothing);
       await tester.enterText(find.byType(TextField).first, '准备追加的内容');
       await tester.pump();
-      expect(stopButton, findsOneWidget);
-      expect(find.byKey(const ValueKey('hollow-stop')), findsOneWidget);
-      expect(tester.getCenter(find.byTooltip('Send')).dx,
-          greaterThan(tester.getCenter(stopButton).dx));
+      // 有草稿时只显示发送，停止让位，两者不同时出现。
+      expect(find.byTooltip('Send'), findsOneWidget);
+      expect(stopButton, findsNothing);
+      expect(find.byKey(const ValueKey('hollow-stop')), findsNothing);
       await tester.enterText(find.byType(TextField).first, '');
       await tester.pump();
+      expect(stopButton, findsOneWidget);
+      expect(find.byTooltip('Send'), findsNothing);
       await tester.tap(find.byTooltip('Stop generation'));
       await tester.pump();
       expect(find.byTooltip('Stopping…'), findsOneWidget);
@@ -349,9 +351,9 @@ void main() {
       expect(stop.onPressed, isNull);
       await tester.enterText(find.byType(TextField).first, '保留这条草稿');
       await tester.pump();
-      // 停止请求未返回时仍可写草稿，停止状态保持可见但不能重复提交。
+      // 停止请求未返回时仍可写草稿；发送出现后停止让位，不会两个都在。
       expect(find.byTooltip('Send').hitTestable(), findsOneWidget);
-      expect(find.byTooltip('Stopping…'), findsOneWidget);
+      expect(find.byTooltip('Stopping…'), findsNothing);
       expect(find.text('保留这条草稿'), findsOneWidget);
       expect(
         state.calls.where((call) => call.$1 == LinkMethods.stop),

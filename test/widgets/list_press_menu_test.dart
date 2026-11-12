@@ -345,7 +345,8 @@ void main() {
     await tester.pumpWidget(_host(state));
     await _press(tester, '小宝');
     expect(find.text('删除该 Bot'), findsNothing);
-    await tester.tap(find.text('删除'));
+    // 助理的菜单仍叫「删除该聊天」，只清对话不删 Bot。
+    await tester.tap(find.text('删除该聊天'));
     await tester.pumpAndSettle();
     expect(state.calls, isEmpty);
     await tester.tap(find.widgetWithText(FilledButton, '清空'));

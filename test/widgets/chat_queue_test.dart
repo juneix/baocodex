@@ -18,14 +18,16 @@ void main() {
     expect(tester.widget<TextField>(composer).enabled, isNot(isFalse));
     await tester.enterText(composer, '追加内容');
     await tester.pump();
+    // 有草稿时只有发送，停止让位。
     expect(find.byTooltip('Send'), findsOneWidget);
-    expect(find.byTooltip('Stop generation'), findsOneWidget);
+    expect(find.byTooltip('Stop generation'), findsNothing);
     await tester.tap(find.byTooltip('Send'));
     await tester.pump();
     // 运行中不上传：留在手机端的排队区，本轮结束后才发出。
     expect(state.calls.where((call) => call.$1 == LinkMethods.send), isEmpty);
     expect(state.localQueue.messages('desktop', 'session').single.text, '追加内容');
     expect(find.byKey(const ValueKey('queued-messages')), findsOneWidget);
+    // 草稿已清空，停止回来。
     expect(find.byTooltip('Stop generation'), findsOneWidget);
     expect(state.history.live, isTrue, reason: '追加消息不能停止正在运行的任务');
     expect(state.calls.any((call) => call.$1 == LinkMethods.stop), isFalse);

@@ -493,7 +493,12 @@ void main() {
       find.byKey(const ValueKey('composer-mode')),
     );
     expect(modeRow.top, greaterThan(permissionRow.bottom));
-    expect(modeRow.left, closeTo(permissionRow.left, 1));
+    // 模式行自带「模式」标签，整行的左缘仍与权限行一致；
+    // 分段选择在标签右侧，所以只看标签。
+    expect(
+      tester.getRect(find.text('模式')).left,
+      closeTo(permissionRow.left, 1),
+    );
     // 模型在输入栏，权限和模式在弹层中，不重复放成附件图标。
     for (final id in ['model', 'mode', 'permission', 'stickers']) {
       expect(find.byKey(ValueKey('chat-action-$id')), findsNothing);
@@ -1487,8 +1492,12 @@ void main() {
       expect(find.byTooltip('停止生成'), findsOneWidget);
       await tester.enterText(find.byType(TextField).first, '准备排队的任务');
       await tester.pump(const Duration(milliseconds: 350));
-      expect(find.byTooltip('停止生成'), findsOneWidget);
+      // 有草稿时停止让位给发送，两个按钮不同时出现。
+      expect(find.byTooltip('停止生成'), findsNothing);
       expect(find.byTooltip('发送'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).first, '');
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.byTooltip('停止生成'), findsOneWidget);
       await tester.tap(find.byTooltip('停止生成'));
       await tester.pump();
       expect(state.calls, [LinkMethods.stop]);
@@ -1593,7 +1602,8 @@ void main() {
     await tester.pump();
     await tester.enterText(find.byType(TextField).first, '生成中准备下一条任务');
     await tester.pump();
-    expect(find.byTooltip('停止生成'), findsOneWidget);
+    // 有草稿时只留发送，停止让位。
+    expect(find.byTooltip('停止生成'), findsNothing);
     expect(find.byTooltip('发送'), findsOneWidget);
     expect(find.byTooltip('上下文已用 20%'), findsOneWidget);
     expect(

@@ -875,11 +875,14 @@ extension _Composer on _ChatPageState {
       builder: (context, value, _) {
         final hasDraft = value.text.trim().isNotEmpty || _images.isNotEmpty;
         final canSend = ready && !_sending && hasDraft && !_imagesMissing && _editReady;
+        // 运行中只有「停止」；一旦有草稿或正在发送，就换成「发送」，
+        // 两个按钮不同时出现。
+        final showSend = !live || hasDraft || _sending;
         final actions = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (live) _stopAction(size: 32),
-            if (!live || hasDraft || _sending)
+            if (!showSend) _stopAction(size: 32),
+            if (showSend)
               Padding(
                 padding: const EdgeInsets.only(left: 4, right: 8),
                 child: ChatComposerAction(
