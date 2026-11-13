@@ -3,52 +3,136 @@ import 'package:flutter/services.dart';
 
 /// 状态栏胶囊与 HyperOS 灵动岛的一条实时活动。
 ///
-/// 只在需要人看一眼的时候出现：等你确认/回答、有对话在跑、一轮做完没看。
+/// 只在需要人看一眼的时候出现：等你处理、有对话在跑、一轮做完没看。
 /// 不放对话正文，只放状态词和数量；对话标题只用来点开时定位。
 typedef LiveActivitySpec = ({
   String kind,
   String chip,
   String text,
   String? title,
+  String? stopLabel,
+  String? stopDesktop,
+  String? stopSession,
+  // 是否有会话正在跑：决定要不要用前台服务顶住进程保活。
+  // 与显示哪一条无关——哪怕此刻显示的是「待处理」，只要别处有在跑的，也要保活。
+  bool keepAlive,
+});
+
+/// 一条候选会话，由 [AppState] 收集好喂给 [LiveActivity.reduce]。
+///
+/// [waitKind] 与 [contextPercent] 只有已订阅（打开过）的会话才拿得到：
+/// 前者是桌面等的类型（`approval` / `question`），后者是上下文用量百分比。
+/// 拿不到时保持 null，界面退回统称。
+typedef LiveSession = ({
+  String desktopId,
+  String id,
+  String title,
+  LinkSessionStatus status,
+  bool unread,
+  String? waitKind,
+  int? contextPercent,
 });
 
 class LiveActivity {
   static const channel = MethodChannel('local.baocode.mobile/live');
 
+  /// 通知上「停止」按钮按下时，原生侧回推一条 `{action, desktop, session}`。
+  static const actionChannel = EventChannel('local.baocode.mobile/live_actions');
+
+  static Stream<({String? desktop, String? session})>? _stops;
+
+  /// 用户在通知上点「停止」：要停哪个会话。原生没宿主时没有事件。
+  static Stream<({String? desktop, String? session})> get stopRequests =>
+      _stops ??= actionChannel.receiveBroadcastStream().map((event) {
+        final map = event is Map
+            ? event.map((key, value) => MapEntry(key.toString(), value))
+            : const <String, Object?>{};
+        return (
+          desktop: map['desktop'] as String?,
+          session: map['session'] as String?,
+        );
+      });
+
   /// [sessions] 现在的样子，返回该显示的一条；没有就 null。
   /// 优先级：等你处理 > 运行中 > 完成未读（仅在后台）。
+  ///
+  /// 等你处理里，单个会话若能判出桌面在等什么，就细分成「待批准 / 待回答」；
+  /// 多个或判不出时用统称「待处理」。
   static LiveActivitySpec? reduce(
-    Iterable<SessionSummary> sessions, {
+    Iterable<LiveSession> sessions, {
     required bool foreground,
     required String Function(String zh, String en) tr,
     required bool showWaiting,
     required bool showDone,
   }) {
     final list = sessions.toList();
+    final running = list
+        .where((s) => s.status == LinkSessionStatus.running)
+        .toList();
+    // 有没有会话在跑，决定要不要保活——与此刻显示哪一条无关。
+    final keepAlive = running.isNotEmpty;
     final waiting = list
         .where((s) => s.status == LinkSessionStatus.needsInput)
         .toList();
     if (showWaiting && waiting.isNotEmpty) {
+      if (waiting.length == 1) {
+        final one = waiting.single;
+        final chip = switch (one.waitKind) {
+          'approval' => tr('待批准', 'Approve'),
+          'question' => tr('待回答', 'Answer'),
+          _ => tr('待处理', 'Needs input'),
+        };
+        return (
+          kind: 'waiting',
+          chip: chip,
+          text: one.title,
+          title: one.title,
+          stopLabel: null,
+          stopDesktop: null,
+          stopSession: null,
+          keepAlive: keepAlive,
+        );
+      }
       return (
         kind: 'waiting',
-        chip: tr('待确认', 'Waiting'),
-        text: waiting.length == 1
-            ? waiting.first.title
-            : tr('${waiting.length} 个对话等你处理', '${waiting.length} waiting'),
+        chip: tr('待处理', 'Needs input'),
+        text: tr('${waiting.length} 个待处理', '${waiting.length} need input'),
         title: waiting.first.title,
+        stopLabel: null,
+        stopDesktop: null,
+        stopSession: null,
+        keepAlive: keepAlive,
       );
     }
-    final running = list
-        .where((s) => s.status == LinkSessionStatus.running)
-        .toList();
     if (running.isNotEmpty) {
+      if (running.length == 1) {
+        final one = running.single;
+        final chip = one.contextPercent != null
+            ? tr(
+                '运行中 · 上下文 ${one.contextPercent}%',
+                'Running · context ${one.contextPercent}%',
+              )
+            : tr('运行中', 'Running');
+        return (
+          kind: 'running',
+          chip: chip,
+          text: one.title,
+          title: one.title,
+          stopLabel: tr('停止', 'Stop'),
+          stopDesktop: one.desktopId,
+          stopSession: one.id,
+          keepAlive: keepAlive,
+        );
+      }
       return (
         kind: 'running',
         chip: tr('运行中', 'Running'),
-        text: running.length == 1
-            ? running.first.title
-            : tr('${running.length} 个对话正在运行', '${running.length} running'),
+        text: tr('${running.length} 个运行中', '${running.length} running'),
         title: running.first.title,
+        stopLabel: tr('停止', 'Stop'),
+        stopDesktop: running.first.desktopId,
+        stopSession: running.first.id,
+        keepAlive: keepAlive,
       );
     }
     if (!foreground) {
@@ -61,8 +145,12 @@ class LiveActivity {
           chip: tr('已完成', 'Done'),
           text: done.length == 1
               ? done.first.title
-              : tr('${done.length} 个对话已完成', '${done.length} finished'),
+              : tr('${done.length} 个已完成', '${done.length} finished'),
           title: done.first.title,
+          stopLabel: null,
+          stopDesktop: null,
+          stopSession: null,
+          keepAlive: false,
         );
       }
     }
@@ -77,6 +165,10 @@ class LiveActivity {
         'chip': spec.chip,
         'text': spec.text,
         'title': spec.title,
+        'stopLabel': spec.stopLabel,
+        'stopDesktop': spec.stopDesktop,
+        'stopSession': spec.stopSession,
+        'keepAlive': spec.keepAlive,
       });
     } on PlatformException {
       /* 通知被拒绝不影响会话。 */

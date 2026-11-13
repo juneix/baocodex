@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.9
+
+Sharper live-activity wording and a stop button on the notification.
+
+- Live activity: waiting states are split into "approve" and "answer" when the open conversation makes it clear, and fall back to a single "needs input" otherwise. A running conversation shows its context usage in the chip ("running · context 45%"). Wording no longer says "waiting for you" everywhere.
+- Notification: a "stop" action stops the running turn without opening the app; tapping the body still opens the conversation. The indeterminate progress bar and the expanded big-text detail are gone.
+- Background keep-alive: while a turn runs or waits on you, a minimal foreground service keeps the process from being frozen, so the link no longer drops when you switch away and the island shows real progress. It stops on done or idle, never auto-starts, and does not request battery-optimization exemption.
+- The status-bar icon stays the app logo throughout; states only change the text, never the icon.
+
 ## 1.0.8
 
 Follows the upstream fork's connection and message-area work, adds live activity, and gives the sidebar a clearer hierarchy.

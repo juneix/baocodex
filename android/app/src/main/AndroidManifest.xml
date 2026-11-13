@@ -8,6 +8,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Android 16：把运行状态通知提升为 Live Update（状态栏胶囊 / HyperOS 灵动岛）。 -->
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <!-- 灵动岛开着且有任务在跑时，用前台服务让进程不被冻结、连接不断。 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Saving received media to the gallery on Android 9 and below only. -->
@@ -49,6 +52,15 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/update_paths" />
         </provider>
+        <!-- 通知上「停止」按钮的落点，只在应用进程内接收，不导出。 -->
+        <receiver android:name=".LiveStopReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="local.baocode.mobile.action.LIVE_STOP" />
+            </intent-filter>
+        </receiver>
+        <!-- 灵动岛/通知卡片的后台保活：只顶住进程，不自启、不常驻空跑。 -->
+        <service android:name=".LiveService" android:exported="false"
+            android:foregroundServiceType="remoteMessaging" />
         <meta-data android:name="flutterEmbedding" android:value="2" />
     </application>
 </manifest>

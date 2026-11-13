@@ -164,6 +164,7 @@ class AppState extends ChangeNotifier {
   /// 这次运行里跟着的对话最后用的模型：换了才知道是从哪个上游换过来的。
   final _followedModels = <String, SessionModel>{};
   StreamSubscription<DesktopEvent>? _events;
+  StreamSubscription<({String? desktop, String? session})>? _liveStops;
   late final SessionSubscriptions _subscriptions;
   late final TaskOutputSubscriptions taskOutputs;
 
@@ -390,6 +391,7 @@ class AppState extends ChangeNotifier {
       if (!demo) {
         link.addListener(_linkChanged);
         _events = link.events.listen(_event);
+        _liveStops = LiveActivity.stopRequests.listen(_onLiveStop);
         await link.initialize();
         discovery.addListener(_discoveryChanged);
         unawaited(discovery.start().catchError((Object _) {}));
@@ -512,7 +514,7 @@ class AppState extends ChangeNotifier {
       return;
     }
     final spec = LiveActivity.reduce(
-      sessions.where((ref) => isOnline(ref.desktopId)).map((ref) => ref.session),
+      _liveSessions(),
       foreground: foreground,
       tr: tr,
       showWaiting: settings.notifyNeedsInput,
@@ -520,7 +522,8 @@ class AppState extends ChangeNotifier {
     );
     final key = spec == null
         ? null
-        : '${spec.kind}|${spec.chip}|${spec.text}|${spec.title}';
+        : '${spec.kind}|${spec.chip}|${spec.text}|${spec.title}|'
+              '${spec.stopDesktop}|${spec.stopSession}|${spec.keepAlive}';
     if (key == _liveShown) return;
     _liveShown = key;
     if (spec == null) {
@@ -528,6 +531,50 @@ class AppState extends ChangeNotifier {
     } else {
       unawaited(LiveActivity.show(spec));
     }
+  }
+
+  /// 在线会话，附带订阅会话才能拿到的细分（等的是什么、上下文用量）。
+  List<LiveSession> _liveSessions() {
+    final result = <LiveSession>[];
+    for (final ref in sessions) {
+      if (!isOnline(ref.desktopId)) continue;
+      final buffer = peekBuffer(ref.desktopId, ref.session.id);
+      result.add((
+        desktopId: ref.desktopId,
+        id: ref.session.id,
+        title: ref.session.title,
+        status: ref.session.status,
+        unread: ref.session.unread,
+        waitKind: switch (buffer?.interaction) {
+          {'t': final String t} => t,
+          _ => null,
+        },
+        contextPercent: _contextPercent(buffer?.context),
+      ));
+    }
+    return result;
+  }
+
+  /// `context` 里的 `used / window` 取整百分比；缺数据时为 null。
+  static int? _contextPercent(Map<String, Object?>? context) {
+    final window = context?['window'];
+    final used = context?['used'];
+    if (window is! num || window <= 0 || used is! num || used < 0) return null;
+    return (used / window * 100).round();
+  }
+
+  /// 通知上的「停止」：停掉那一条对话正在跑的一轮。
+  void _onLiveStop(({String? desktop, String? session}) stop) {
+    final desktop = stop.desktop;
+    final session = stop.session;
+    if (_disposed || demo || desktop == null || session == null) return;
+    unawaited(
+      request(
+        desktop,
+        LinkMethods.stop,
+        {'session': session},
+      ).then((_) {}, onError: (Object _) {}),
+    );
   }
 
   SessionBuffer buffer(String desktopId, String sessionId) =>
@@ -975,6 +1022,7 @@ class AppState extends ChangeNotifier {
     if (_liveShown != null) unawaited(LiveActivity.clear());
     _events?.cancel();
     _subscriptions.dispose();
+    unawaited(_liveStops?.cancel());
     taskOutputs.dispose();
     localQueue.dispose();
     link.removeListener(_linkChanged);

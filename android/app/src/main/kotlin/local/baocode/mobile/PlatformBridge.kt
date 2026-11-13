@@ -46,6 +46,7 @@ class PlatformBridge(
     private val methods = MethodChannel(messenger, "local.baocode.mobile/platform")
     private val events = EventChannel(messenger, "local.baocode.mobile/discovery")
     private val liveChannel = MethodChannel(messenger, "local.baocode.mobile/live")
+    private val liveActions = EventChannel(messenger, "local.baocode.mobile/live_actions")
     private val main = Handler(Looper.getMainLooper())
     private val storageWorker = Executors.newSingleThreadExecutor()
     private val storageResults = mutableSetOf<MethodChannel.Result>()
@@ -66,6 +67,16 @@ class PlatformBridge(
     init {
         methods.setMethodCallHandler(this)
         events.setStreamHandler(localDiscovery)
+        // 通知上的「停止」按钮：把动作推回 Dart，停掉那一条对话。
+        liveActions.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, sink: EventChannel.EventSink?) {
+                LiveActivity.eventSink = sink
+            }
+
+            override fun onCancel(arguments: Any?) {
+                LiveActivity.eventSink = null
+            }
+        })
         liveChannel.setMethodCallHandler { call, result ->
             if (closed) {
                 result.error("disposed", "Platform bridge is closed", null)
@@ -79,6 +90,10 @@ class PlatformBridge(
                         chip = call.argument<String>("chip") ?: "",
                         text = call.argument<String>("text") ?: "",
                         title = call.argument<String>("title"),
+                        stopLabel = call.argument<String>("stopLabel"),
+                        stopDesktop = call.argument<String>("stopDesktop"),
+                        stopSession = call.argument<String>("stopSession"),
+                        keepAlive = call.argument<Boolean>("keepAlive") == true,
                     )
                     result.success(ok)
                 }
@@ -494,6 +509,8 @@ class PlatformBridge(
         methods.setMethodCallHandler(null)
         events.setStreamHandler(null)
         liveChannel.setMethodCallHandler(null)
+        liveActions.setStreamHandler(null)
+        LiveActivity.eventSink = null
         LiveActivity.clear(activity)
         localDiscovery.close()
         chatClipboard.close()
