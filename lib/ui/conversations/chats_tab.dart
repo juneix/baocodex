@@ -816,14 +816,13 @@ class _ChatsTabState extends State<ChatsTab> {
                       'project-new-${ref.desktopId}-${ref.project.id}',
                     ),
                     tooltip: state.tr('新对话', 'New conversation'),
-                    padding: EdgeInsets.zero,
-                    // 视觉 36 与收起时的数字右缘同一条边线：`shrinkWrap` 免去
-                    // 主题把命中区撑到 48 后多出的 6 内缩；行高固定 48，
+                    // 视觉 36，`shrinkWrap` 免去主题把命中区撑到 48 后多出的
+                    // 6 内缩，右缘和收起时的数字同一条线；行高固定 52，
                     // 展开/收纳时不跳。
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    constraints: const BoxConstraints.tightFor(
-                      width: MobileSizes.iconButton,
-                      height: MobileSizes.iconButton,
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size.square(MobileSizes.iconButton),
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     icon: const LucideIcon('plus', size: 18),
                     onPressed: () => _showNew(ref),
