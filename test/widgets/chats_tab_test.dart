@@ -498,7 +498,8 @@ void main() {
     await _drawer(tester);
     await tester.tap(find.byTooltip('筛选对话'));
     await tester.pumpAndSettle();
-    expect(find.text('SSH'), findsWidgets);
+    // 远程这一段含 SSH 和 WSL，标签写全。
+    expect(find.text('SSH / WSL'), findsWidgets);
     expect(find.text('全部项目'), findsNothing);
     await tester.tap(find.text('进行中'));
     await tester.pump();

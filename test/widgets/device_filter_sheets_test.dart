@@ -416,7 +416,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('项目 0'), findsOneWidget);
 
-    await tester.tap(find.text('SSH').first);
+    await tester.tap(find.text('SSH / WSL').first);
     await tester.pumpAndSettle();
     expect(find.text('项目 0'), findsNothing);
     expect(find.text('远程项目'), findsOneWidget);
