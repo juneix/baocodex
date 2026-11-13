@@ -15,6 +15,7 @@ import 'package:baocode_mobile/ui/tasks/chat_page.dart';
 import 'package:baocode_mobile/ui/tasks/chat_activity_card.dart';
 import 'package:baocode_mobile/chat/widgets/pixel_loader.dart';
 import 'package:baocode_mobile/theme/app_theme.dart';
+import 'package:baocode_mobile/ui/widgets/mobile_widgets.dart' show MobileTag;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -136,6 +137,60 @@ class _Many extends _State {
         updatedAt: DateTime(2026, 1, i + 1), pinned: i == 6,
         status: i < 2 ? LinkSessionStatus.needsInput : LinkSessionStatus.idle,
       )),
+  ];
+}
+
+/// 两台远程机上的同名文件夹，外加一个本地项目。
+class _SshState extends _State {
+  @override
+  List<ProjectRef> get projects => const [
+    ProjectRef(
+      '在线',
+      ProjectInfo(
+        id: 'ssh://root@armbian/home/dev/Lab',
+        name: 'Lab',
+        path: '/home/dev/Lab',
+      ),
+    ),
+    ProjectRef(
+      '在线',
+      ProjectInfo(
+        id: 'ssh://root@devbox:2222/home/dev/Lab',
+        name: 'Lab',
+        path: '/home/dev/Lab',
+      ),
+    ),
+    ProjectRef('在线', ProjectInfo(id: '/p', name: '本地项目', path: '/p')),
+  ];
+  @override
+  List<SessionRef> get sessions => [
+    SessionRef(
+      '在线',
+      SessionSummary(
+        id: 'a',
+        project: 'ssh://root@armbian/home/dev/Lab',
+        title: 'armbian 上的任务',
+        updatedAt: DateTime(2026, 2),
+      ),
+    ),
+    SessionRef(
+      '在线',
+      SessionSummary(
+        id: 'b',
+        project: 'ssh://root@devbox:2222/home/dev/Lab',
+        title: 'devbox 上的任务',
+        updatedAt: DateTime(2026, 1),
+      ),
+    ),
+    SessionRef(
+      '在线',
+      SessionSummary(
+        id: 'c',
+        project: '/p',
+        title: '本地任务',
+        updatedAt: DateTime(2026),
+      ),
+    ),
   ];
 }
 
@@ -613,6 +668,24 @@ void main() {
     await _mount(tester, state);
     expect(tester.widget<ChatPage>(find.byType(ChatPage)).projectId, 'e');
     expect(state.calls, isEmpty);
+  });
+
+  testWidgets('侧栏 SSH 项目写成「文件夹@主机名」并带 SSH 胶囊，同名文件夹可区分', (tester) async {
+    final state = _SshState();
+    addTearDown(state.dispose);
+    await _mount(tester, state);
+    await _drawer(tester);
+    expect(find.text('Lab@armbian'), findsOneWidget);
+    expect(find.text('Lab@devbox'), findsOneWidget);
+    expect(find.text('本地项目'), findsOneWidget);
+    expect(find.byType(MobileTag), findsNWidgets(2));
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('project-fold-在线-ssh://root@armbian/home/dev/Lab')),
+        matching: find.text('SSH'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('文件页仍只列所选电脑的项目，不显示对话状态', (tester) async {

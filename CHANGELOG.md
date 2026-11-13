@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.8
+
+Follows the upstream fork's connection and message-area work, adds live activity, and gives the sidebar a clearer hierarchy.
+
+- Connection: a probe now runs on its own request stream, so a stale reply can no longer keep a dead link alive; a failed write ends the waiting request at once; messages of 256 KiB and above are parsed off the main isolate. Reconnects recover on a new connection generation.
+- Conversation status: a turn that finishes quickly or while the link was down is still reported; a conversation open on screen is not counted as unread.
+- Message area: tool screenshots open as one gallery you can swipe through, and they appear once under the step title; images load lazily.
+- File preview: Markdown images inside a project now render inline and open full screen.
+- Live activity: a status-bar chip / HyperOS island shows "waiting for you", "running" and "finished, unread" — never the conversation body. No foreground service and no auto-start; it disappears when the process ends.
+- Sidebar: SSH projects read `folder@host` with an SSH / WSL badge, so same-named folders stay apart; projects and conversations now use two type levels, and row heights no longer jump when a group folds.
+- Message bubbles use 88% of the width (capped at 640).
+
 ## 1.0.7
 
 Clearer conversation status, roomier tap targets, and tidier spacing.

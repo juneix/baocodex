@@ -98,6 +98,19 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-pub
 
+      # 本轮新增的关键行为先单独跑一遍，失败时能直接看出是哪一块。
+      - name: Test changed behavior
+        run: |
+          flutter test --no-pub \
+            test/state/live_activity_test.dart \
+            test/state/conversation_filters_test.dart \
+            test/widgets/chats_tab_test.dart \
+            test/state/desktop_notifications_test.dart \
+            test/link/peer_send_failure_diagnosis_test.dart \
+            test/link/peer_large_message_test.dart \
+            test/widgets/markdown_image_test.dart \
+            test/widgets/plan_preview_test.dart
+
       - name: Test
         run: flutter test --no-pub
 

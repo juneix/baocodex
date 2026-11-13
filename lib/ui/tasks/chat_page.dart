@@ -54,6 +54,7 @@ import 'rewind_files.dart';
 import 'running_agents.dart';
 import '../devices/device_menu.dart' show linkStatusLabel;
 import '../conversations/chats_tab.dart' show newConversation;
+import '../conversations/conversation_filters.dart' show sshHostOf;
 import '../conversations/delete_conversation.dart';
 import '../conversations/open_conversation.dart';
 import 'task_page.dart';
@@ -231,6 +232,7 @@ class _ChatPageState extends State<ChatPage> {
           widget.state.closeSession(widget.desktopId, session),
       refreshSession: (session) =>
           widget.state.refreshSession(widget.desktopId, session),
+      errorMessage: (error) => userMessage(widget.state, error),
       verifyTarget: widget.botId == null
           ? null
           : () async {
@@ -1520,9 +1522,16 @@ class _ChatPageState extends State<ChatPage> {
         _project?.project.name ?? linkStatusLabel(widget.state, status),
       _ => linkStatusLabel(widget.state, status),
     };
+    // SSH 项目写「主机名 · 项目名」，比电脑名更能说明活在哪台机器上；
     // Bot 和可打开侧栏的普通对话显示「电脑名 · 状态」；独立路由的普通对话
     // 只写状态，标题下一行保持简短。
-    final text = widget.botId != null || widget.onOpenNavigation != null
+    final sshHost = switch (status) {
+      DesktopLinkStatus.online => sshHostOf(widget.projectId ?? ''),
+      _ => null,
+    };
+    final text = sshHost != null
+        ? '$sshHost · $label'
+        : widget.botId != null || widget.onOpenNavigation != null
         ? '${widget.state.desktopName(widget.desktopId)} · $label'
         : label;
     return Semantics(

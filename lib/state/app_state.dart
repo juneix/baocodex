@@ -18,6 +18,7 @@ import 'task_output_subscriptions.dart';
 import 'conversation_input.dart';
 import 'bot_settings.dart';
 import 'desktop_notifications.dart';
+import 'live_activity.dart';
 
 export '../models/app_settings.dart';
 export '../models/session_buffer.dart';
@@ -96,6 +97,16 @@ class AppState extends ChangeNotifier {
   final DesktopDiscovery discovery = DesktopDiscovery();
   final _discoveredAddresses = <String, String>{};
   bool foreground = true;
+
+  /// 前后台切换：前台时岛里不再显示「完成未读」，回到后台才补上。
+  void setForeground(bool value) {
+    if (_disposed || foreground == value) return;
+    foreground = value;
+    _syncLiveActivity();
+  }
+
+  /// 设置里开关改动后立刻重算一次。
+  void refreshLiveActivity() => _syncLiveActivity();
   Future<void>? _resuming;
 
   void _discoveryChanged() {
@@ -136,6 +147,9 @@ class AppState extends ChangeNotifier {
   final _seenSessions = <String, int>{};
   Future<void> _seenWrites = Future.value();
 
+  /// 开在屏幕上的对话，键同 [_seenSessions]，值是开着它的页面数。
+  final _viewing = <String, int>{};
+
   /// 对话最近用的模型，手机自己记着：电脑只说它开着的对话用什么模型，别的
   /// 对话、App 重启以后就靠这份。键同 [_seenSessions]，最多记 [_modelsKept] 条。
   final _sessionModels = <String, SessionModel>{};
@@ -162,7 +176,10 @@ class AppState extends ChangeNotifier {
   final _botCreations = <String, BotProfileSaver>{};
   Future<void> _draftWrites = Future.value();
   Set<String> _lastOnline = {};
-  final _sessionStatuses = <(String, String), LinkSessionStatus>{};
+  final _sessionStatuses = <(String, String), SessionSummary>{};
+
+  /// 上一次发给状态栏胶囊/灵动岛的内容，相同就不重复发。
+  String? _liveShown;
   late final DesktopNotifications notifications;
 
   static const _platform = MethodChannel('local.baocode.mobile/platform');
@@ -448,27 +465,24 @@ class AppState extends ChangeNotifier {
     for (final ref in sessions) {
       final key = (ref.desktopId, ref.session.id);
       final previous = _sessionStatuses[key];
-      final next = ref.session.status;
-      if (previous != null &&
-          previous != next &&
-          (next == LinkSessionStatus.needsInput ||
-              (previous == LinkSessionStatus.running &&
-                  next == LinkSessionStatus.idle))) {
+      final next = ref.session;
+      if (DesktopNotifications.turnNotice(previous, next)
+          case final needsInput?) {
         unawaited(
           notifications.notifyTurn(
             desktopId: ref.desktopId,
-            sessionId: ref.session.id,
-            sessionTitle: ref.session.title,
-            needsInput: next == LinkSessionStatus.needsInput,
+            sessionId: next.id,
+            sessionTitle: next.title,
+            needsInput: needsInput,
             foreground: foreground,
             demo: demo,
             desktopName: desktopName(ref.desktopId),
           ),
         );
       }
-      if (previous == LinkSessionStatus.running &&
-          next == LinkSessionStatus.idle) {
-        _autoKeep(ref.desktopId, ref.session.id);
+      if (previous?.status == LinkSessionStatus.running &&
+          next.status == LinkSessionStatus.idle) {
+        _autoKeep(ref.desktopId, next.id);
       }
       _sessionStatuses[key] = next;
     }
@@ -484,7 +498,36 @@ class AppState extends ChangeNotifier {
     }
     _rememberModels();
     localQueue.drainAll();
+    _syncLiveActivity();
     _notify();
+  }
+
+  /// 状态栏胶囊/灵动岛：只报「等你处理」「运行中」「完成未读」，内容相同不重发。
+  void _syncLiveActivity() {
+    if (demo || _disposed || !settings.liveActivity) {
+      if (_liveShown != null) {
+        _liveShown = null;
+        unawaited(LiveActivity.clear());
+      }
+      return;
+    }
+    final spec = LiveActivity.reduce(
+      sessions.where((ref) => isOnline(ref.desktopId)).map((ref) => ref.session),
+      foreground: foreground,
+      tr: tr,
+      showWaiting: settings.notifyNeedsInput,
+      showDone: settings.notifyDone,
+    );
+    final key = spec == null
+        ? null
+        : '${spec.kind}|${spec.chip}|${spec.text}|${spec.title}';
+    if (key == _liveShown) return;
+    _liveShown = key;
+    if (spec == null) {
+      unawaited(LiveActivity.clear());
+    } else {
+      unawaited(LiveActivity.show(spec));
+    }
   }
 
   SessionBuffer buffer(String desktopId, String sessionId) =>
@@ -553,7 +596,10 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> openSession(String desktopId, String sessionId) {
+    // 先记下看过，再算正在看：正在看的不算未读，就不会再写进存储。
     _markSessionSeen(desktopId, sessionId);
+    final key = '$desktopId/$sessionId';
+    _viewing[key] = (_viewing[key] ?? 0) + 1;
     return _subscriptions.retain(desktopId, sessionId);
   }
 
@@ -561,6 +607,12 @@ class AppState extends ChangeNotifier {
       _subscriptions.refresh(desktopId, sessionId);
 
   Future<void> closeSession(String desktopId, String sessionId) {
+    final key = '$desktopId/$sessionId';
+    if ((_viewing[key] ?? 0) <= 1) {
+      _viewing.remove(key);
+    } else {
+      _viewing[key] = _viewing[key]! - 1;
+    }
     // 开着的时候做完的，关掉时也算看过了。
     _markSessionSeen(desktopId, sessionId);
     return _subscriptions.release(
@@ -573,7 +625,10 @@ class AppState extends ChangeNotifier {
   /// 做完还没看：手机上看过之后，要它再有更新才算。
   bool sessionUnread(SessionRef ref) {
     if (!ref.session.unread) return false;
-    final seen = _seenSessions['${ref.desktopId}/${ref.session.id}'];
+    final key = '${ref.desktopId}/${ref.session.id}';
+    // 正开在前台屏幕上的，做完时就看着，不算没看；沉浸模式下它一直开着。
+    if (foreground && _viewing.containsKey(key)) return false;
+    final seen = _seenSessions[key];
     return seen == null || ref.session.updatedAt.millisecondsSinceEpoch > seen;
   }
 
@@ -917,6 +972,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    if (_liveShown != null) unawaited(LiveActivity.clear());
     _events?.cancel();
     _subscriptions.dispose();
     taskOutputs.dispose();

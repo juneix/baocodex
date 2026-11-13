@@ -120,7 +120,6 @@ void main() {
   });
   for (final dark in [false, true]) {
     testWidgets('Bot气泡左右对齐且隐藏统计，深色=$dark', (tester) async {
-      // 自己的气泡是黑金：浅金底，和回答的白色气泡分得开。
       final state = AppState(store: MemoryLinkStore());
       addTearDown(state.dispose);
       state.settings.language = 'zh';
@@ -243,43 +242,6 @@ void main() {
       expect(edited?.text, '你好');
     });
   });
-  testWidgets('自己的气泡始终白底，不随主题色变化', (tester) async {
-    for (final accent in [MobileAccent.amber, MobileAccent.indigo]) {
-      for (final dark in [false, true]) {
-        final state = AppState(store: MemoryLinkStore());
-        addTearDown(state.dispose);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: MobileTheme.build(
-              dark ? Brightness.dark : Brightness.light,
-              accent: accent,
-            ),
-            home: Scaffold(
-              body: MessageView(
-                state: state,
-                desktopId: '电脑',
-                bot: const BotRef('电脑', LinkBot(id: '宝', name: '小宝')),
-                item: const UserMessageItem(text: '你好'),
-              ),
-            ),
-          ),
-        );
-        final bubble = find.byKey(const ValueKey('bot-user-bubble'));
-        final color =
-            (tester.widget<Container>(bubble).decoration as BoxDecoration)
-                .color!;
-        final scheme = Theme.of(tester.element(bubble)).colorScheme;
-        expect(
-          color,
-          scheme.surfaceContainerLowest,
-          reason: '主题色 $accent 深色 $dark',
-        );
-        // 白底：没有掺主题色的色相，浅色下就是纯白。
-        if (!dark) expect(color.computeLuminance(), greaterThan(.85));
-      }
-    }
-  });
-
   testWidgets('Bot说话分成独立气泡，卡片旁白保留且不显示标签', (tester) async {
     final state = AppState(store: MemoryLinkStore());
     addTearDown(state.dispose);

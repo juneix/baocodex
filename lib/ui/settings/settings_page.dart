@@ -671,6 +671,13 @@ class _NotificationsPageState extends State<NotificationsPage>
                   state.settings.notifyBots,
                   (bool value) => state.settings.notifyBots = value,
                 ),
+                (
+                  'live',
+                  '状态栏实时活动（灵动岛）',
+                  'Live activity in the status bar',
+                  state.settings.liveActivity,
+                  (bool value) => state.settings.liveActivity = value,
+                ),
               ])
                 SwitchListTile(
                   key: ValueKey('notify-$key'),
@@ -683,6 +690,7 @@ class _NotificationsPageState extends State<NotificationsPage>
                           if (value && blocked && !await _allow()) return;
                           set(value);
                           await state.saveSettings();
+                          state.refreshLiveActivity();
                           if (mounted) setState(() {});
                         }),
                 ),

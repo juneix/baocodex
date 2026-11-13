@@ -51,8 +51,7 @@ extension _BotMessage on MessageView {
     final scheme = Theme.of(context).colorScheme;
     final color = user
         ? botUserBubbleColor(context)
-        // 对方的气泡用浅灰，和自己纯白的气泡分得开。
-        : scheme.surfaceContainerHighest;
+        : scheme.surfaceContainerLow;
     final avatar = user
         ? LetterAvatar(
             state.settings.name.isEmpty ? '我' : state.settings.name,
@@ -64,7 +63,11 @@ extension _BotMessage on MessageView {
     final body = sticker != null
         ? StickerView(sticker)
         : user
-        ? Text(text, style: MobileTheme.messageStyleOf(context))
+        ? Text(
+            text,
+            style: MobileTheme.messageStyleOf(context)
+                .copyWith(color: const Color(0xFF111111)),
+          )
         // 气泡是白的，里面的代码块要用白底上的浅灰。
         : MobileTheme.reading(context, child: _prose(text));
     void press(BuildContext anchor) => showBubbleMenu(anchor, [
@@ -147,10 +150,9 @@ extension _BotMessage on MessageView {
                   child: Builder(
                     builder: (anchor) => ImageDeck(
                       key: const ValueKey('bot-user-images'),
-                      images: [
-                        for (final image in value.images)
-                          GalleryImage(image.bytes, name: image.name),
-                      ],
+                      images: value.images
+                          .map(GalleryImage.fromAttachment)
+                          .toList(),
                       tr: state.tr,
                       onLongPress: () => press(anchor),
                     ),

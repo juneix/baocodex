@@ -622,7 +622,9 @@ class _ChatsTabState extends State<ChatsTab> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                // 右侧留 10：白圆视觉 36，命中区 48 左右各多 6，视觉右缘
+                // 才落在 16 这条线上，与搜索框、新对话同一边。
+                padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
                 child: Row(
                   children: [
                     Expanded(
@@ -736,21 +738,24 @@ class _ChatsTabState extends State<ChatsTab> {
     );
   }
 
-  /// 侧栏里次要按钮的白色圆形浮层：灰底页面上才立得住。
   /// 标题旁的次要图标：不套白底。
+  /// `shrinkWrap` 让占位正好 36，不再被主题的 48 命中区撑大——
+  /// 否则行尾图标会比搜索框、对话数右缘多缩 6，几个元素对不齐。
   static ButtonStyle _plainButton(BuildContext context) =>
       IconButton.styleFrom(
         fixedSize: const Size.square(MobileSizes.iconButton),
         padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         backgroundColor: Colors.transparent,
         foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
       );
 
+  /// 侧栏里次要按钮的白色圆形浮层：灰底页面上才立得住。
   static ButtonStyle _softButton(BuildContext context) =>
       IconButton.styleFrom(
         fixedSize: const Size.square(MobileSizes.iconButton),
         padding: EdgeInsets.zero,
-        // 视觉 36，命中区由主题撑到 48；外层留白已扣掉多出的 6。
+        // 视觉 36，命中区由主题撑到 48（左右各多 6）。
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
       );
@@ -783,6 +788,10 @@ class _ChatsTabState extends State<ChatsTab> {
             key: ValueKey('project-fold-${ref.desktopId}-${ref.project.id}'),
             compact: true,
             titleBold: false,
+            titleStyle: projectTitleStyle(context),
+            // 固定 52（36 的图标按钮 + 上下各 8）：展开和收纳时 trailing 从
+            // 加号换成数字，行高不跟着变，标题栏不跳。
+            minHeight: 52,
             divider: false,
             leading: waitingAvatar(
               state,
@@ -790,6 +799,7 @@ class _ChatsTabState extends State<ChatsTab> {
               sessions,
             ),
             title: projectRowTitle(ref),
+            note: projectSourceTag(ref),
             aside: ref.project.pinned == true
                 ? const LucideIcon('pin', size: 16)
                 : null,
@@ -807,9 +817,13 @@ class _ChatsTabState extends State<ChatsTab> {
                     ),
                     tooltip: state.tr('新对话', 'New conversation'),
                     padding: EdgeInsets.zero,
+                    // 视觉 36 与收起时的数字右缘同一条边线：`shrinkWrap` 免去
+                    // 主题把命中区撑到 48 后多出的 6 内缩；行高固定 48，
+                    // 展开/收纳时不跳。
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     constraints: const BoxConstraints.tightFor(
-                      width: MobileSizes.iconButton - 8,
-                      height: MobileSizes.iconButton - 8,
+                      width: MobileSizes.iconButton,
+                      height: MobileSizes.iconButton,
                     ),
                     icon: const LucideIcon('plus', size: 18),
                     onPressed: () => _showNew(ref),
@@ -1190,19 +1204,37 @@ class ProjectChatsPage extends StatelessWidget {
   );
 }
 
-/// 侧栏里的项目标题：远程项目写成「用户名 · 设备名」，本地就是文件夹名。
+/// 侧栏一级标题（项目）：16、中等字重，与二级的对话行拉开层级。
+/// 行高 1.3，落在 Material titleMedium(1.5) 与 iOS subhead(1.33) 的较紧一侧。
+TextStyle projectTitleStyle(BuildContext context) =>
+    Theme.of(context).textTheme.bodyMedium!.copyWith(
+      fontSize: 16,
+      fontWeight: FontWeight.w500,
+      height: 1.3,
+    );
+
+/// 侧栏二级（对话）：14、常规字重，行高 1.35 比默认 1.4 略紧。
+TextStyle sessionTitleStyle(BuildContext context) =>
+    Theme.of(context).textTheme.bodySmall!.copyWith(
+      fontSize: 14,
+      fontWeight: FontWeight.w400,
+      height: 1.35,
+    );
+
+/// 侧栏项目标题：SSH 项目写成「文件夹名@主机名」，同名文件夹也能分开；
+/// 本地和 WSL 用文件夹名，来源靠徽章标。
 String projectRowTitle(ProjectRef ref) {
-  final id = ref.project.id;
-  if (!id.startsWith('ssh://')) return ref.project.name;
-  final rest = id.substring(6);
-  final slash = rest.indexOf('/');
-  if (slash <= 0) return ref.project.name;
-  final host = rest.substring(0, slash);
-  if (host.startsWith('wsl+')) return ref.project.name;
-  final at = host.indexOf('@');
-  if (at <= 0 || at == host.length - 1) return host;
-  return '${host.substring(0, at)} · ${host.substring(at + 1)}';
+  final host = sshHostOf(ref.project.id);
+  return host == null ? ref.project.name : '${ref.project.name}@$host';
 }
+
+/// 侧栏项目行的来源徽章：SSH / WSL，本地项目没有。
+String? projectSourceTag(ProjectRef ref) =>
+    switch (projectSource(ref.project.id)) {
+      ConversationSource.ssh => 'SSH',
+      ConversationSource.wsl => 'WSL',
+      _ => null,
+    };
 
 /// A conversation in a project's list: in the project's page, the home list
 /// filtered to the project, and under a project unfolded there.
@@ -1224,6 +1256,9 @@ Widget projectSessionRow(
     child: ListRow(
       compact: compact,
       titleBold: false,
+      // 侧栏的紧凑对话行用二级字号和 44 固定行高；其他列表沿用默认。
+      titleStyle: compact ? sessionTitleStyle(context) : null,
+      minHeight: compact ? 44 : null,
       highlighted: selected,
       divider: divider,
       leading: compact

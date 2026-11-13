@@ -39,6 +39,15 @@ void main() {
     expect(projectSource('ssh:///missing'), ConversationSource.unknown);
     expect(projectSource('future://host/project'), ConversationSource.unknown);
   });
+  test('SSH 主机名去掉用户名和端口，WSL 与本地没有', () {
+    expect(sshHostOf('ssh://root@armbian:2222/home/dev/mobile'), 'armbian');
+    expect(sshHostOf('ssh://armbian/home/dev/mobile'), 'armbian');
+    expect(sshHostOf('ssh://wsl+Ubuntu/home/dev/mobile'), isNull);
+    expect(sshHostOf('/home/dev/mobile'), isNull);
+    expect(sshHostOf(r'C:\Work\mobile'), isNull);
+    expect(sshHostOf('ssh:///missing'), isNull);
+  });
+
   test('同名项目按电脑隔离且待处理与运行使用同一条件', () {
     const projects = [
       ProjectRef('a', ProjectInfo(id: '/p', name: 'mobile', path: '/p')),

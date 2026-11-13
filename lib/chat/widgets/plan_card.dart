@@ -7,6 +7,8 @@ import '../markdown/safe_selection_indexes.dart';
 import 'fade_curve.dart';
 import 'strings.dart';
 import '../../theme/app_theme.dart';
+import '../../state/app_state.dart';
+import '../../ui/widgets/bottom_sheet_panel.dart';
 
 /// A plan's strings, both languages inline (see [ToolStrings]).
 class PlanStrings {
@@ -35,7 +37,7 @@ class PlanStrings {
 
 /// A round of planning in the conversation: the plan's title over its
 /// text, the text fading out past a height; a tap shows it in full —
-/// on mobile, through [onOpen] (the paired desktop's plan file). A plan
+/// on mobile, from the recorded text, or [onOpen] when only a file is known. A plan
 /// sent back gives way to the next round's: it folds to one line, with
 /// what the user said should change. The desktop's start-here bar
 /// ([PlanStartBar]) stays a desktop affordance.
@@ -61,12 +63,50 @@ class PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // A plan sent rather than written has no file: its card is all of it.
-    final open = item.path.isEmpty ? null : onOpen;
+    // 先展示对话中已有的正文，原文件可能已删除或不在项目目录内。
+    final text = item.text;
+    final VoidCallback? open = text != null && text.trim().isNotEmpty
+        ? () => _showRecorded(context, text)
+        : item.path.isEmpty
+        ? null
+        : onOpen;
     final card = item.status == PlanStatus.sentBack
         ? _folded(context, open)
         : _card(context, open);
     return SizedBox(width: double.infinity, child: card);
+  }
+
+  void _showRecorded(BuildContext context, String text) {
+    showBottomSheetPanel<void>(
+      context,
+      title: item.name,
+      closeLabel: AppState.phrase('关闭', 'Close'),
+      size: SheetSize.large,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              AppState.phrase(
+                '显示对话中记录的版本，可能不是电脑文件的最新内容。',
+                'Showing the version recorded in this conversation, which may differ from the current file on the desktop.',
+              ),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          Flexible(
+            child: SelectionArea(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [MarkdownView(text)],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Sent back: one line.

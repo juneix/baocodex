@@ -711,6 +711,8 @@ class ListRow extends StatelessWidget {
     required this.title,
     this.compact = false,
     this.titleBold = true,
+    this.titleStyle,
+    this.minHeight,
     this.highlighted = false,
     this.divider = true,
     this.note,
@@ -730,6 +732,12 @@ class ListRow extends StatelessWidget {
 
   /// 列表里的对话和项目名不用加粗，和其他列表项区分开。
   final bool titleBold;
+
+  /// 标题自己的字号和行高：侧栏用一级/二级两级字号，别的列表沿用默认。
+  final TextStyle? titleStyle;
+
+  /// 行最小高度：项目行 48、对话行 44，折叠展开时不跳。
+  final double? minHeight;
 
   /// 选中的对话：整行铺一层浅金色圆角矩形，和参考图一样。
   final bool highlighted;
@@ -786,7 +794,7 @@ class ListRow extends StatelessWidget {
               children: [
                 ConstrainedBox(
                   constraints: BoxConstraints(
-                    minHeight: compact ? 44 : MobileSizes.listRow,
+                    minHeight: minHeight ?? (compact ? 44 : MobileSizes.listRow),
                   ),
                   child: Padding(
                     // 选中行外面多套了 6 的内缩，这里减掉，内容左缘仍在同一条线上。
@@ -816,11 +824,13 @@ class ListRow extends StatelessWidget {
                                       title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: titleBold
-                                          ? text.bodyMedium!.copyWith(
-                                              fontWeight: FontWeight.w500,
-                                            )
-                                          : text.bodyMedium,
+                                      style:
+                                          titleStyle ??
+                                          (titleBold
+                                              ? text.bodyMedium!.copyWith(
+                                                  fontWeight: FontWeight.w500,
+                                                )
+                                              : text.bodyMedium),
                                       // 侧栏里选中的对话不再另加对勾或色块。
                                     ),
                                   ),

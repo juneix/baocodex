@@ -29,6 +29,9 @@ class AppSettings {
   bool notificationsAsked = false;
   bool haptics = true;
 
+  /// 状态栏胶囊 / 灵动岛：只在等你处理、运行中、完成未读时出现。
+  bool liveActivity = true;
+
   /// Keeps an agent's changes as each of its turns ends, for every
   /// conversation: the phone's own, sent as the desktop's Keep.
   bool autoKeep = false;
@@ -80,6 +83,7 @@ class AppSettings {
     settings.notifyBots = json['notifyBots'] as bool? ?? all;
     settings.notificationsAsked = json['notificationsAsked'] == true;
     settings.haptics = json['haptics'] != false;
+    settings.liveActivity = json['liveActivity'] != false;
     settings.autoKeep = json['autoKeepChanges'] == true;
     settings.pinnedBots = {
       for (final entry in (json['pinnedBots'] as List?) ?? const [])
@@ -106,6 +110,7 @@ class AppSettings {
     'notifyBots': notifyBots,
     'notificationsAsked': notificationsAsked,
     'haptics': haptics,
+    'liveActivity': liveActivity,
     'autoKeepChanges': autoKeep,
     'pinnedBots': [
       for (final (desktop, bot) in pinnedBots) [desktop, bot],

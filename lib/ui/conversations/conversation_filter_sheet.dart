@@ -10,8 +10,8 @@ String sourceLabel(AppState state, ConversationSource source) =>
     switch (source) {
       ConversationSource.all => state.tr('全部', 'All'),
       ConversationSource.local => state.tr('本机', 'Local'),
-      // 远程统一叫 SSH，不再单独提 WSL。
-      ConversationSource.remote => 'SSH',
+      // 远程这一段同时含 SSH 和 WSL，标签写全，和官方面板一致。
+      ConversationSource.remote => 'SSH / WSL',
       ConversationSource.ssh => 'SSH',
       ConversationSource.wsl => 'WSL',
       ConversationSource.unknown => state.tr('未知来源', 'Unknown location'),

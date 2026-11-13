@@ -29,6 +29,21 @@ ConversationSource projectSource(String location) {
   return ConversationSource.local;
 }
 
+/// SSH 项目的主机名（去掉用户名和端口）；本地、WSL 或解析不出时 null。
+String? sshHostOf(String location) {
+  if (!location.startsWith('ssh://')) return null;
+  final rest = location.substring(6);
+  final slash = rest.indexOf('/');
+  if (slash <= 0) return null;
+  var host = rest.substring(0, slash);
+  if (host.isEmpty || host.startsWith('wsl+')) return null;
+  final at = host.lastIndexOf('@');
+  if (at >= 0) host = host.substring(at + 1);
+  final colon = host.indexOf(':');
+  if (colon >= 0) host = host.substring(0, colon);
+  return host.isEmpty ? null : host;
+}
+
 class ConversationProject {
   const ConversationProject(this.ref, this.sessions);
   final ProjectRef ref;

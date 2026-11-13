@@ -45,6 +45,7 @@ class PlatformBridge(
 ) : MethodChannel.MethodCallHandler, AutoCloseable {
     private val methods = MethodChannel(messenger, "local.baocode.mobile/platform")
     private val events = EventChannel(messenger, "local.baocode.mobile/discovery")
+    private val liveChannel = MethodChannel(messenger, "local.baocode.mobile/live")
     private val main = Handler(Looper.getMainLooper())
     private val storageWorker = Executors.newSingleThreadExecutor()
     private val storageResults = mutableSetOf<MethodChannel.Result>()
@@ -65,6 +66,29 @@ class PlatformBridge(
     init {
         methods.setMethodCallHandler(this)
         events.setStreamHandler(localDiscovery)
+        liveChannel.setMethodCallHandler { call, result ->
+            if (closed) {
+                result.error("disposed", "Platform bridge is closed", null)
+                return@setMethodCallHandler
+            }
+            when (call.method) {
+                "update" -> {
+                    val ok = LiveActivity.update(
+                        activity,
+                        kind = call.argument<String>("kind") ?: "",
+                        chip = call.argument<String>("chip") ?: "",
+                        text = call.argument<String>("text") ?: "",
+                        title = call.argument<String>("title"),
+                    )
+                    result.success(ok)
+                }
+                "clear" -> {
+                    LiveActivity.clear(activity)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -453,6 +477,8 @@ class PlatformBridge(
         completePermissionMenu(null)
         methods.setMethodCallHandler(null)
         events.setStreamHandler(null)
+        liveChannel.setMethodCallHandler(null)
+        LiveActivity.clear(activity)
         localDiscovery.close()
         chatClipboard.close()
         updates.close()
