@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:bao_link/bao_link_io.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'link_store.dart';
 import 'desktop_address.dart';
@@ -412,10 +413,32 @@ class PhoneLink extends ChangeNotifier {
     }
   }
 
-  Map<String, Object?> get _hello => {
-    'name': 'YCode',
-    'system': Platform.operatingSystem,
+  /// 告诉电脑端这台手机是什么：名字写本应用，系统尽量具体。
+  /// 电脑端的「已配对的手机」列表直接显示这两个值。
+  Future<Map<String, Object?>> _hello() async => {
+    'name': 'BaoCodeX',
+    'system': await _systemName(),
   };
+
+  /// 系统说明，如 `Android 16 · Xiaomi`；读不到时退回 `Android`。
+  /// Dart 的 `operatingSystemVersion` 在安卓上给的是构建号（如 V816.0.4.0），
+  /// 不是版本号，所以问原生要 `Build.VERSION.RELEASE` 与厂商名。
+  /// 系统说明读一次就够，之后复用（测试里没有原生通道，会走兜底）。
+  Future<String> _systemName() => _systemNameOnce ??= _readSystemName();
+
+  Future<String>? _systemNameOnce;
+
+  Future<String> _readSystemName() async {
+    try {
+      final name = await const MethodChannel(
+        'local.baocode.mobile/platform',
+      ).invokeMethod<String>('deviceSystem');
+      if (name != null && name.isNotEmpty) return name;
+    } on Object {
+      /* 测试、未接原生或通道报错都走兜底，配对不能因为一句说明失败。 */
+    }
+    return Platform.isAndroid ? 'Android' : Platform.operatingSystem;
+  }
 
   /// 共享端点的中继 = 所有已信任电脑与待确认配对中非 direct 者的中继并集；
   /// 全部 direct 时为空，没有任何成员时返回 null（无需端点）。
@@ -616,7 +639,7 @@ class PhoneLink extends ChangeNotifier {
         throw const FormatException('Pairing code has expired');
       }
       final reply = await peer.call(LinkMethods.hello, {
-        ..._hello,
+        ...await _hello(),
         'token': encodeKey(offer.token),
       });
       _checkAlive();
@@ -684,7 +707,7 @@ class PhoneLink extends ChangeNotifier {
     final peer = await _dial(dialed);
     try {
       final hello = _map(
-        await peer.call(LinkMethods.hello, {..._hello, 'request': true}),
+        await peer.call(LinkMethods.hello, {...await _hello(), 'request': true}),
       );
       _checkAlive();
       final attempt = PairingAttempt._(
@@ -907,7 +930,7 @@ class PhoneLink extends ChangeNotifier {
         await peer.close();
         return;
       }
-      final hello = _map(await peer.call(LinkMethods.hello, _hello));
+      final hello = _map(await peer.call(LinkMethods.hello, await _hello()));
       if (hello['pairing'] == true) {
         throw const LinkRemoteException(
           'unpaired',

@@ -889,7 +889,7 @@ class _FileViewerPageState extends State<FileViewerPage> {
             child: FloatingActionButton.extended(
               heroTag: 'save-image',
               onPressed: () =>
-                  saveImageToGallery(context, bytes, album: 'YCode'),
+                  saveImageToGallery(context, bytes, album: 'BaoCodeX'),
               icon: const Icon(Icons.save_alt),
               label: Text(state.tr('保存到相册', 'Save to gallery')),
             ),

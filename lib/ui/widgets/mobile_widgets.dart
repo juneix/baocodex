@@ -16,7 +16,7 @@ import '../../models/user_facing_error.dart';
 Future<void> saveImageToGallery(
   BuildContext context,
   Uint8List bytes, {
-  String album = 'YCode',
+  String album = 'BaoCodeX',
 }) async {
   final messenger = ScaffoldMessenger.of(context);
   try {

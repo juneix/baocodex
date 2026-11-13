@@ -53,7 +53,7 @@ typedef GallerySaver = Future<void> Function(
 );
 
 Future<void> _saveToGallery(BuildContext context, Uint8List bytes) =>
-    saveImageToGallery(context, bytes, album: 'YCode');
+    saveImageToGallery(context, bytes, album: 'BaoCodeX');
 
 /// 全屏打开同组图片，从 [initialIndex] 开始，左右滑动切换。
 Future<void> showImageGallery(

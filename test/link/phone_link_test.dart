@@ -184,7 +184,8 @@ void main() {
       expect(await store.read('desktops'), isNull);
       expect(attempt.name, 'Actual desktop');
       expect(desktop.hello!['token'], encodeKey(offer.token));
-      expect(desktop.hello!['name'], isNotEmpty);
+      // 电脑端「已配对的手机」直接显示这两个值。
+      expect(desktop.hello!['name'], 'BaoCodeX');
       expect(desktop.hello!['system'], isNotEmpty);
       final phoneIdentity = LinkIdentity.fromJson(
         Map<String, Object?>.from(

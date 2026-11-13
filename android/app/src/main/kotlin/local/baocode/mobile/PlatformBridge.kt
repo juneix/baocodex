@@ -148,6 +148,7 @@ class PlatformBridge(
                         Uri.parse("package:${activity.packageName}")))
                     result.success(null)
                 }
+                "deviceSystem" -> result.success(deviceSystem())
                 else -> result.notImplemented()
             }
         } catch (error: Exception) {
@@ -401,6 +402,21 @@ class PlatformBridge(
             else -> HapticFeedbackConstants.VIRTUAL_KEY
         }
         activity.window.decorView.performHapticFeedback(feedback)
+    }
+
+    /**
+     * 手机系统说明，如 `Android 16 · Xiaomi`，配对时告诉电脑端。
+     * 版本号用 Build.VERSION.RELEASE（16），厂商名用 BRAND 首字母大写；
+     * 都读不到时退回 `Android`。
+     */
+    private fun deviceSystem(): String {
+        val release = Build.VERSION.RELEASE.orEmpty().trim()
+        val brand = Build.BRAND.orEmpty().trim().replaceFirstChar { it.uppercase() }
+        val version = if (release.isEmpty()) "" else "Android $release"
+        return listOf(version, brand)
+            .filter { it.isNotEmpty() }
+            .joinToString(" · ")
+            .ifEmpty { "Android" }
     }
 
     private fun notificationAllowed(): Boolean {
