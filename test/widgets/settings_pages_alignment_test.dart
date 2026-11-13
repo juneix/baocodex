@@ -191,7 +191,8 @@ void main() {
     expect(state.settings.notifications, isTrue);
     await tester.pumpWidget(MaterialApp(home: NotificationsPage(state: state)));
     await tester.pumpAndSettle();
-    expect(find.byType(SwitchListTile), findsNWidgets(3));
+    // 需要我处理、完成、Bot 消息，外加状态栏实时活动。
+    expect(find.byType(SwitchListTile), findsNWidgets(4));
     for (final tile in tester.widgetList<SwitchListTile>(
       find.byType(SwitchListTile),
     )) {

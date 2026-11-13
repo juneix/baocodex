@@ -180,13 +180,14 @@ void main() {
       expect(again.sessionUnread(again.sessions.single), isTrue);
     });
 
-    test('开着的时候做完，关掉也算看过', () async {
+    test('正开在屏幕上的对话做完不算未读，关掉也算看过', () async {
       final state = _Seen(MemoryLinkStore(), session);
       addTearDown(state.dispose);
       await state.initialize();
       await state.openSession('demo-desktop', 'a');
       state.current = _session('a', DateTime(2026, 2));
-      expect(state.sessionUnread(state.sessions.single), isTrue);
+      // 前台正看着它，做完就不用再标未读。
+      expect(state.sessionUnread(state.sessions.single), isFalse);
       await state.closeSession('demo-desktop', 'a');
       expect(state.sessionUnread(state.sessions.single), isFalse);
     });

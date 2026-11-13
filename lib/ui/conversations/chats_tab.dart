@@ -1207,7 +1207,7 @@ class ProjectChatsPage extends StatelessWidget {
 /// 行高 1.3，落在 Material titleMedium(1.5) 与 iOS subhead(1.33) 的较紧一侧。
 TextStyle projectTitleStyle(BuildContext context) =>
     Theme.of(context).textTheme.bodyMedium!.copyWith(
-      fontSize: 16,
+      fontSize: MobileType.body,
       fontWeight: FontWeight.w500,
       height: 1.3,
     );
@@ -1215,7 +1215,7 @@ TextStyle projectTitleStyle(BuildContext context) =>
 /// 侧栏二级（对话）：14、常规字重，行高 1.35 比默认 1.4 略紧。
 TextStyle sessionTitleStyle(BuildContext context) =>
     Theme.of(context).textTheme.bodySmall!.copyWith(
-      fontSize: 14,
+      fontSize: MobileType.secondary,
       fontWeight: FontWeight.w400,
       height: 1.35,
     );
