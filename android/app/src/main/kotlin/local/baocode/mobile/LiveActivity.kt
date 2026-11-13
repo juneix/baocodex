@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
@@ -82,7 +83,9 @@ object LiveActivity {
         } else {
             Notification.Builder(context)
         })
+            // 状态栏小图标仍要单色（系统会染成纯白），应用自己的彩色图标走大图。
             .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setLargeIcon(BitmapFactory.decodeResource(context.resources, R.drawable.baocodex_logo))
             .setContentTitle(chip)
             .setContentText(text.ifEmpty { null })
             .setContentIntent(openIntent(context))
