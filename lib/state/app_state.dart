@@ -522,7 +522,7 @@ class AppState extends ChangeNotifier {
     );
     final key = spec == null
         ? null
-        : '${spec.kind}|${spec.chip}|${spec.text}|${spec.title}|'
+        : '${spec.kind}|${spec.chip}|${spec.text}|${spec.detail}|'
               '${spec.stopDesktop}|${spec.stopSession}|${spec.keepAlive}';
     if (key == _liveShown) return;
     _liveShown = key;

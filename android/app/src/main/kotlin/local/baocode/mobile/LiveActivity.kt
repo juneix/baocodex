@@ -10,16 +10,17 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
-import android.os.SystemClock
-import android.provider.Settings
 import io.flutter.plugin.common.EventChannel
 
 /**
- * 状态栏胶囊 / HyperOS 灵动岛的一条实时活动。
+ * 状态栏胶囊的一条实时活动。
  *
  * 只做「待处理、运行中、完成未读」三种状态，内容只有状态词和数量，
  * 不放对话正文。走 Android 16 的 Live Update（请求提升为 promoted ongoing），
- * 小米 HyperOS 3 会把它画进超级岛；拿不到 promoted 或焦点授权时退化成普通通知。
+ * 拿不到 promoted 时退化成普通通知。
+ *
+ * HyperOS 的超级岛（`miui.focus.param`）不接：那套模板要上架小米商店并通过场景审核
+ * 才给 `canShowFocus` 授权，本应用只自用发布，不做这层适配。
  *
  * 有任务时由 [LiveService] 顶住进程，后台连接不断；空闲即停，不注册开机广播，不自启。
  */
@@ -38,17 +39,6 @@ object LiveActivity {
 
     /** `Notification.EXTRA_REQUEST_PROMOTED_ONGOING`（Android 16 QPR1+）。 */
     private const val EXTRA_PROMOTED = "android.requestPromotedOngoing"
-
-    /** HyperOS 焦点通知（超级岛）模板的键。 */
-    private const val XIAOMI_PARAM = "miui.focus.param"
-    private const val XIAOMI_PICS = "miui.focus.pics"
-    private const val XIAOMI_PIC_ICON = "miui.focus.pic_icon"
-    private const val XIAOMI_PROTOCOL = "notification_focus_protocol"
-    private const val XIAOMI_PROVIDER = "content://miui.statusbar.notification.public"
-    private const val XIAOMI_TTL_MS = 60_000L
-
-    private var focusCheckedAt = 0L
-    private var focusAllowed = false
 
     private fun manager(context: Context) =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -75,7 +65,7 @@ object LiveActivity {
         kind: String,
         chip: String,
         text: String,
-        title: String?,
+        detail: String?,
         stopLabel: String?,
         stopDesktop: String?,
         stopSession: String?,
@@ -91,7 +81,7 @@ object LiveActivity {
         }
         ensureChannel(context)
         val notification = build(
-            context, kind, chip, text, title, stopLabel, stopDesktop, stopSession,
+            context, kind, chip, text, detail, stopLabel, stopDesktop, stopSession,
         ) ?: return false
 
         // 有会话在跑就顶住进程，连接与心跳才不会停、进度才实时（keepAlive 由 Dart 判）。
@@ -110,21 +100,24 @@ object LiveActivity {
         kind: String,
         chip: String,
         text: String,
-        title: String?,
+        detail: String?,
         stopLabel: String?,
         stopDesktop: String?,
         stopSession: String?,
     ): Notification? {
+        // 通知卡片第一行：状态词，后面用「丨」接上下文用量；第二行是对话标题。
+        // 岛和胶囊只读 chip，看不到 detail，所以第一行不会挤。
+        val heading = listOfNotNull(chip.ifEmpty { null }, detail).joinToString("丨")
         @Suppress("DEPRECATION")
         val builder = (if (Build.VERSION.SDK_INT >= 26) {
             Notification.Builder(context, CHANNEL)
         } else {
             Notification.Builder(context)
         })
-            // 状态栏小图标仍要单色（系统会染成纯白），应用自己的彩色图标走大图。
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            // 状态栏小图标必须单色（系统染白），用自己的 logo 剪影，不用系统图。
+            .setSmallIcon(R.drawable.ic_stat_live)
             .setLargeIcon(BitmapFactory.decodeResource(context.resources, R.drawable.baocodex_logo))
-            .setContentTitle(chip)
+            .setContentTitle(heading)
             .setContentText(text.ifEmpty { null })
             .setContentIntent(openIntent(context))
             .setOngoing(true)
@@ -136,10 +129,6 @@ object LiveActivity {
             )
             .setVisibility(Notification.VISIBILITY_PRIVATE)
 
-        // 运行中：胶囊里的计时从开始跑起算。
-        if (kind == "running") {
-            builder.setWhen(System.currentTimeMillis()).setShowWhen(true)
-        }
         // 完成：短暂停留后自动撤，避免一直挂着（setTimeoutAfter 需要 API 26）。
         if (kind == "done" && Build.VERSION.SDK_INT >= 26) {
             builder.setTimeoutAfter(5 * 60_000L)
@@ -156,26 +145,6 @@ object LiveActivity {
         builder.addExtras(Bundle().apply { putBoolean(EXTRA_PROMOTED, true) })
         if (Build.VERSION.SDK_INT >= 36) {
             runCatching { builder.setShortCriticalText(chip) }
-        }
-
-        // HyperOS 超级岛：拿到焦点授权才加模板，否则跳过。
-        if (xiaomiFocusAllowed(context)) {
-            runCatching {
-                builder.addExtras(
-                    Bundle().apply {
-                        putString(XIAOMI_PARAM, xiaomiParam(kind, chip, text, title))
-                        putBundle(
-                            XIAOMI_PICS,
-                            Bundle().apply {
-                                putParcelable(
-                                    XIAOMI_PIC_ICON,
-                                    Icon.createWithResource(context, R.mipmap.app_icon),
-                                )
-                            },
-                        )
-                    },
-                )
-            }
         }
 
         return runCatching { builder.build() }.getOrNull()
@@ -216,57 +185,5 @@ object LiveActivity {
             label,
             pending,
         ).build()
-    }
-
-    /** HyperOS 焦点通知模板：小岛只放状态词，卡片放状态词和一句说明。 */
-    private fun xiaomiParam(kind: String, chip: String, text: String, title: String?): String {
-        fun esc(value: String): String = value
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\n", " ")
-        val word = esc(chip.take(6))
-        val line = esc(text.take(40))
-        val heading = esc((title ?: chip).take(20))
-        val pic = "{\"type\":1,\"pic\":\"miui.focus.pic_icon\"}"
-        return "{\"param_v2\":{" +
-            "\"protocol\":1," +
-            "\"business\":\"ycode_live_$kind\"," +
-            "\"updatable\":true," +
-            "\"enableFloat\":false," +
-            "\"ticker\":\"$word · $heading\"," +
-            "\"aodTitle\":\"$word\"," +
-            "\"param_island\":{" +
-            "\"islandProperty\":1," +
-            "\"bigIslandArea\":{\"imageTextInfoLeft\":{\"type\":1,\"picInfo\":$pic," +
-            "\"textInfo\":{\"title\":\"$word\"}}}," +
-            "\"smallIslandArea\":{\"picInfo\":$pic}" +
-            "}," +
-            "\"baseInfo\":{\"type\":2,\"title\":\"$heading\",\"content\":\"$line\"}" +
-            "}}"
-    }
-
-    /** HyperOS 3 且 SystemUI 允许本应用显示焦点通知；一分钟内复用结果。 */
-    private fun xiaomiFocusAllowed(context: Context): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (now - focusCheckedAt < XIAOMI_TTL_MS) return focusAllowed
-        focusCheckedAt = now
-        focusAllowed = runCatching {
-            val protocol = Settings.System.getInt(
-                context.contentResolver,
-                XIAOMI_PROTOCOL,
-                0,
-            )
-            if (protocol < 1) return@runCatching false
-            val extras = Bundle().apply { putString("package", context.packageName) }
-            context.contentResolver
-                .call(
-                    android.net.Uri.parse(XIAOMI_PROVIDER),
-                    "canShowFocus",
-                    null,
-                    extras,
-                )
-                ?.getBoolean("canShowFocus", false) == true
-        }.getOrDefault(false)
-        return focusAllowed
     }
 }

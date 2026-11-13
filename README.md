@@ -8,7 +8,7 @@ BaoCodeX is an independent, unofficial Android client for BaoCode desktops, base
 
 The app uses the independent package `juneix.baocodex`. It does not replace YCode or YCode Preview, and does not automatically migrate their pairings or local drafts. Keep the old app installed and pair BaoCodeX separately.
 
-The current source targets **1.0.9**. The screenshots below show the upstream 0.1.1 interface, not the new layout; new captures follow signed cloud builds and device verification.
+The current source targets **1.0.10**. The screenshots below show the upstream 0.1.1 interface, not the new layout; new captures follow signed cloud builds and device verification.
 
 | Home | Conversation |
 | :---: | :---: |

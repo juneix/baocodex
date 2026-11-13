@@ -1,15 +1,19 @@
 import 'package:bao_link/bao_link.dart';
 import 'package:flutter/services.dart';
 
-/// 状态栏胶囊与 HyperOS 灵动岛的一条实时活动。
+/// 状态栏胶囊与灵动岛的一条实时活动。
 ///
 /// 只在需要人看一眼的时候出现：等你处理、有对话在跑、一轮做完没看。
-/// 不放对话正文，只放状态词和数量；对话标题只用来点开时定位。
+/// 不放对话正文，只放状态词和数量。
 typedef LiveActivitySpec = ({
   String kind,
+  // 状态词：灵动岛和状态栏胶囊只读它，只放得下三个字。
   String chip,
+  // 通知卡片第二行：对话标题或聚合计数。
   String text,
-  String? title,
+  // 通知卡片第一行尾部追加的补充信息（目前只有上下文用量），拼成「运行中丨上下文 45%」。
+  // 灵动岛和状态栏胶囊看不到它，所以岛里不会被挤长。没有时为 null。
+  String? detail,
   String? stopLabel,
   String? stopDesktop,
   String? stopSession,
@@ -86,7 +90,7 @@ class LiveActivity {
           kind: 'waiting',
           chip: chip,
           text: one.title,
-          title: one.title,
+          detail: null,
           stopLabel: null,
           stopDesktop: null,
           stopSession: null,
@@ -97,7 +101,7 @@ class LiveActivity {
         kind: 'waiting',
         chip: tr('待处理', 'Needs input'),
         text: tr('${waiting.length} 个待处理', '${waiting.length} need input'),
-        title: waiting.first.title,
+        detail: null,
         stopLabel: null,
         stopDesktop: null,
         stopSession: null,
@@ -107,17 +111,14 @@ class LiveActivity {
     if (running.isNotEmpty) {
       if (running.length == 1) {
         final one = running.single;
-        final chip = one.contextPercent != null
-            ? tr(
-                '运行中 · 上下文 ${one.contextPercent}%',
-                'Running · context ${one.contextPercent}%',
-              )
-            : tr('运行中', 'Running');
         return (
           kind: 'running',
-          chip: chip,
+          chip: tr('运行中', 'Running'),
           text: one.title,
-          title: one.title,
+          // 上下文用量只进通知卡片第一行，岛里只有「运行中」三个字。
+          detail: one.contextPercent != null
+              ? tr('上下文 ${one.contextPercent}%', 'context ${one.contextPercent}%')
+              : null,
           stopLabel: tr('停止', 'Stop'),
           stopDesktop: one.desktopId,
           stopSession: one.id,
@@ -128,7 +129,7 @@ class LiveActivity {
         kind: 'running',
         chip: tr('运行中', 'Running'),
         text: tr('${running.length} 个运行中', '${running.length} running'),
-        title: running.first.title,
+        detail: null,
         stopLabel: tr('停止', 'Stop'),
         stopDesktop: running.first.desktopId,
         stopSession: running.first.id,
@@ -146,7 +147,7 @@ class LiveActivity {
           text: done.length == 1
               ? done.first.title
               : tr('${done.length} 个已完成', '${done.length} finished'),
-          title: done.first.title,
+          detail: null,
           stopLabel: null,
           stopDesktop: null,
           stopSession: null,
@@ -164,7 +165,7 @@ class LiveActivity {
         'kind': spec.kind,
         'chip': spec.chip,
         'text': spec.text,
-        'title': spec.title,
+        'detail': spec.detail,
         'stopLabel': spec.stopLabel,
         'stopDesktop': spec.stopDesktop,
         'stopSession': spec.stopSession,

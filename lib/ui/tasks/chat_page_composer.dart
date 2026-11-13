@@ -31,7 +31,13 @@ extension _Composer on _ChatPageState {
             tooltip: tr('清空输入', 'Clear input'),
             onPressed: _clearInput,
             color: Theme.of(context).colorScheme.error,
-            icon: const LucideIcon('eraser', size: 22),
+            // 和工具栏同一档：视觉 36、图标 18。之前是主题默认的 48 命中区
+            // 配 22 的图标，比旁边的加号、发送大一圈。
+            style: IconButton.styleFrom(
+              fixedSize: const Size.square(MobileSizes.iconButton),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            icon: const LucideIcon('eraser', size: 18),
           ),
   );
 

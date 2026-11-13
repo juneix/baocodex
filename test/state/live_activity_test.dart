@@ -74,14 +74,17 @@ void main() {
     expect(spec?.text, '2 个待处理');
   });
 
-  test('没有待处理时显示运行中，单个带上上下文用量', () {
+  test('没有待处理时显示运行中，第一行只有状态词，上下文另挂在 detail 上', () {
     final spec = reduce([
       _s('跑', LinkSessionStatus.running, title: '改代码', contextPercent: 45),
       _s('闲', LinkSessionStatus.idle),
     ]);
     expect(spec?.kind, 'running');
-    expect(spec?.chip, '运行中 · 上下文 45%');
+    // 岛和胶囊只放得下三个字，状态词不能拼上下文。
+    expect(spec?.chip, '运行中');
     expect(spec?.text, '改代码');
+    // detail 只给通知卡片第一行用，原生侧拼成「运行中丨上下文 45%」。
+    expect(spec?.detail, '上下文 45%');
     // 运行中给停止按钮，带会话定位。
     expect(spec?.stopLabel, '停止');
     expect(spec?.stopDesktop, 'd');
@@ -89,18 +92,20 @@ void main() {
     expect(spec?.keepAlive, isTrue);
   });
 
-  test('运行中拿不到上下文时只写运行中', () {
+  test('运行中拿不到上下文时只写运行中，detail 为空', () {
     final spec = reduce([_s('跑', LinkSessionStatus.running)]);
     expect(spec?.chip, '运行中');
+    expect(spec?.detail, isNull);
   });
 
-  test('多个运行时只报条数', () {
+  test('多个运行时只报条数，不带上下文', () {
     final spec = reduce([
       _s('一', LinkSessionStatus.running),
       _s('二', LinkSessionStatus.running),
     ]);
     expect(spec?.chip, '运行中');
     expect(spec?.text, '2 个运行中');
+    expect(spec?.detail, isNull);
   });
 
   test('完成未读只在后台显示，回前台就收掉', () {

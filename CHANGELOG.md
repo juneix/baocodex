@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.10
+
+The status bar and notification use the app's own logo, and the wording is layered again.
+
+- Icons: the status-bar icon is no longer the system's refresh glyph but a white silhouette of the app logo; the color logo in the notification's large icon and banner is now transparent instead of sitting on a white block.
+- Live activity: the first line holds only the state word (running, approve, answer, needs input, done), and context usage moves to the notification card's first line as "running丨context 45%". The island is too small for it, so it stays out.
+- Notification: the running timer is gone — the design doc already ruled out elapsed time.
+- Sidebar: the filter, expand-all and project plus buttons have no white circle to align by, so they get left padding to put their visual right edge back on the 16 line; the project row's trailing slot is a fixed 36 wide, so the SSH/WSL tag no longer shifts between collapsed and expanded.
+- Composer: the clear button goes from a 48 hit area with a 22 icon to 36 with 18, matching the plus and send next to it.
+- HyperOS focus-notification templates are no longer attached: they need a Xiaomi Store listing and scene review before SystemUI grants access, and this app ships for personal use only.
+
 ## 1.0.9
 
 Sharper live-activity wording and a stop button on the notification.

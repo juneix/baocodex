@@ -89,7 +89,7 @@ class PlatformBridge(
                         kind = call.argument<String>("kind") ?: "",
                         chip = call.argument<String>("chip") ?: "",
                         text = call.argument<String>("text") ?: "",
-                        title = call.argument<String>("title"),
+                        detail = call.argument<String>("detail"),
                         stopLabel = call.argument<String>("stopLabel"),
                         stopDesktop = call.argument<String>("stopDesktop"),
                         stopSession = call.argument<String>("stopSession"),

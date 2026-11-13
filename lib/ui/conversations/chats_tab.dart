@@ -542,7 +542,7 @@ class _ChatsTabState extends State<ChatsTab> {
                           ? state.tr('收起全部', 'Collapse all')
                           : state.tr('展开全部', 'Expand all'),
                       // 工作区标题旁的按钮不套白底，只保留图标。
-                      style: _plainButton(context),
+                      style: _plainButton(context, iconSize: 20),
                       icon: LucideIcon(
                         // 平铺 = 全部展开，收纳 = 全部收起。
                         expanded ? 'folders' : 'folder-tree',
@@ -561,7 +561,7 @@ class _ChatsTabState extends State<ChatsTab> {
                     Builder(
                       builder: (anchor) => IconButton(
                         tooltip: state.tr('筛选对话', 'Filter conversations'),
-                        style: _plainButton(context),
+                        style: _plainButton(context, iconSize: 20),
                         icon: const LucideIcon('list-sort-descending', size: 20),
                         onPressed: () => showConversationFilters(
                           anchor,
@@ -741,14 +741,20 @@ class _ChatsTabState extends State<ChatsTab> {
   /// 标题旁的次要图标：不套白底。
   /// `shrinkWrap` 让占位正好 36，不再被主题的 48 命中区撑大——
   /// 否则行尾图标会比搜索框、对话数右缘多缩 6，几个元素对不齐。
-  static ButtonStyle _plainButton(BuildContext context) =>
-      IconButton.styleFrom(
-        fixedSize: const Size.square(MobileSizes.iconButton),
-        padding: EdgeInsets.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        backgroundColor: Colors.transparent,
-        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-      );
+  ///
+  /// 没有圆形底板可依，也不能按 36 盒子的右缘对齐：图标在盒子里居中，
+  /// 右缘会内缩 `(36 − 图标边长) / 2`，看起来比有白底的那排更靠左。
+  /// 这里补左内边距把图标顶到盒子右缘，视觉右缘才落在 16 这条线上。
+  static ButtonStyle _plainButton(
+    BuildContext context, {
+    double iconSize = 20,
+  }) => IconButton.styleFrom(
+    fixedSize: const Size.square(MobileSizes.iconButton),
+    padding: EdgeInsets.only(left: MobileSizes.iconButton - iconSize),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    backgroundColor: Colors.transparent,
+    foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+  );
 
   /// 侧栏里次要按钮的白色圆形浮层：灰底页面上才立得住。
   static ButtonStyle _softButton(BuildContext context) =>
@@ -804,29 +810,41 @@ class _ChatsTabState extends State<ChatsTab> {
                 ? const LucideIcon('pin', size: 16)
                 : null,
             // 尾部元素不再自带左右留白：右缘和搜索框、时间同一条边线。
-            trailing: collapsed
-                ? Text(
-                    '${sessions.length}',
-                    key: ValueKey(
-                      'project-count-${ref.desktopId}-${ref.project.id}',
+            // 收起时的数字和展开时的加号都占满 36 这一格，SSH/WSL 徽章的位置
+            // 才不会跟着尾部宽度左右跳。
+            trailing: SizedBox(
+              width: MobileSizes.iconButton,
+              child: collapsed
+                  ? Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        '${sessions.length}',
+                        key: ValueKey(
+                          'project-count-${ref.desktopId}-${ref.project.id}',
+                        ),
+                      ),
+                    )
+                  : Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        key: ValueKey(
+                          'project-new-${ref.desktopId}-${ref.project.id}',
+                        ),
+                        tooltip: state.tr('新对话', 'New conversation'),
+                        // 视觉 36，`shrinkWrap` 免去主题把命中区撑到 48 后多出的
+                        // 6 内缩；没有白底可依，左内边距把 18 的加号顶到盒子右缘，
+                        // 右缘才和收起时的数字同一条线。行高固定 52，
+                        // 展开/收纳时不跳。
+                        style: IconButton.styleFrom(
+                          fixedSize: const Size.square(MobileSizes.iconButton),
+                          padding: const EdgeInsets.only(left: 18),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const LucideIcon('plus', size: 18),
+                        onPressed: () => _showNew(ref),
+                      ),
                     ),
-                  )
-                : IconButton(
-                    key: ValueKey(
-                      'project-new-${ref.desktopId}-${ref.project.id}',
-                    ),
-                    tooltip: state.tr('新对话', 'New conversation'),
-                    // 视觉 36，`shrinkWrap` 免去主题把命中区撑到 48 后多出的
-                    // 6 内缩，右缘和收起时的数字同一条线；行高固定 52，
-                    // 展开/收纳时不跳。
-                    style: IconButton.styleFrom(
-                      fixedSize: const Size.square(MobileSizes.iconButton),
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    icon: const LucideIcon('plus', size: 18),
-                    onPressed: () => _showNew(ref),
-                  ),
+            ),
             onTap: () => _toggleGroup(key),
           ),
         ),

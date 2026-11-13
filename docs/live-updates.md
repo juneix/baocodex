@@ -18,15 +18,15 @@
 4. **不堆叠**：多个对话按数量合并，显示「N 个运行中 / N 个待处理」。
 5. **自动收起**：完成类停留几分钟后自动撤；用户回到 App 或关掉开关也立即撤。
 6. **保活必须有意义**：前台服务只在有会话正在跑（需要实时进度、需要连接不断）时启用，跑完/空闲立即停。**绝不闲置常驻**——开发者图省事让服务一直挂着，是偷懒、不合理的行为。`START_NOT_STICKY` 不自启，不申请忽略电池优化，不注册开机广播。详见第七节。
-7. **降级**：拿不到系统常驻状态位（Live Update / 焦点授权）时，退化成普通常驻通知。不做悬浮窗叠加。
+7. **降级**：拿不到 Android 16 的 Live Update 提升时，退化成普通常驻通知。不做悬浮窗叠加。
 
 ## 三、图标与形象
 
 状态栏的小图标由系统染成纯白，只剩剪影；灵动岛/超级岛同样空间极小。**频繁换图标用户记不住，只会迷茫**。因此：
 
 - 全程固定用应用 logo，作为可识别的 IP 形象。
-- HyperOS 超级岛：`miui.focus.pic_icon` 用 `R.mipmap.app_icon`（彩色大图）。
-- 普通通知：`setSmallIcon` 只能是单色占位（系统染色），应用彩色图标走 `setLargeIcon(R.drawable.baocodex_logo)`。
+- 状态栏小图标：`setSmallIcon(R.drawable.ic_stat_live)`，用白色 logo 裁掉留白后按 24dp 生成五档（mdpi 24 / hdpi 36 / xhdpi 48 / xxhdpi 72 / xxxhdpi 96）。系统会把它染成纯白，看到的是应用剪影，不用系统自带图标。
+- 通知大图：`setLargeIcon(R.drawable.baocodex_logo)`，用透明底的彩色 logo 生成五档，保留颜色。
 - 不跟随「思考中/执行中」等状态换图，不做帧动画图标。
 
 ## 四、可对接的数据源
@@ -75,17 +75,19 @@ enum LinkSessionStatus { running, needsInput, idle }
 
 保持两行结构：**第一行状态词，第二行对话标题或聚合信息**。不展开明细——它只是通知，用户点进去回到 App 再操作才合理。
 
+同一个通知会被画到两个地方，各取各的字段，不共用一份文案：**灵动岛和状态栏胶囊只读状态词**（`setShortCriticalText`），**通知卡片读标题和正文**（`setContentTitle` / `setContentText`）。
+
 | 内容 | 来源 | 说明 |
 | --- | --- | --- |
-| 状态词 | 见第五节 | 待批准 / 待回答 / 待处理 / 运行中 / 已完成 |
-| 上下文用量 | `LinkSessionUpdate.context`（`used / window`） | **仅当前会话可得**，追加在第一行如「运行中 · 上下文 45%」；85% 这类数字本身即可读懂，不加「偏高」等注解 |
-| 对话标题 | `SessionSummary.title` | 第二行；多条时改为聚合计数 |
-| 聚合计数 | 在线会话按状态聚合 | 「2 个运行中」「2 个待处理」 |
+| 状态词 | 见第五节 | 待批准 / 待回答 / 待处理 / 运行中 / 已完成。岛里**只有它**，不拼任何补充信息 |
+| 上下文用量 | `LinkSessionUpdate.context`（`used / window`） | **仅当前会话可得**，拼在通知卡片第一行：「运行中丨上下文 45%」。岛里不显示。85% 这类数字本身即可读懂，不加「偏高」等注解 |
+| 对话标题 | `SessionSummary.title` | 通知卡片第二行；多条时改为聚合计数 |
+| 聚合计数 | 在线会话按状态聚合 | 「2 个运行中」「2 个待处理」，不带上下文 |
 
-示例：
+示例（通知卡片）：
 
 ```
-运行中 · 上下文 45%
+运行中丨上下文 45%
 修复登录页的滚动 bug
 ```
 
@@ -108,6 +110,8 @@ enum LinkSessionStatus { running, needsInput, idle }
 已完成
 修复登录页的滚动 bug
 ```
+
+灵动岛 / 状态栏胶囊只显示上表第一行的状态词：`运行中`、`待批准`、`待处理`、`已完成`。
 
 **操作按钮**：
 
@@ -156,7 +160,7 @@ enum LinkSessionStatus { running, needsInput, idle }
 ## 八、降级与生命周期
 
 - **系统能力探测**：Android 16 Live Update（`android.requestPromotedOngoing`）拿不到 → 退普通常驻通知。
-- **HyperOS 超级岛**：需 SystemUI 焦点授权（`canShowFocus`），拿不到就跳过模板，仍是普通通知。
+- **HyperOS 超级岛**：不接。`miui.focus.param` 那套模板要上架小米商店并通过场景审核才给 `canShowFocus` 授权，本应用只自用发布，不做这层适配；HyperOS 3 会自己把标准 Live Update 画进岛。
 - **开关实时生效**：设置页开关变化后立即重算并刷新，无需重启。
 - **收起时机**：用户回到 App、关掉开关、对话全部结束、或进程结束。
 - **保活生命周期**：只在有会话正在跑时保持前台服务；跑完即 detach（通知短暂停留后超时收起），空闲不占服务。
@@ -173,7 +177,7 @@ enum LinkSessionStatus { running, needsInput, idle }
 | --- | --- |
 | `lib/state/live_activity.dart` | `reduce()` 决定显示哪一条；调用原生通道；监听通知上的「停止」 |
 | `lib/state/app_state.dart` | `_syncLiveActivity()` 收集在线会话（含 buffer 细分），去重后下发；处理「停止」回调 |
-| `android/.../LiveActivity.kt` | 发通知、请求 promoted ongoing、拼 HyperOS 焦点模板、加「停止」按钮 |
+| `android/.../LiveActivity.kt` | 发通知、请求 promoted ongoing、加「停止」按钮 |
 | `android/.../LiveService.kt` | 极简前台服务，顶住进程；复用同一条通知，空闲即停 |
 | `android/.../LiveStopReceiver.kt` | 接收「停止」广播，把动作推回 Dart |
 | `android/.../PlatformBridge.kt` | `local.baocode.mobile/live` 的 `update` / `clear`；`live_actions` 事件流 |
