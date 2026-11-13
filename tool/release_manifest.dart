@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
-const _defaultRepository = 'juneix/ycode';
+const _defaultRepository = 'juneix/baocodex';
 const _outputs = 'build/app/outputs/flutter-apk';
 
 void main(List<String> arguments) {

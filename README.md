@@ -2,7 +2,7 @@
 
 **English** · [简体中文](README_CN.md)
 
-[Android preview releases](https://github.com/juneix/ycode/releases) · [Changelog](CHANGELOG.md) · [YCode upstream](https://github.com/shuishani/ycode)
+[Android preview releases](https://github.com/juneix/baocodex/releases) · [Changelog](CHANGELOG.md) · [YCode upstream](https://github.com/shuishani/ycode)
 
 BaoCodeX is an independent, unofficial Android client for BaoCode desktops, based on the open-source YCode project and built with Flutter. It pairs with your computer over link v2 (iroh/QUIC, Ed25519 and end-to-end encryption), so you can follow and continue desktop conversations from your phone.
 
@@ -19,7 +19,7 @@ This is not an official BaoCode product and does not represent support from the 
 ## Install and update
 
 - **Install BaoCode on your computer first**: website <https://baocode.dev>, download <https://baocode.dev/download>. In Settings → Mobile, display a QR code and scan it with BaoCodeX.
-- **Install a preview**: use this repository's [pre-releases](https://github.com/juneix/ycode/releases). BaoCodeX targets arm64 devices with Android 7.0 or later; iOS is not currently supported. The app name is BaoCodeX and its package is exactly `juneix.baocodex`, without a preview suffix.
+- **Install a preview**: use this repository's [pre-releases](https://github.com/juneix/baocodex/releases). BaoCodeX targets arm64 devices with Android 7.0 or later; iOS is not currently supported. The app name is BaoCodeX and its package is exactly `juneix.baocodex`, without a preview suffix.
 - **Updates**: preview APKs are downloaded manually. Automatic update checks use the repository configured into the build and only its stable releases. Later BaoCodeX updates must keep the package and signing key and increase the version number (for example 1.0.3 → 1.0.4); do not uninstall just to update.
 - **Repository renaming**: rename the repository before building the first APK intended for long-term use. GitHub Actions embeds its actual repository into the update source; strict URL checks do not promise automatic adaptation to a later rename.
 

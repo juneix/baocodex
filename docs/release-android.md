@@ -18,7 +18,7 @@ APK 的静态分析、Flutter 测试、构建、签名与签名校验全部在 G
 
 - 仓库变量 `FLUTTER_VERSION` 使用确认过的精确 `3.47.x`；手动运行可用 `flutter_version` 临时覆盖。对应 Dart 必须满足 `^3.13.4`。
 - 使用 JDK 21、Rust 1.97.1 和所选 Flutter。不再使用 `YCODE_TEST_INSTALL` / `YCODE_PREVIEW` 等历史预览标记；安装包名与显示名固定，不追加后缀。
-- 将 `${{ github.repository }}` 注入 `YCODE_REPOSITORY`。工具与应用的默认值为当前 fork `juneix/ycode`，不能误指上游发布源。
+- 将 `${{ github.repository }}` 注入 `YCODE_REPOSITORY`。工具与应用的默认值为当前 fork `juneix/baocodex`，不能误指上游发布源。
 - 签名 Secrets 保持 `YCODE_RELEASE_JKS_BASE64`、`YCODE_RELEASE_STORE_PASSWORD`、`YCODE_RELEASE_KEY_ALIAS`、`YCODE_RELEASE_KEY_PASSWORD`。名称不随应用改名重置；工作流不回退到随机或 debug 签名。
 - artifact 名为 `baocodex-android-preview-<run_id>-<run_attempt>`，包含 `BaoCodeX-<版本名>.apk` 与 `latest.json`。
 - 版本标签为 `v<版本名>`，标题为 `BaoCodeX <版本名> Preview`，保持 pre-release、不标 latest。附件齐全前保持 draft，最后才公开。

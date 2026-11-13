@@ -9,7 +9,7 @@ import 'app_state.dart';
 
 const updateRepository = String.fromEnvironment(
   'YCODE_REPOSITORY',
-  defaultValue: 'juneix/ycode',
+  defaultValue: 'juneix/baocodex',
 );
 const projectUrl = 'https://github.com/$updateRepository';
 final _repositoryPattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_.-]+$');

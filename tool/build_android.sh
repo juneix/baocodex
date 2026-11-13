@@ -111,7 +111,7 @@ if grep -q integration_test "$registrant"; then
   exit 1
 fi
 
-repository=${YCODE_REPOSITORY:-juneix/ycode}
+repository=${YCODE_REPOSITORY:-juneix/baocodex}
 
 flutter build apk --release --no-pub \
   --target-platform android-arm64 -P arm64Only=true \

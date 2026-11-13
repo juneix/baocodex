@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 String releaseJson({
   String tag = 'v0.3.0',
   String notes = '更稳了',
-  String url = 'https://github.com/juneix/ycode/releases/tag/v0.3.0',
+  String url = 'https://github.com/juneix/baocodex/releases/tag/v0.3.0',
 }) => jsonEncode({'tag_name': tag, 'body': notes, 'html_url': url});
 
 void main() {
@@ -76,7 +76,7 @@ void main() {
   group('解析 release', () {
     test('取出标签、说明和页面，标签去掉 v', () {
       final release = parseRelease(
-        '{"tag_name":"v0.3.1","body":"修了几个问题","html_url":"https://github.com/juneix/ycode/releases/tag/v0.3.1"}',
+        '{"tag_name":"v0.3.1","body":"修了几个问题","html_url":"https://github.com/juneix/baocodex/releases/tag/v0.3.1"}',
       );
       expect(release.version, '0.3.1');
       expect(release.notes, '修了几个问题');
@@ -93,7 +93,7 @@ void main() {
     test('没有说明正文时为空', () {
       expect(
         parseRelease(
-          '{"tag_name":"v0.3.0","html_url":"https://github.com/juneix/ycode/releases/tag/v0.3.0"}',
+          '{"tag_name":"v0.3.0","html_url":"https://github.com/juneix/baocodex/releases/tag/v0.3.0"}',
         ).notes,
         '',
       );
@@ -129,11 +129,11 @@ void main() {
       final release = parseRelease(
         jsonEncode({
           'tag_name': 'v0.3.0',
-          'html_url': 'https://github.com/juneix/ycode/releases/tag/v0.3.0',
+          'html_url': 'https://github.com/juneix/baocodex/releases/tag/v0.3.0',
           'assets': [
             {
               'name': 'BaoCodeX-0.3.0.apk',
-              'browser_download_url': 'https://github.com/juneix/ycode/releases/download/v0.3.0/BaoCodeX-0.3.0.apk',
+              'browser_download_url': 'https://github.com/juneix/baocodex/releases/download/v0.3.0/BaoCodeX-0.3.0.apk',
               'size': 1234,
               'digest': 'sha256:${'a' * 64}',
             },
@@ -160,7 +160,7 @@ void main() {
       expect(parseRelease(jsonEncode(body('BaoCodeX-0.1.12.apk'))).apk?.name,
           'BaoCodeX-0.1.12.apk');
       expect(parseRelease(jsonEncode(body('ycode-0.1.12.apk'))).apk, isNull);
-      expect(updateRepository, 'juneix/ycode');
+      expect(updateRepository, 'juneix/baocodex');
     });
 
     test('外部地址、错误架构和空安装包不能作为更新', () {
@@ -172,12 +172,12 @@ void main() {
         },
         {
           'name': 'BaoCodeX-x86_64.apk',
-          'browser_download_url': 'https://github.com/juneix/ycode/releases/download/v0.3.0/a.apk',
+          'browser_download_url': 'https://github.com/juneix/baocodex/releases/download/v0.3.0/a.apk',
           'size': 12,
         },
         {
           'name': 'BaoCodeX.apk',
-          'browser_download_url': 'https://github.com/juneix/ycode/releases/download/v0.3.0/a.apk',
+          'browser_download_url': 'https://github.com/juneix/baocodex/releases/download/v0.3.0/a.apk',
           'size': 0,
         },
       ]) {
@@ -185,7 +185,7 @@ void main() {
           jsonEncode({
             'tag_name': 'v0.3.0',
             'html_url':
-                'https://github.com/juneix/ycode/releases/tag/v0.3.0',
+                'https://github.com/juneix/baocodex/releases/tag/v0.3.0',
             'assets': [asset],
           }),
         );
@@ -197,11 +197,11 @@ void main() {
   group('打开应用时自动检查', () {
     String withApk() => jsonEncode({
       'tag_name': 'v0.3.0',
-      'html_url': 'https://github.com/juneix/ycode/releases/tag/v0.3.0',
+      'html_url': 'https://github.com/juneix/baocodex/releases/tag/v0.3.0',
       'assets': [
         {
           'name': 'BaoCodeX-0.3.0.apk',
-          'browser_download_url': 'https://github.com/juneix/ycode/releases/download/v0.3.0/BaoCodeX-0.3.0.apk',
+          'browser_download_url': 'https://github.com/juneix/baocodex/releases/download/v0.3.0/BaoCodeX-0.3.0.apk',
           'size': 1234,
         },
       ],
@@ -394,11 +394,11 @@ void main() {
       }
       expect(
         updateManifestUrl,
-        'https://github.com/juneix/ycode/releases/latest/download/latest.json',
+        'https://github.com/juneix/baocodex/releases/latest/download/latest.json',
       );
       expect(
         updateReleaseApi,
-        contains('/repos/juneix/ycode/releases/latest'),
+        contains('/repos/juneix/baocodex/releases/latest'),
       );
     });
   });
