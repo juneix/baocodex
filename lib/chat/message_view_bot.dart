@@ -100,10 +100,11 @@ extension _BotMessage on MessageView {
               title: Text(state.tr('朗读', 'Read aloud')),
               onTap: () {
                 Navigator.pop(sheetContext);
-                TtsSpeaker.speak(
-                  text,
-                  voice: state.settings.ttsVoice,
-                  rate: state.settings.ttsRate,
+                TtsSpeaker.speakForBot(
+                  state,
+                  desktopId: desktopId,
+                  botId: bot!.bot.id,
+                  rawText: text,
                 );
               },
             ),

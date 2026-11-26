@@ -169,6 +169,7 @@ class PlatformBridge(
                 }
                 "deviceSystem" -> result.success(deviceSystem())
                 "ttsSpeak" -> ttsSpeaker.speak(call, result)
+                "ttsPlayAudio" -> ttsSpeaker.playAudio(call, result)
                 "ttsStop" -> ttsSpeaker.stop(result)
                 "ttsVoices" -> ttsSpeaker.voices(result)
                 else -> result.notImplemented()

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.4
+
+Adds Voice read-aloud (Beta) with System TTS, ElevenLabs, and Xiaomi MiMo, plus per-bot character/narrator voices and Bot chat polish.
+
+- Voice read-aloud (Beta): adds a dedicated Settings → Voice read-aloud (Beta) page to configure the provider (System TTS, ElevenLabs, or Xiaomi MiMo `mimo-v2.5-tts`), encrypted API key, model, and voice previews.
+- Per-bot voices: moves character voice, narrator voice, and auto-read replies onto each Bot profile page and plays `<bot_narrate>` and `<bot_say>` segments sequentially.
+- Bot chat & About polish: long-pressing a Bot bubble now opens a bottom action sheet (Copy, Read aloud, Stop reading, Select text) instead of entering system text selection; removes the warning-orange composer border in Bot chats; updates the About page check-for-updates label and donate section spacing.
+
 ## 1.1.3
 
 Merges update checks into the About page, completes Bot profile switches, and adds local Android TTS read-aloud.

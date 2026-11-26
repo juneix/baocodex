@@ -7,8 +7,10 @@ import 'package:flutter/services.dart';
 
 import '../../chat/chat_links.dart' show confirmExternalLink;
 import '../../chat/message_view.dart' show CodePanel;
+import '../../platform/tts_speaker.dart';
 import '../../state/app_state.dart';
 import '../../state/update_check.dart';
+import 'voice_settings_page.dart';
 import '../../theme/app_theme.dart';
 import '../devices/device_menu.dart';
 import '../devices/devices_page.dart';
@@ -138,6 +140,13 @@ class SettingsPage extends StatelessWidget {
                     '${(state.settings.textScale * 100).round()}% · ${state.settings.codeFontSize.round()}',
                 onTap: () =>
                     openPage<void>(context, TextSizePage(state: state)),
+              ),
+              SettingsRow(
+                state.tr('语音朗读 Beta', 'Voice read-aloud (Beta)'),
+                icon: 'activity',
+                value: ttsProviderLabel(state.settings, state.tr),
+                onTap: () =>
+                    openPage<void>(context, VoiceSettingsPage(state: state)),
               ),
               SettingsRow(
                 state.tr('通知', 'Notifications'),

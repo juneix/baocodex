@@ -1042,21 +1042,60 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> setTtsSettings({
-    bool? autoRead,
-    String? voice,
-    bool clearVoice = false,
+    String? provider,
+    String? cloudModel,
     double? rate,
   }) async {
-    if (autoRead != null) settings.ttsAutoRead = autoRead;
-    if (clearVoice) {
-      settings.ttsVoice = null;
-    } else if (voice != null) {
-      settings.ttsVoice = voice.isEmpty ? null : voice;
+    if (provider != null) settings.ttsProvider = provider;
+    if (cloudModel != null) {
+      settings.ttsCloudModel = cloudModel.isEmpty ? null : cloudModel;
     }
     if (rate != null) {
       settings.ttsRate = rate.clamp(0.5, 2.0).toDouble();
     }
     await saveSettings();
+  }
+
+  BotTtsConfig botTtsConfig(String desktopId, String botId) =>
+      settings.botTts[(desktopId, botId)] ?? const BotTtsConfig();
+
+  Future<void> setBotTtsConfig(
+    String desktopId,
+    String botId, {
+    String? voiceId,
+    String? voiceLabel,
+    bool clearVoice = false,
+    String? narratorVoiceId,
+    String? narratorVoiceLabel,
+    bool clearNarratorVoice = false,
+    bool? autoRead,
+  }) async {
+    final key = (desktopId, botId);
+    final next = botTtsConfig(desktopId, botId).copyWith(
+      voiceId: voiceId,
+      voiceLabel: voiceLabel,
+      clearVoice: clearVoice,
+      narratorVoiceId: narratorVoiceId,
+      narratorVoiceLabel: narratorVoiceLabel,
+      clearNarratorVoice: clearNarratorVoice,
+      autoRead: autoRead,
+    );
+    settings.botTts[key] = next;
+    await saveSettings();
+  }
+
+  Future<String?> ttsApiKey(String provider) =>
+      _store.read('tts_api_key_$provider');
+
+  Future<void> setTtsApiKey(String provider, String value) async {
+    final key = 'tts_api_key_$provider';
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      await _store.remove(key);
+    } else {
+      await _store.write(key, trimmed);
+    }
+    _notify();
   }
 
   Future<void> saveSettings() async {

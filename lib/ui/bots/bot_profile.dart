@@ -330,37 +330,53 @@ class _BotProfileViewState extends State<_BotProfileView> {
               'When "Can contact me first" is on, the bot may start conversations proactively. Suggested replies appear above the composer.',
             ),
           ),
-          SectionLabel(state.tr('语音朗读（本地 TTS）', 'Voice read-aloud (Local TTS)')),
+          SectionLabel(state.tr('语音朗读', 'Voice read-aloud')),
           GroupCard(
             children: [
+              SettingsRow(
+                state.tr('角色音色', 'Character voice'),
+                icon: 'activity',
+                value: state
+                        .botTtsConfig(widget.ref.desktopId, bot.id)
+                        .voiceLabel ??
+                    state.botTtsConfig(widget.ref.desktopId, bot.id).voiceId ??
+                    state.tr('默认', 'Default'),
+                onTap: () => _pickBotVoice(context, narrator: false),
+              ),
+              SettingsRow(
+                state.tr('旁白音色', 'Narrator voice'),
+                icon: 'book-open-text',
+                value: state
+                        .botTtsConfig(widget.ref.desktopId, bot.id)
+                        .narratorVoiceLabel ??
+                    state
+                        .botTtsConfig(widget.ref.desktopId, bot.id)
+                        .narratorVoiceId ??
+                    state.tr('同角色音色', 'Same as character'),
+                onTap: () => _pickBotVoice(context, narrator: true),
+              ),
               SwitchListTile(
                 key: const ValueKey('bot-tts-autoread'),
                 secondary: const Icon(Icons.volume_up_outlined, size: 22),
-                title: Text(state.tr('打开对话自动朗读', 'Auto-read in chat')),
-                value: state.settings.ttsAutoRead,
+                title: Text(state.tr('自动朗读回复', 'Auto-read replies')),
+                value: state
+                    .botTtsConfig(widget.ref.desktopId, bot.id)
+                    .autoRead,
                 onChanged: (value) => runUi(
                   context,
-                  () => state.setTtsSettings(autoRead: value),
+                  () => state.setBotTtsConfig(
+                    widget.ref.desktopId,
+                    bot.id,
+                    autoRead: value,
+                  ),
                 ),
-              ),
-              SettingsRow(
-                state.tr('系统音色', 'System voice'),
-                icon: 'activity',
-                value: state.settings.ttsVoice ?? state.tr('跟随系统', 'System default'),
-                onTap: () => _pickTtsVoice(context),
-              ),
-              SettingsRow(
-                state.tr('朗读语速', 'Speech rate'),
-                icon: 'zap',
-                value: '${state.settings.ttsRate.toStringAsFixed(2)}x',
-                onTap: () => _pickTtsRate(context),
               ),
             ],
           ),
           _Note(
             state.tr(
-              '直接调用手机系统内置 TTS 引擎朗读 Bot 回复，无需第三方接口或密钥；也可长按消息气泡手动朗读。',
-              'Uses the phone’s built-in TTS engine with no external API key; you can also long-press any bot bubble to read it aloud.',
+              '打开聊天时，它的消息用角色音色、旁白用旁白音色；也可长按气泡手动朗读。引擎在「设置 → 语音朗读 Beta」配置。',
+              'Reads messages with the character voice and narration with the narrator voice in chat; configure the engine in Settings → Voice read-aloud (Beta).',
             ),
           ),
           SectionLabel(state.tr('能力', 'Abilities')),
@@ -480,12 +496,27 @@ class _BotProfileViewState extends State<_BotProfileView> {
     });
   }
 
-  Future<void> _pickTtsVoice(BuildContext context) async {
-    final voices = await TtsSpeaker.voices();
+  Future<void> _pickBotVoice(
+    BuildContext context, {
+    required bool narrator,
+  }) async {
+    final List<TtsVoice> voices;
+    try {
+      voices = await TtsSpeaker.availableVoices(state);
+    } catch (error) {
+      if (context.mounted) _hint(userMessage(state, error));
+      return;
+    }
     if (!context.mounted) return;
+    final desktopId = widget.ref.desktopId;
+    final botId = bot.id;
+    final config = state.botTtsConfig(desktopId, botId);
+    final selectedId = narrator ? config.narratorVoiceId : config.voiceId;
     await showBottomSheetPanel<void>(
       context,
-      title: state.tr('系统音色', 'System voice'),
+      title: narrator
+          ? state.tr('旁白音色', 'Narrator voice')
+          : state.tr('角色音色', 'Character voice'),
       closeLabel: state.tr('关闭', 'Close'),
       size: SheetSize.medium,
       builder: (sheetContext) => ListView(
@@ -493,13 +524,22 @@ class _BotProfileViewState extends State<_BotProfileView> {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
         children: [
           ListTile(
-            title: Text(state.tr('跟随系统', 'System default')),
-            trailing: state.settings.ttsVoice == null
+            title: Text(
+              narrator
+                  ? state.tr('同角色音色', 'Same as character')
+                  : state.tr('跟随默认', 'Default'),
+            ),
+            trailing: selectedId == null
                 ? const LucideIcon('check', size: 18)
                 : null,
             onTap: () async {
               Navigator.pop(sheetContext);
-              await state.setTtsSettings(clearVoice: true);
+              await state.setBotTtsConfig(
+                desktopId,
+                botId,
+                clearVoice: !narrator,
+                clearNarratorVoice: narrator,
+              );
             },
           ),
           if (voices.isEmpty)
@@ -507,8 +547,8 @@ class _BotProfileViewState extends State<_BotProfileView> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Text(
                 state.tr(
-                  '未获取到可用离线音色，将使用系统默认音色。',
-                  'No offline voices reported; system default will be used.',
+                  '当前服务商暂无可选音色，请先在「设置 → 语音朗读 Beta」检查配置。',
+                  'No voices available for the current provider; check Settings → Voice read-aloud (Beta).',
                 ),
                 style: MobileTheme.hintStyleOf(sheetContext),
               ),
@@ -516,53 +556,37 @@ class _BotProfileViewState extends State<_BotProfileView> {
           for (final voice in voices)
             ListTile(
               title: Text(voice.name),
-              subtitle: Text(voice.locale),
+              subtitle: Text(
+                voice.description ?? voice.locale,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
                     tooltip: state.tr('试听', 'Preview'),
                     icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                    onPressed: () => TtsSpeaker.speak(
+                    onPressed: () => TtsSpeaker.previewForState(
+                      state,
                       state.tr('你好，我是 ${bot.name}。', 'Hello, I am ${bot.name}.'),
-                      voice: voice.name,
-                      rate: state.settings.ttsRate,
+                      voiceId: voice.effectiveId,
                     ),
                   ),
-                  if (state.settings.ttsVoice == voice.name)
+                  if (selectedId == voice.effectiveId)
                     const LucideIcon('check', size: 18),
                 ],
               ),
               onTap: () async {
                 Navigator.pop(sheetContext);
-                await state.setTtsSettings(voice: voice.name);
-              },
-            ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _pickTtsRate(BuildContext context) async {
-    const rates = [0.75, 1.0, 1.25, 1.5, 1.75];
-    await showBottomSheetPanel<void>(
-      context,
-      title: state.tr('朗读语速', 'Speech rate'),
-      closeLabel: state.tr('关闭', 'Close'),
-      size: SheetSize.small,
-      builder: (sheetContext) => ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-        children: [
-          for (final rate in rates)
-            ListTile(
-              title: Text('${rate.toStringAsFixed(2)}x'),
-              trailing: (state.settings.ttsRate - rate).abs() < 0.01
-                  ? const LucideIcon('check', size: 18)
-                  : null,
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                await state.setTtsSettings(rate: rate);
+                await state.setBotTtsConfig(
+                  desktopId,
+                  botId,
+                  voiceId: narrator ? null : voice.effectiveId,
+                  voiceLabel: narrator ? null : voice.name,
+                  narratorVoiceId: narrator ? voice.effectiveId : null,
+                  narratorVoiceLabel: narrator ? voice.name : null,
+                );
               },
             ),
         ],

@@ -1,18 +1,29 @@
 package local.baocode.mobile
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
-/** 封装系统自带 TextToSpeech 引擎，不依赖第三方插件或网络接口。 */
+/** 封装系统自带 TextToSpeech 引擎与轻量本地音频播放，不依赖第三方插件。 */
 class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, AutoCloseable {
+    private val main = Handler(Looper.getMainLooper())
     private var tts: TextToSpeech? = null
+    private var player: MediaPlayer? = null
     private var ready = false
     private var initFailed = false
     private var utteranceSeq = 0L
     private var pending: PendingSpeak? = null
+    private var activeSpeakId: String? = null
+    private var activeSpeakResult: MethodChannel.Result? = null
+    private var activePlayResult: MethodChannel.Result? = null
 
     private data class PendingSpeak(
         val text: String,
@@ -26,8 +37,42 @@ class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, Au
         val existing = tts
         if (existing != null) return existing
         val created = TextToSpeech(context.applicationContext, this)
+        created.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {}
+
+            override fun onDone(utteranceId: String?) {
+                main.post { finishActiveSpeak(utteranceId, true) }
+            }
+
+            @Deprecated("Deprecated in API 21")
+            override fun onError(utteranceId: String?) {
+                main.post { finishActiveSpeak(utteranceId, false) }
+            }
+
+            override fun onError(utteranceId: String?, errorCode: Int) {
+                main.post { finishActiveSpeak(utteranceId, false) }
+            }
+
+            override fun onStop(utteranceId: String?, interrupted: Boolean) {
+                main.post { finishActiveSpeak(utteranceId, false) }
+            }
+        })
         tts = created
         return created
+    }
+
+    private fun finishActiveSpeak(utteranceId: String?, ok: Boolean) {
+        if (utteranceId != null && utteranceId != activeSpeakId) return
+        val res = activeSpeakResult ?: return
+        activeSpeakResult = null
+        activeSpeakId = null
+        res.success(ok)
+    }
+
+    private fun finishActivePlay(ok: Boolean) {
+        val res = activePlayResult ?: return
+        activePlayResult = null
+        res.success(ok)
     }
 
     override fun onInit(status: Int) {
@@ -76,6 +121,7 @@ class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, Au
             result.success(false)
             return
         }
+        stopPlayback()
         engine.setSpeechRate(rate)
         if (voiceName != null) {
             val matched = runCatching {
@@ -84,15 +130,73 @@ class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, Au
             if (matched != null) engine.voice = matched
         }
         val id = "baocodex_tts_${++utteranceSeq}"
+        activeSpeakId = id
+        activeSpeakResult = result
         val code = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
-        result.success(code == TextToSpeech.SUCCESS)
+        if (code != TextToSpeech.SUCCESS) {
+            finishActiveSpeak(id, false)
+        }
     }
 
     fun stop(result: MethodChannel.Result) {
         pending?.result?.success(false)
         pending = null
-        runCatching { tts?.stop() }
+        stopPlayback()
         result.success(null)
+    }
+
+    private fun stopPlayback() {
+        finishActiveSpeak(activeSpeakId, false)
+        finishActivePlay(false)
+        runCatching { tts?.stop() }
+        runCatching {
+            player?.let {
+                if (it.isPlaying) it.stop()
+                it.release()
+            }
+        }
+        player = null
+    }
+
+    fun playAudio(call: MethodCall, result: MethodChannel.Result) {
+        val bytes = call.argument<ByteArray>("bytes")
+        val ext = call.argument<String>("ext")?.takeIf { it == "mp3" || it == "wav" } ?: "mp3"
+        if (bytes == null || bytes.isEmpty()) {
+            result.success(false)
+            return
+        }
+        stopPlayback()
+        try {
+            val file = File(context.cacheDir, "baocodex_tts_audio.$ext")
+            file.writeBytes(bytes)
+            activePlayResult = result
+            val mp = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+                setDataSource(file.absolutePath)
+                setOnCompletionListener {
+                    runCatching { it.release() }
+                    if (player === it) player = null
+                    finishActivePlay(true)
+                }
+                setOnErrorListener { failed, _, _ ->
+                    runCatching { failed.release() }
+                    if (player === failed) player = null
+                    finishActivePlay(false)
+                    true
+                }
+                prepare()
+                start()
+            }
+            player = mp
+        } catch (error: Exception) {
+            Log.w("TtsSpeaker", "playAudio failed: ${error.message}")
+            stopPlayback()
+        }
     }
 
     fun voices(result: MethodChannel.Result) {
@@ -121,10 +225,8 @@ class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, Au
     override fun close() {
         pending?.result?.success(false)
         pending = null
-        runCatching {
-            tts?.stop()
-            tts?.shutdown()
-        }
+        stopPlayback()
+        runCatching { tts?.shutdown() }
         tts = null
         ready = false
     }

@@ -1,5 +1,57 @@
 import 'package:flutter/material.dart';
 
+class BotTtsConfig {
+  const BotTtsConfig({
+    this.voiceId,
+    this.voiceLabel,
+    this.narratorVoiceId,
+    this.narratorVoiceLabel,
+    this.autoRead = false,
+  });
+
+  factory BotTtsConfig.fromJson(Map<String, Object?> json) => BotTtsConfig(
+    voiceId: json['voiceId'] as String?,
+    voiceLabel: json['voiceLabel'] as String?,
+    narratorVoiceId: json['narratorVoiceId'] as String?,
+    narratorVoiceLabel: json['narratorVoiceLabel'] as String?,
+    autoRead: json['autoRead'] == true,
+  );
+
+  final String? voiceId;
+  final String? voiceLabel;
+  final String? narratorVoiceId;
+  final String? narratorVoiceLabel;
+  final bool autoRead;
+
+  BotTtsConfig copyWith({
+    String? voiceId,
+    String? voiceLabel,
+    bool clearVoice = false,
+    String? narratorVoiceId,
+    String? narratorVoiceLabel,
+    bool clearNarratorVoice = false,
+    bool? autoRead,
+  }) => BotTtsConfig(
+    voiceId: clearVoice ? null : (voiceId ?? this.voiceId),
+    voiceLabel: clearVoice ? null : (voiceLabel ?? this.voiceLabel),
+    narratorVoiceId: clearNarratorVoice
+        ? null
+        : (narratorVoiceId ?? this.narratorVoiceId),
+    narratorVoiceLabel: clearNarratorVoice
+        ? null
+        : (narratorVoiceLabel ?? this.narratorVoiceLabel),
+    autoRead: autoRead ?? this.autoRead,
+  );
+
+  Map<String, Object?> toJson() => {
+    if (voiceId != null) 'voiceId': voiceId,
+    if (voiceLabel != null) 'voiceLabel': voiceLabel,
+    if (narratorVoiceId != null) 'narratorVoiceId': narratorVoiceId,
+    if (narratorVoiceLabel != null) 'narratorVoiceLabel': narratorVoiceLabel,
+    if (autoRead) 'autoRead': true,
+  };
+}
+
 class AppSettings {
   AppSettings();
 
@@ -40,9 +92,10 @@ class AppSettings {
   /// the desktop keeps no pin for a bot.
   Set<(String, String)> pinnedBots = {};
   Set<(String, String)> botsUnsuggesting = {};
-  bool ttsAutoRead = false;
-  String? ttsVoice;
+  String ttsProvider = 'system';
+  String? ttsCloudModel;
   double ttsRate = 1.0;
+  Map<(String, String), BotTtsConfig> botTts = {};
   String name = '';
   String gender = '';
   String signature = '';
@@ -97,11 +150,27 @@ class AppSettings {
       for (final entry in (json['botsUnsuggesting'] as List?) ?? const [])
         if (entry case [final String desktop, final String bot]) (desktop, bot),
     };
-    settings.ttsAutoRead = json['ttsAutoRead'] == true;
-    settings.ttsVoice = json['ttsVoice'] as String?;
+    settings.ttsProvider = switch (json['ttsProvider']) {
+      'elevenlabs' => 'elevenlabs',
+      'mimo' => 'mimo',
+      _ => 'system',
+    };
+    settings.ttsCloudModel = json['ttsCloudModel'] as String?;
     settings.ttsRate = ((json['ttsRate'] as num?)?.toDouble() ?? 1.0)
         .clamp(0.5, 2.0)
         .toDouble();
+    if (json['botTts'] case final List<Object?> entries) {
+      for (final entry in entries) {
+        if (entry is Map &&
+            entry['desktop'] is String &&
+            entry['bot'] is String) {
+          settings.botTts[(
+            entry['desktop'] as String,
+            entry['bot'] as String,
+          )] = BotTtsConfig.fromJson(Map<String, Object?>.from(entry));
+        }
+      }
+    }
     settings.name = json['name'] as String? ?? '';
     settings.gender = json['gender'] as String? ?? '';
     settings.signature = json['signature'] as String? ?? '';
@@ -131,9 +200,17 @@ class AppSettings {
     'botsUnsuggesting': [
       for (final (desktop, bot) in botsUnsuggesting) [desktop, bot],
     ],
-    'ttsAutoRead': ttsAutoRead,
-    'ttsVoice': ttsVoice,
+    'ttsProvider': ttsProvider,
+    'ttsCloudModel': ttsCloudModel,
     'ttsRate': ttsRate,
+    'botTts': [
+      for (final entry in botTts.entries)
+        {
+          'desktop': entry.key.$1,
+          'bot': entry.key.$2,
+          ...entry.value.toJson(),
+        },
+    ],
     'name': name,
     'gender': gender,
     'signature': signature,

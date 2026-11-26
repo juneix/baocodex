@@ -17,18 +17,61 @@ print('skip');
       expect(cleaned, '她合上笔记本。 你好，这是测试链接：点这里 和');
     });
 
-    test('AppSettings 正确读写本地 TTS 与推荐回复屏蔽配置', () {
+    test('按 bot_narrate 与 bot_say 拆分角色与旁白片段', () {
+      const raw = '''
+<bot_narrate>她推开窗户。</bot_narrate>
+<bot_say>早安！</bot_say>
+<bot_suggest>继续</bot_suggest>
+''';
+      final segments = splitBotTtsSegments(raw);
+      expect(segments, hasLength(2));
+      expect(segments[0].isNarrator, isTrue);
+      expect(segments[0].text, '她推开窗户。');
+      expect(segments[1].isNarrator, isFalse);
+      expect(segments[1].text, '早安！');
+    });
+
+    test('AppSettings 正确读写全局引擎配置与单 Bot TTS 配置', () {
       final settings = AppSettings()
-        ..ttsAutoRead = true
-        ..ttsVoice = 'zh-cn-x-afs-local'
+        ..ttsProvider = 'mimo'
+        ..ttsCloudModel = 'mimo-v2.5-tts'
         ..ttsRate = 1.5
+        ..botTts[('d1', 'b1')] = const BotTtsConfig(
+          voiceId: 'mimo_default',
+          voiceLabel: 'MiMo 默认',
+          narratorVoiceId: 'Chloe',
+          narratorVoiceLabel: 'Chloe',
+          autoRead: true,
+        )
         ..botsUnsuggesting.add(('d1', 'b1'));
 
       final restored = AppSettings.fromJson(settings.toJson());
-      expect(restored.ttsAutoRead, isTrue);
-      expect(restored.ttsVoice, 'zh-cn-x-afs-local');
+      expect(restored.ttsProvider, 'mimo');
+      expect(restored.ttsCloudModel, 'mimo-v2.5-tts');
       expect(restored.ttsRate, 1.5);
+      final botCfg = restored.botTts[('d1', 'b1')];
+      expect(botCfg, isNotNull);
+      expect(botCfg!.voiceId, 'mimo_default');
+      expect(botCfg.voiceLabel, 'MiMo 默认');
+      expect(botCfg.narratorVoiceId, 'Chloe');
+      expect(botCfg.narratorVoiceLabel, 'Chloe');
+      expect(botCfg.autoRead, isTrue);
       expect(restored.botsUnsuggesting, {('d1', 'b1')});
+    });
+
+    test('解析 ElevenLabs 音色列表与 MiMo 音频响应', () {
+      final voices = TtsSpeaker.parseElevenLabsVoices(
+        '{"voices":[{"voice_id":"v1","name":"Bella","labels":{"accent":"american","gender":"female"}}]}',
+      );
+      expect(voices, hasLength(1));
+      expect(voices.single.effectiveId, 'v1');
+      expect(voices.single.name, 'Bella');
+      expect(voices.single.locale, 'american · female');
+
+      final audio = TtsSpeaker.parseMimoAudioResponse(
+        '{"choices":[{"message":{"audio":{"data":"AAH/"}}}]}',
+      );
+      expect(audio, [0, 1, 255]);
     });
 
     test('AppSettings 限制语速在 0.5 到 2.0 之间', () {

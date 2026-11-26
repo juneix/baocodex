@@ -302,7 +302,8 @@ class _ChatPageState extends State<ChatPage> {
     if (buffer.live) return;
     final start = _ttsSeenItems;
     _ttsSeenItems = buffer.items.length;
-    if (!widget.state.settings.ttsAutoRead) return;
+    final botId = widget.botId!;
+    if (!widget.state.botTtsConfig(widget.desktopId, botId).autoRead) return;
     String? speakText;
     for (var i = buffer.items.length - 1; i >= start; i--) {
       final decoded = ChatCodec.decode(buffer.items[i]);
@@ -313,10 +314,11 @@ class _ChatPageState extends State<ChatPage> {
     }
     if (speakText != null) {
       unawaited(
-        TtsSpeaker.speak(
-          speakText,
-          voice: widget.state.settings.ttsVoice,
-          rate: widget.state.settings.ttsRate,
+        TtsSpeaker.speakForBot(
+          widget.state,
+          desktopId: widget.desktopId,
+          botId: botId,
+          rawText: speakText,
         ),
       );
     }
