@@ -205,20 +205,18 @@ void main() {
       return bubble;
     }
 
-    testWidgets('有空间时贴在气泡上方', (tester) async {
-      final bubble = await open(tester, alignment: Alignment.center);
-      final rect = tester.getRect(bubble);
-      expect(tester.getBottomLeft(find.text('复制')).dy, lessThan(rect.top));
-      expect(rect.top - tester.getBottomLeft(find.text('复制')).dy, lessThan(40));
+    testWidgets('长按气泡弹出底部操作菜单', (tester) async {
+      await open(tester, alignment: Alignment.center);
+      expect(find.text('消息操作'), findsOneWidget);
+      expect(find.text('复制'), findsOneWidget);
+      expect(find.text('选择文本'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('顶部放不下时翻到气泡下方', (tester) async {
-      final bubble = await open(tester, alignment: Alignment.topCenter);
-      expect(
-        tester.getTopLeft(find.text('复制')).dy,
-        greaterThan(tester.getRect(bubble).bottom),
-      );
+    testWidgets('气泡靠顶部时长按同样弹出底部操作菜单', (tester) async {
+      await open(tester, alignment: Alignment.topCenter);
+      expect(find.text('消息操作'), findsOneWidget);
+      expect(find.text('复制'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
