@@ -167,18 +167,10 @@ class SettingsPage extends StatelessWidget {
               SettingsRow(
                 state.tr('关于 BaoCodeX', 'About BaoCodeX'),
                 icon: 'info',
-                onTap: () => openPage<void>(
-                  context,
-                  AboutPage(state: state, appVersion: appVersion),
-                ),
-              ),
-              SettingsRow(
-                state.tr('当前版本', 'Current version'),
-                icon: 'tag',
                 value: appVersion,
                 onTap: () => openPage<void>(
                   context,
-                  VersionPage(state: state, appVersion: appVersion),
+                  AboutPage(state: state, appVersion: appVersion),
                 ),
               ),
             ],
@@ -1351,7 +1343,6 @@ class _UpdateCheckRowState extends State<UpdateCheckRow> {
   @override
   Widget build(BuildContext context) => SettingsRow(
     widget.state.tr('检查更新', 'Check for updates'),
-    icon: 'refresh-cw',
     value: _checking
         ? null
         : widget.state.tr('看看有没有新版本', 'Look for a new version'),
@@ -1360,56 +1351,7 @@ class _UpdateCheckRowState extends State<UpdateCheckRow> {
   );
 }
 
-/// 版本更新页：图标、版本名，一个检查更新的按钮。
-class VersionPage extends StatelessWidget {
-  const VersionPage({super.key, required this.state, required this.appVersion});
-  final AppState state;
-  final String appVersion;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: Text(state.tr('版本更新', 'Update'))),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          MobileSpace.lg,
-          MobileSpace.xl,
-          MobileSpace.lg,
-          MobileSpace.xl,
-        ),
-        children: [
-          Center(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: SvgPicture.asset(
-                'assets/icons/baocodex.svg',
-                width: 96,
-                height: 96,
-              ),
-            ),
-          ),
-          const SizedBox(height: MobileSpace.xl),
-          Text(
-            'BaoCodeX $appVersion',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: MobileSpace.lg),
-          GroupCard(
-            children: [
-              UpdateCheckRow(state: state, currentVersion: appVersion),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 关于：图标、版本和一句话说明，下面是官网、更新日志、开源许可。
+/// 关于：图标、版本和一句话说明，下面是官网、检查更新、更新日志、开源许可。
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key, required this.state, required this.appVersion});
   final AppState state;
@@ -1474,6 +1416,7 @@ class AboutPage extends StatelessWidget {
                 value: Uri.parse(_site).host,
                 onTap: () => confirmExternalLink(context, state, _site),
               ),
+              UpdateCheckRow(state: state, currentVersion: appVersion),
               SettingsRow(
                 state.tr('更新日志', 'Changelog'),
                 onTap: () =>

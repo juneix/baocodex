@@ -148,7 +148,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('设置、关于和版本页显示新品牌并保持原子路由', (tester) async {
+  testWidgets('设置和关于页显示新品牌与检查更新并保持原子路由', (tester) async {
     final state = AppState(demo: true, store: MemoryLinkStore());
     addTearDown(state.dispose);
     await _mount(tester, state);
@@ -158,6 +158,8 @@ void main() {
     expect(find.byType(SettingsPage), findsOneWidget);
     expect(find.byType(BackButton), findsWidgets);
     await tester.scrollUntilVisible(find.text('关于 BaoCodeX').hitTestable(), 100);
+    expect(find.text('当前版本'), findsNothing);
+    expect(find.text(appVersion), findsOneWidget);
     await tester.tap(find.text('关于 BaoCodeX'));
     await tester.pumpAndSettle();
     expect(find.text('BaoCodeX'), findsOneWidget);
@@ -166,7 +168,9 @@ void main() {
     expect(find.byKey(const ValueKey('about-donate')), findsOneWidget);
     expect(find.byKey(const ValueKey('donate-wechat')), findsOneWidget);
     expect(find.byKey(const ValueKey('donate-alipay')), findsOneWidget);
-    // 打赏码把下面的卡片推下去了，先滚到可见再点。
+    // 打赏码把下面的卡片推下去了，先滚到可见再检查。
+    await tester.scrollUntilVisible(find.text('检查更新').hitTestable(), 100);
+    expect(find.text('检查更新'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('开源许可').hitTestable(), 100);
     await tester.tap(find.text('开源许可'));
     await tester.pumpAndSettle();
@@ -174,12 +178,6 @@ void main() {
     expect(find.text('BaoCodeX'), findsWidgets);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('当前版本'));
-    await tester.pumpAndSettle();
-    expect(find.text('BaoCodeX $appVersion'), findsOneWidget);
-    expect(find.text('检查更新'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('检查更新'), findsNothing);
