@@ -4,7 +4,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 
-import '../models/app_settings.dart';
 import '../state/app_state.dart';
 
 /// 语音朗读音色条目（本地系统音色或云端音色）。
