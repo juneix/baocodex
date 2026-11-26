@@ -95,12 +95,10 @@ class SessionSubscriptions {
         });
         // 摘要对不上基线时 peer 会给出 null 并推一次 resync：直接再来一次，
         // 这次没有摘要，拿到的一定是全量快照，不是给用户看的错误。
-        if (result == null) {
-          result = await request(desktop, LinkMethods.open, {
-            'session': session,
-            'window': math.max(60, target.items.length),
-          });
-        }
+        result ??= await request(desktop, LinkMethods.open, {
+          'session': session,
+          'window': math.max(60, target.items.length),
+        });
         if (!_current(key, operation)) return;
         if (result == null) {
           throw const FormatException('The desktop sent no session snapshot');
