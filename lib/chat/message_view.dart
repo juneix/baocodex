@@ -11,6 +11,7 @@ import 'widgets/image_deck.dart';
 
 import '../state/app_state.dart';
 import '../link/chat_codec.dart';
+import '../platform/tts_speaker.dart';
 import '../ui/tasks/subagent_page.dart';
 import '../ui/widgets/bubble_menu.dart';
 import '../ui/widgets/image_gallery.dart';

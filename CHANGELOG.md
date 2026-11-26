@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.3
+
+Merges update checks into the About page, completes Bot profile switches, and adds local Android TTS read-aloud.
+
+- Settings: merges "Check for updates" into the About page (`Website`, `Check for updates`, `Changelog`, `Open-source licenses`) and removes the separate Current version page.
+- Bot settings: adds the "Can contact me first" (`writesFirst`) toggle and per-bot "Suggested replies" toggle.
+- Local TTS: adds an on-device Android `TextToSpeech` engine (`TtsSpeaker`) with no third-party plugins or API keys; Bot profile gains auto-read, system voice picker with preview, and speech rate settings, and long-pressing a Bot bubble offers Read aloud / Stop reading.
+
 ## 1.1.2
 
 Syncs the BaoCode 2.0.8 chunked file-transfer protocol and switches CI builds to publish stable releases so in-app update checks work out of the box.

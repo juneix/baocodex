@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:bao_link/bao_link.dart';
 import 'package:flutter/material.dart';
 
+import '../../platform/tts_speaker.dart';
 import '../../state/app_state.dart';
 import '../../state/bot_settings.dart';
 import '../devices/device_menu.dart';

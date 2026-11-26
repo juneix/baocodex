@@ -77,6 +77,7 @@ class _BotProfileViewState extends State<_BotProfileView> {
     String? style,
     Set<BotAbility>? abilities,
     bool? chatOnly,
+    bool? writesFirst,
   }) async {
     if (_saving) return;
     final current = bot;
@@ -109,7 +110,7 @@ class _BotProfileViewState extends State<_BotProfileView> {
         ],
         // 电脑端已不看它，只原样带回，保持整份资料。
         'proactive': current.proactive.toJson(),
-      }, chatOnly: nextChatOnly);
+      }, chatOnly: nextChatOnly, writesFirst: writesFirst ?? current.writesFirst);
       if (mounted) setState(() => _saved = saved);
     } on BotModeUnconfirmed {
       if (!mounted) return;
@@ -292,6 +293,76 @@ class _BotProfileViewState extends State<_BotProfileView> {
             ],
           ),
           _Note(_modeNote(state)),
+          const SizedBox(height: 16),
+          GroupCard(
+            children: [
+              SwitchListTile(
+                key: const ValueKey('bot-writes-first'),
+                secondary: const LucideIcon('bell-ring', size: 22),
+                title: Text(state.tr('可以主动找我', 'Can contact me first')),
+                value: bot.writesFirst,
+                onChanged: _saving
+                    ? null
+                    : (value) => _save(writesFirst: value),
+              ),
+              SwitchListTile(
+                key: const ValueKey('bot-suggestions-setting'),
+                secondary: const LucideIcon('sparkles', size: 22),
+                title: Text(state.tr('推荐回复', 'Suggested replies')),
+                value: state.botSuggestionsEnabled(
+                  widget.ref.desktopId,
+                  bot.id,
+                ),
+                onChanged: (value) => runUi(
+                  context,
+                  () => state.setBotSuggestionsEnabled(
+                    widget.ref.desktopId,
+                    bot.id,
+                    value,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          _Note(
+            state.tr(
+              '开启「可以主动找我」后，Bot 可以在有新消息时主动发起对话；推荐回复会在输入框上方显示快捷回复建议。',
+              'When "Can contact me first" is on, the bot may start conversations proactively. Suggested replies appear above the composer.',
+            ),
+          ),
+          SectionLabel(state.tr('语音朗读（本地 TTS）', 'Voice read-aloud (Local TTS)')),
+          GroupCard(
+            children: [
+              SwitchListTile(
+                key: const ValueKey('bot-tts-autoread'),
+                secondary: const Icon(Icons.volume_up_outlined, size: 22),
+                title: Text(state.tr('打开对话自动朗读', 'Auto-read in chat')),
+                value: state.settings.ttsAutoRead,
+                onChanged: (value) => runUi(
+                  context,
+                  () => state.setTtsSettings(autoRead: value),
+                ),
+              ),
+              SettingsRow(
+                state.tr('系统音色', 'System voice'),
+                icon: 'activity',
+                value: state.settings.ttsVoice ?? state.tr('跟随系统', 'System default'),
+                onTap: () => _pickTtsVoice(context),
+              ),
+              SettingsRow(
+                state.tr('朗读语速', 'Speech rate'),
+                icon: 'zap',
+                value: '${state.settings.ttsRate.toStringAsFixed(2)}x',
+                onTap: () => _pickTtsRate(context),
+              ),
+            ],
+          ),
+          _Note(
+            state.tr(
+              '直接调用手机系统内置 TTS 引擎朗读 Bot 回复，无需第三方接口或密钥；也可长按消息气泡手动朗读。',
+              'Uses the phone’s built-in TTS engine with no external API key; you can also long-press any bot bubble to read it aloud.',
+            ),
+          ),
           SectionLabel(state.tr('能力', 'Abilities')),
           GroupCard(
             children: [
@@ -407,6 +478,93 @@ class _BotProfileViewState extends State<_BotProfileView> {
         await state.closeSession(desktopId, session);
       }
     });
+  }
+
+  Future<void> _pickTtsVoice(BuildContext context) async {
+    final voices = await TtsSpeaker.voices();
+    if (!context.mounted) return;
+    await showBottomSheetPanel<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            ListTile(
+              title: Text(state.tr('跟随系统', 'System default')),
+              trailing: state.settings.ttsVoice == null
+                  ? const LucideIcon('check', size: 18)
+                  : null,
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                await state.setTtsSettings(clearVoice: true);
+              },
+            ),
+            if (voices.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Text(
+                  state.tr(
+                    '未获取到可用离线音色，将使用系统默认音色。',
+                    'No offline voices reported; system default will be used.',
+                  ),
+                  style: MobileTheme.hintStyleOf(sheetContext),
+                ),
+              ),
+            for (final voice in voices)
+              ListTile(
+                title: Text(voice.name),
+                subtitle: Text(voice.locale),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: state.tr('试听', 'Preview'),
+                      icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                      onPressed: () => TtsSpeaker.speak(
+                        state.tr('你好，我是 ${bot.name}。', 'Hello, I am ${bot.name}.'),
+                        voice: voice.name,
+                        rate: state.settings.ttsRate,
+                      ),
+                    ),
+                    if (state.settings.ttsVoice == voice.name)
+                      const LucideIcon('check', size: 18),
+                  ],
+                ),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await state.setTtsSettings(voice: voice.name);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickTtsRate(BuildContext context) async {
+    const rates = [0.75, 1.0, 1.25, 1.5, 1.75];
+    await showBottomSheetPanel<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final rate in rates)
+              ListTile(
+                title: Text('${rate.toStringAsFixed(2)}x'),
+                trailing: (state.settings.ttsRate - rate).abs() < 0.01
+                    ? const LucideIcon('check', size: 18)
+                    : null,
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await state.setTtsSettings(rate: rate);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

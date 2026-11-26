@@ -1,7 +1,7 @@
 name: baocode_mobile
 description: BaoCodeX, an unofficial Android client based on YCode for BaoCode desktops.
 publish_to: none
-version: 1.1.2
+version: 1.1.3
 
 environment:
   sdk: ^3.13.4

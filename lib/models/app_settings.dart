@@ -39,6 +39,10 @@ class AppSettings {
   /// The bots pinned on the lists, as (desktop, bot): the phone's own choice,
   /// the desktop keeps no pin for a bot.
   Set<(String, String)> pinnedBots = {};
+  Set<(String, String)> botsUnsuggesting = {};
+  bool ttsAutoRead = false;
+  String? ttsVoice;
+  double ttsRate = 1.0;
   String name = '';
   String gender = '';
   String signature = '';
@@ -89,6 +93,15 @@ class AppSettings {
       for (final entry in (json['pinnedBots'] as List?) ?? const [])
         if (entry case [final String desktop, final String bot]) (desktop, bot),
     };
+    settings.botsUnsuggesting = {
+      for (final entry in (json['botsUnsuggesting'] as List?) ?? const [])
+        if (entry case [final String desktop, final String bot]) (desktop, bot),
+    };
+    settings.ttsAutoRead = json['ttsAutoRead'] == true;
+    settings.ttsVoice = json['ttsVoice'] as String?;
+    settings.ttsRate = ((json['ttsRate'] as num?)?.toDouble() ?? 1.0)
+        .clamp(0.5, 2.0)
+        .toDouble();
     settings.name = json['name'] as String? ?? '';
     settings.gender = json['gender'] as String? ?? '';
     settings.signature = json['signature'] as String? ?? '';
@@ -115,6 +128,12 @@ class AppSettings {
     'pinnedBots': [
       for (final (desktop, bot) in pinnedBots) [desktop, bot],
     ],
+    'botsUnsuggesting': [
+      for (final (desktop, bot) in botsUnsuggesting) [desktop, bot],
+    ],
+    'ttsAutoRead': ttsAutoRead,
+    'ttsVoice': ttsVoice,
+    'ttsRate': ttsRate,
     'name': name,
     'gender': gender,
     'signature': signature,

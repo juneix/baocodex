@@ -764,6 +764,9 @@ extension _Composer on _ChatPageState {
   List<String> _currentSuggestions(SessionBuffer buffer) {
     if (buffer.live) return const [];
     final bot = widget.botId != null;
+    if (bot && !widget.state.botSuggestionsEnabled(widget.desktopId, widget.botId!)) {
+      return const [];
+    }
     for (var i = buffer.items.length - 1; i >= 0; i--) {
       final raw = buffer.items[i];
       final item = ChatCodec.decode(raw);

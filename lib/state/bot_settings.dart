@@ -72,6 +72,7 @@ class BotProfileSaver {
   Future<LinkBot> save(
     Map<String, Object?> fields, {
     required bool chatOnly,
+    bool? writesFirst,
   }) async {
     if (_busy || creationUnconfirmed) {
       throw StateError(
@@ -82,8 +83,12 @@ class BotProfileSaver {
     final creating = botId == null;
     final params = {...fields}..remove('bot');
     params.remove('chatOnly');
+    params.remove('writesFirst');
     if (!creating) params['bot'] = botId;
     if (creating || saved!.chatOnly != chatOnly) params['chatOnly'] = chatOnly;
+    if (writesFirst != null && (creating || saved!.writesFirst != writesFirst)) {
+      params['writesFirst'] = writesFirst;
+    }
     try {
       final response = await request(desktopId, LinkMethods.saveBot, params);
       if (response is! Map || response['bot'] is! Map) {

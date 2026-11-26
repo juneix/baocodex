@@ -21,6 +21,7 @@ import '../../chat/widgets/pixel_loader.dart';
 import '../../link/chat_codec.dart';
 import '../../models/user_facing_error.dart';
 import '../../platform/permission_menu.dart';
+import '../../platform/tts_speaker.dart';
 import '../../link/phone_link.dart' show DesktopLinkStatus;
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
@@ -162,6 +163,8 @@ class _ChatPageState extends State<ChatPage> {
   Future<String?>? _creatingSession;
   bool _sawBot = false;
   int _lastRevision = -1;
+  bool _ttsBaselineReady = false;
+  int _ttsSeenItems = 0;
 
   /// Which folds (a run of steps, a turn's work) stand open.
   final _foldsOpen = <(StepFoldKind, int), bool>{};
@@ -279,7 +282,44 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _bindingChanged() {
+    _maybeAutoReadTts();
     if (mounted) setState(() {});
+  }
+
+  void _maybeAutoReadTts() {
+    if (widget.botId == null || !_hasSession) return;
+    final buffer = _buffer;
+    if (buffer.loading) return;
+    if (!_ttsBaselineReady) {
+      _ttsBaselineReady = true;
+      _ttsSeenItems = buffer.items.length;
+      return;
+    }
+    if (buffer.items.length <= _ttsSeenItems) {
+      _ttsSeenItems = buffer.items.length;
+      return;
+    }
+    if (buffer.live) return;
+    final start = _ttsSeenItems;
+    _ttsSeenItems = buffer.items.length;
+    if (!widget.state.settings.ttsAutoRead) return;
+    String? speakText;
+    for (var i = buffer.items.length - 1; i >= start; i--) {
+      final decoded = ChatCodec.decode(buffer.items[i]);
+      if (decoded is AssistantTextItem && decoded.text.trim().isNotEmpty) {
+        speakText = decoded.text;
+        break;
+      }
+    }
+    if (speakText != null) {
+      unawaited(
+        TtsSpeaker.speak(
+          speakText,
+          voice: widget.state.settings.ttsVoice,
+          rate: widget.state.settings.ttsRate,
+        ),
+      );
+    }
   }
 
   void _workspaceChanged() {
@@ -448,6 +488,7 @@ class _ChatPageState extends State<ChatPage> {
     widget.state.removeListener(_workspaceChanged);
     _binding.removeListener(_bindingChanged);
     _binding.dispose();
+    if (widget.botId != null) unawaited(TtsSpeaker.stop());
     super.dispose();
   }
 

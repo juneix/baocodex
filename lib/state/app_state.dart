@@ -1023,6 +1023,42 @@ class AppState extends ChangeNotifier {
     await saveSettings();
   }
 
+  bool botSuggestionsEnabled(String desktopId, String botId) =>
+      !settings.botsUnsuggesting.contains((desktopId, botId));
+
+  Future<void> setBotSuggestionsEnabled(
+    String desktopId,
+    String botId,
+    bool enabled,
+  ) async {
+    final key = (desktopId, botId);
+    if (enabled) {
+      settings.botsUnsuggesting.remove(key);
+    } else {
+      settings.botsUnsuggesting.add(key);
+    }
+    _notify();
+    await saveSettings();
+  }
+
+  Future<void> setTtsSettings({
+    bool? autoRead,
+    String? voice,
+    bool clearVoice = false,
+    double? rate,
+  }) async {
+    if (autoRead != null) settings.ttsAutoRead = autoRead;
+    if (clearVoice) {
+      settings.ttsVoice = null;
+    } else if (voice != null) {
+      settings.ttsVoice = voice.isEmpty ? null : voice;
+    }
+    if (rate != null) {
+      settings.ttsRate = rate.clamp(0.5, 2.0).toDouble();
+    }
+    await saveSettings();
+  }
+
   Future<void> saveSettings() async {
     _languageFromStore = settings.language;
     await _store.write('settings', jsonEncode(settings.toJson()));

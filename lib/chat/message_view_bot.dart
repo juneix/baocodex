@@ -84,6 +84,22 @@ extension _BotMessage on MessageView {
         onTap: () =>
             _copy(context, text, images: user ? value.images : const []),
       ),
+      if (!user && sticker == null && text.trim().isNotEmpty) ...[
+        BubbleMenuAction(
+          icon: 'bell-ring',
+          label: state.tr('朗读', 'Read aloud'),
+          onTap: () => TtsSpeaker.speak(
+            text,
+            voice: state.settings.ttsVoice,
+            rate: state.settings.ttsRate,
+          ),
+        ),
+        BubbleMenuAction(
+          icon: 'circle-pause',
+          label: state.tr('停止朗读', 'Stop reading'),
+          onTap: () => TtsSpeaker.stop(),
+        ),
+      ],
       if (user && onEdit != null)
         BubbleMenuAction(
           icon: 'pencil',

@@ -65,6 +65,7 @@ class PlatformBridge(
     private val chatClipboard = ChatClipboard(activity.applicationContext)
     private val updates = AndroidUpdates(activity)
     private val uploadPicker = UploadDocumentPicker(activity.applicationContext, main) { activity }
+    private val ttsSpeaker = TtsSpeaker(activity.applicationContext)
 
     init {
         methods.setMethodCallHandler(this)
@@ -167,6 +168,9 @@ class PlatformBridge(
                     result.success(null)
                 }
                 "deviceSystem" -> result.success(deviceSystem())
+                "ttsSpeak" -> ttsSpeaker.speak(call, result)
+                "ttsStop" -> ttsSpeaker.stop(result)
+                "ttsVoices" -> ttsSpeaker.voices(result)
                 else -> result.notImplemented()
             }
         } catch (error: Exception) {
@@ -524,6 +528,7 @@ class PlatformBridge(
         chatClipboard.close()
         updates.close()
         uploadPicker.close()
+        ttsSpeaker.close()
         exportResult?.error("disposed", "文件保存窗口已关闭，保存结果未确认", null)
         exportResult = null
         exportBytes = null
