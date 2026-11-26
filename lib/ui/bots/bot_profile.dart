@@ -564,14 +564,43 @@ class _BotProfileViewState extends State<_BotProfileView> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    tooltip: state.tr('试听', 'Preview'),
-                    icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                    onPressed: () => TtsSpeaker.previewForState(
-                      state,
-                      state.tr('你好，我是 ${bot.name}。', 'Hello, I am ${bot.name}.'),
-                      voiceId: voice.effectiveId,
-                    ),
+                  ValueListenableBuilder<TtsPlayState>(
+                    valueListenable: TtsSpeaker.status,
+                    builder: (context, playState, _) {
+                      final active = playState.activeId == voice.effectiveId;
+                      if (active &&
+                          playState.phase == TtsPlaybackPhase.loading) {
+                        return IconButton(
+                          tooltip: state.tr('取消', 'Cancel'),
+                          icon: const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          onPressed: () => TtsSpeaker.stop(),
+                        );
+                      }
+                      if (active &&
+                          playState.phase == TtsPlaybackPhase.playing) {
+                        return IconButton(
+                          tooltip: state.tr('暂停', 'Pause'),
+                          icon: const Icon(Icons.pause_rounded, size: 20),
+                          onPressed: () => TtsSpeaker.stop(),
+                        );
+                      }
+                      return IconButton(
+                        tooltip: state.tr('试听', 'Preview'),
+                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                        onPressed: () => TtsSpeaker.previewForState(
+                          state,
+                          state.tr(
+                            '你好，我是 ${bot.name}。',
+                            'Hello, I am ${bot.name}.',
+                          ),
+                          voiceId: voice.effectiveId,
+                        ),
+                      );
+                    },
                   ),
                   if (selectedId == voice.effectiveId)
                     const LucideIcon('check', size: 18),

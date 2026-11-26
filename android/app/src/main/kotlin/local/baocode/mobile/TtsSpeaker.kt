@@ -21,6 +21,7 @@ class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, Au
     private var initFailed = false
     private var utteranceSeq = 0L
     private var pending: PendingSpeak? = null
+    private val pendingVoices = mutableListOf<MethodChannel.Result>()
     private var activeSpeakId: String? = null
     private var activeSpeakResult: MethodChannel.Result? = null
     private var activePlayResult: MethodChannel.Result? = null
@@ -29,6 +30,7 @@ class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, Au
         val text: String,
         val voice: String?,
         val rate: Float,
+        val pitch: Float,
         val result: MethodChannel.Result,
     )
 
@@ -82,12 +84,14 @@ class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, Au
             ready = false
             pending?.result?.success(false)
             pending = null
+            flushPendingVoices()
             return
         }
         ready = true
+        flushPendingVoices()
         val queued = pending ?: return
         pending = null
-        runSpeak(queued.text, queued.voice, queued.rate, queued.result)
+        runSpeak(queued.text, queued.voice, queued.rate, queued.pitch, queued.result)
     }
 
     fun speak(call: MethodCall, result: MethodChannel.Result) {
@@ -98,6 +102,7 @@ class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, Au
         }
         val voice = call.argument<String>("voice")?.takeIf { it.isNotBlank() }
         val rate = ((call.argument<Number>("rate")?.toFloat()) ?: 1.0f).coerceIn(0.5f, 2.0f)
+        val pitch = ((call.argument<Number>("pitch")?.toFloat()) ?: 1.0f).coerceIn(0.5f, 1.5f)
         val engine = ensureEngine()
         if (engine == null) {
             result.success(false)
@@ -105,16 +110,17 @@ class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, Au
         }
         if (!ready) {
             pending?.result?.success(false)
-            pending = PendingSpeak(text, voice, rate, result)
+            pending = PendingSpeak(text, voice, rate, pitch, result)
             return
         }
-        runSpeak(text, voice, rate, result)
+        runSpeak(text, voice, rate, pitch, result)
     }
 
     private fun runSpeak(
         text: String,
         voiceName: String?,
         rate: Float,
+        pitch: Float,
         result: MethodChannel.Result,
     ) {
         val engine = tts ?: run {
@@ -123,6 +129,7 @@ class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, Au
         }
         stopPlayback()
         engine.setSpeechRate(rate)
+        engine.setPitch(pitch)
         if (voiceName != null) {
             val matched = runCatching {
                 engine.voices?.firstOrNull { it.name == voiceName }
@@ -201,30 +208,51 @@ class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, Au
 
     fun voices(result: MethodChannel.Result) {
         val engine = ensureEngine()
-        if (engine == null || !ready) {
+        if (engine == null) {
             result.success(emptyList<Map<String, Any>>())
             return
         }
-        val list = runCatching {
-            engine.voices
-                ?.asSequence()
-                ?.filter { !it.isNetworkConnectionRequired }
-                ?.sortedWith(compareBy({ it.locale.toLanguageTag() }, { it.name }))
-                ?.map {
-                    mapOf(
-                        "name" to it.name,
-                        "locale" to it.locale.toLanguageTag(),
-                    )
-                }
-                ?.toList()
-                ?: emptyList()
-        }.getOrDefault(emptyList())
-        result.success(list)
+        if (!ready) {
+            pendingVoices.add(result)
+            return
+        }
+        result.success(collectVoices(engine))
     }
+
+    private fun flushPendingVoices() {
+        if (pendingVoices.isEmpty()) return
+        val waiting = pendingVoices.toList()
+        pendingVoices.clear()
+        val list = if (ready) tts?.let(::collectVoices) ?: emptyList() else emptyList()
+        waiting.forEach { it.success(list) }
+    }
+
+    private fun collectVoices(engine: TextToSpeech): List<Map<String, Any>> = runCatching {
+        engine.voices
+            ?.asSequence()
+            ?.sortedWith(
+                compareBy<android.speech.tts.Voice>(
+                    { !it.locale.language.equals("zh", ignoreCase = true) },
+                    { it.isNetworkConnectionRequired },
+                    { it.locale.toLanguageTag() },
+                    { it.name },
+                )
+            )
+            ?.map {
+                mapOf(
+                    "name" to it.name,
+                    "locale" to it.locale.toLanguageTag(),
+                    "network" to it.isNetworkConnectionRequired,
+                )
+            }
+            ?.toList()
+            ?: emptyList()
+    }.getOrDefault(emptyList())
 
     override fun close() {
         pending?.result?.success(false)
         pending = null
+        flushPendingVoices()
         stopPlayback()
         runCatching { tts?.shutdown() }
         tts = null

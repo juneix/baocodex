@@ -36,6 +36,9 @@ print('skip');
         ..ttsProvider = 'mimo'
         ..ttsCloudModel = 'mimo-v2.5-tts'
         ..ttsRate = 1.5
+        ..ttsPitch = 1.2
+        ..ttsStability = 0.65
+        ..ttsMimoStyle = '温柔一点'
         ..botTts[('d1', 'b1')] = const BotTtsConfig(
           voiceId: 'mimo_default',
           voiceLabel: 'MiMo 默认',
@@ -49,6 +52,9 @@ print('skip');
       expect(restored.ttsProvider, 'mimo');
       expect(restored.ttsCloudModel, 'mimo-v2.5-tts');
       expect(restored.ttsRate, 1.5);
+      expect(restored.ttsPitch, 1.2);
+      expect(restored.ttsStability, 0.65);
+      expect(restored.ttsMimoStyle, '温柔一点');
       final botCfg = restored.botTts[('d1', 'b1')];
       expect(botCfg, isNotNull);
       expect(botCfg!.voiceId, 'mimo_default');
@@ -61,12 +67,14 @@ print('skip');
 
     test('解析 ElevenLabs 音色列表与 MiMo 音频响应', () {
       final voices = TtsSpeaker.parseElevenLabsVoices(
-        '{"voices":[{"voice_id":"v1","name":"Bella","labels":{"accent":"american","gender":"female"}}]}',
+        '{"voices":[{"voice_id":"v1","name":"Bella","description":"Warm voice","preview_url":"https://example.com/a.mp3","labels":{"accent":"american","gender":"female"}}]}',
       );
       expect(voices, hasLength(1));
       expect(voices.single.effectiveId, 'v1');
       expect(voices.single.name, 'Bella');
       expect(voices.single.locale, 'american · female');
+      expect(voices.single.description, 'Warm voice');
+      expect(voices.single.previewUrl, 'https://example.com/a.mp3');
 
       final audio = TtsSpeaker.parseMimoAudioResponse(
         '{"choices":[{"message":{"audio":{"data":"AAH/"}}}]}',

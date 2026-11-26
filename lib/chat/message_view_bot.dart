@@ -76,7 +76,7 @@ extension _BotMessage on MessageView {
                 .copyWith(color: const Color(0xFF111111)),
           )
         // 气泡是白的，里面的代码块要用白底上的浅灰。
-        : MobileTheme.reading(context, child: _prose(text));
+        : MobileTheme.reading(context, child: _prose(text, selectable: false));
     void press() => showBottomSheetPanel<void>(
       context,
       title: state.tr('消息操作', 'Message'),
@@ -94,7 +94,7 @@ extension _BotMessage on MessageView {
               _copy(context, text, images: user ? value.images : const []);
             },
           ),
-          if (!user && sticker == null && text.trim().isNotEmpty) ...[
+          if (!user && sticker == null && text.trim().isNotEmpty)
             ListTile(
               leading: const LucideIcon('bell-ring', size: 20),
               title: Text(state.tr('朗读', 'Read aloud')),
@@ -108,15 +108,6 @@ extension _BotMessage on MessageView {
                 );
               },
             ),
-            ListTile(
-              leading: const LucideIcon('circle-pause', size: 20),
-              title: Text(state.tr('停止朗读', 'Stop reading')),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                TtsSpeaker.stop();
-              },
-            ),
-          ],
           if (sticker == null && text.trim().isNotEmpty)
             ListTile(
               leading: const LucideIcon('file-text', size: 20),
@@ -151,17 +142,11 @@ extension _BotMessage on MessageView {
       ),
     );
     final bubble = Flexible(
-      child: GestureDetector(
+      child: _BotPressBubble(
+        bubbleKey: ValueKey(user ? 'bot-user-bubble' : 'bot-answer-bubble'),
+        color: color,
         onLongPress: press,
-        child: Container(
-          key: ValueKey(user ? 'bot-user-bubble' : 'bot-answer-bubble'),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: SelectionContainer.disabled(child: body),
-        ),
+        child: body,
       ),
     );
     final tail = Transform.translate(
@@ -339,6 +324,57 @@ class _BotAgentCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 长按时提供轻微高亮与缩放反馈，同时保留外层 `BoxDecoration` 供测试与主题一致。
+class _BotPressBubble extends StatefulWidget {
+  const _BotPressBubble({
+    required this.bubbleKey,
+    required this.color,
+    required this.onLongPress,
+    required this.child,
+  });
+
+  final Key bubbleKey;
+  final Color color;
+  final VoidCallback onLongPress;
+  final Widget child;
+
+  @override
+  State<_BotPressBubble> createState() => _BotPressBubbleState();
+}
+
+class _BotPressBubbleState extends State<_BotPressBubble> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onLongPressStart: (_) => setState(() => _pressed = true),
+    onLongPressEnd: (_) => setState(() => _pressed = false),
+    onLongPressCancel: () => setState(() => _pressed = false),
+    onLongPress: () {
+      if (_pressed) setState(() => _pressed = false);
+      widget.onLongPress();
+    },
+    child: AnimatedScale(
+      scale: _pressed ? 0.985 : 1.0,
+      duration: const Duration(milliseconds: 110),
+      child: AnimatedOpacity(
+        opacity: _pressed ? 0.78 : 1.0,
+        duration: const Duration(milliseconds: 110),
+        child: Container(
+          key: widget.bubbleKey,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: widget.color,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: widget.child,
+        ),
+      ),
+    ),
+  );
 }
 
 class _BubbleTail extends CustomPainter {

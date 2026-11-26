@@ -22,6 +22,7 @@ import '../../link/chat_codec.dart';
 import '../../models/user_facing_error.dart';
 import '../../platform/permission_menu.dart';
 import '../../platform/tts_speaker.dart';
+import '../widgets/bottom_sheet_panel.dart';
 import '../../link/phone_link.dart' show DesktopLinkStatus;
 import '../../state/app_state.dart';
 import '../../theme/app_theme.dart';
@@ -100,6 +101,84 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
+/// 顶栏右上角正在朗读时的动态频谱指示按钮。
+class _TtsSpectrumButton extends StatefulWidget {
+  const _TtsSpectrumButton({
+    required this.loading,
+    required this.style,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final bool loading;
+  final ButtonStyle style;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  State<_TtsSpectrumButton> createState() => _TtsSpectrumButtonState();
+}
+
+class _TtsSpectrumButtonState extends State<_TtsSpectrumButton>
+    with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: widget.tooltip,
+    style: widget.style,
+    onPressed: widget.onPressed,
+    icon: widget.loading
+        ? const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final t = _controller.value;
+              final color = Theme.of(context).colorScheme.primary;
+              Widget bar(double minH, double maxH, double phase) {
+                final v = (t + phase) % 1.0;
+                final h = minH + (maxH - minH) * (1 - (2 * v - 1).abs());
+                return Container(
+                  width: 2.5,
+                  height: h,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                );
+              }
+
+              return SizedBox(
+                width: 20,
+                height: 18,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    bar(6, 15, 0.0),
+                    bar(7, 17, 0.35),
+                    bar(5, 14, 0.7),
+                  ],
+                ),
+              );
+            },
+          ),
+  );
+}
+
 class _ChatPageState extends State<ChatPage> {
   late final TextEditingController _composer;
   final _scroll = ScrollController();
@@ -163,8 +242,10 @@ class _ChatPageState extends State<ChatPage> {
   Future<String?>? _creatingSession;
   bool _sawBot = false;
   int _lastRevision = -1;
+  SessionBuffer? _ttsBuffer;
   bool _ttsBaselineReady = false;
   int _ttsSeenItems = 0;
+  bool _ttsMutedThisChat = false;
 
   /// Which folds (a run of steps, a turn's work) stand open.
   final _foldsOpen = <(StepFoldKind, int), bool>{};
@@ -273,6 +354,7 @@ class _ChatPageState extends State<ChatPage> {
       _binding.addListener(_bindingChanged);
       widget.state.addListener(_workspaceChanged);
       _workspaceChanged();
+      _syncTtsBuffer();
       unawaited(
         _binding.settled.whenComplete(() {
           if (mounted) setState(() => _opened = true);
@@ -282,14 +364,31 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _bindingChanged() {
-    _maybeAutoReadTts();
+    _syncTtsBuffer();
     if (mounted) setState(() {});
+  }
+
+  void _syncTtsBuffer() {
+    if (widget.botId == null) return;
+    final next = _hasSession ? _buffer : null;
+    if (identical(_ttsBuffer, next)) {
+      _maybeAutoReadTts();
+      return;
+    }
+    _ttsBuffer?.removeListener(_maybeAutoReadTts);
+    _ttsBuffer = next;
+    _ttsBaselineReady = false;
+    _ttsSeenItems = 0;
+    if (next != null) {
+      next.addListener(_maybeAutoReadTts);
+      _maybeAutoReadTts();
+    }
   }
 
   void _maybeAutoReadTts() {
     if (widget.botId == null || !_hasSession) return;
-    final buffer = _buffer;
-    if (buffer.loading) return;
+    final buffer = _ttsBuffer;
+    if (buffer == null || buffer.loading) return;
     if (!_ttsBaselineReady) {
       _ttsBaselineReady = true;
       _ttsSeenItems = buffer.items.length;
@@ -302,6 +401,7 @@ class _ChatPageState extends State<ChatPage> {
     if (buffer.live) return;
     final start = _ttsSeenItems;
     _ttsSeenItems = buffer.items.length;
+    if (_ttsMutedThisChat) return;
     final botId = widget.botId!;
     if (!widget.state.botTtsConfig(widget.desktopId, botId).autoRead) return;
     String? speakText;
@@ -488,6 +588,8 @@ class _ChatPageState extends State<ChatPage> {
     _away.dispose();
     _trayFold.dispose();
     widget.state.removeListener(_workspaceChanged);
+    _ttsBuffer?.removeListener(_maybeAutoReadTts);
+    _ttsBuffer = null;
     _binding.removeListener(_bindingChanged);
     _binding.dispose();
     if (widget.botId != null) unawaited(TtsSpeaker.stop());
@@ -1391,7 +1493,24 @@ class _ChatPageState extends State<ChatPage> {
     ),
     // 右侧一个胶囊里放「新对话」和「更多」，白底黑图标。
     actions: [
-      if (widget.botId != null)
+      if (widget.botId != null) ...[
+        ValueListenableBuilder<TtsPlayState>(
+          valueListenable: TtsSpeaker.status,
+          builder: (context, playState, _) {
+            if (!playState.isActive) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Center(
+                child: _TtsSpectrumButton(
+                  loading: playState.phase == TtsPlaybackPhase.loading,
+                  style: _circleButton(context),
+                  tooltip: tr('正在朗读', 'Reading aloud'),
+                  onPressed: _openTtsControlSheet,
+                ),
+              ),
+            );
+          },
+        ),
         Padding(
           padding: const EdgeInsets.only(right: 16),
           child: Center(
@@ -1405,8 +1524,8 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
           ),
-        )
-      else
+        ),
+      ] else
         Padding(
           padding: const EdgeInsets.only(right: 16),
           child: Center(
@@ -1440,6 +1559,94 @@ class _ChatPageState extends State<ChatPage> {
   );
 
   /// 白底圆形按钮：和左侧菜单、侧栏按钮同一尺寸。
+  void _openTtsControlSheet() {
+    final botId = widget.botId;
+    if (botId == null) return;
+    final config = widget.state.botTtsConfig(widget.desktopId, botId);
+    final isSystem = widget.state.settings.ttsProvider == 'system';
+    showBottomSheetPanel<void>(
+      context,
+      title: tr('朗读', 'Read aloud'),
+      closeLabel: tr('关闭', 'Close'),
+      size: SheetSize.small,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+          children: [
+            ListTile(
+              leading: const LucideIcon('activity', size: 20),
+              title: Text(tr('角色音色', 'Character voice')),
+              subtitle: Text(
+                config.voiceLabel ?? config.voiceId ?? tr('默认', 'Default'),
+              ),
+            ),
+            ListTile(
+              leading: const LucideIcon('book-open-text', size: 20),
+              title: Text(tr('旁白音色', 'Narrator voice')),
+              subtitle: Text(
+                config.narratorVoiceLabel ??
+                    config.narratorVoiceId ??
+                    tr('同角色音色', 'Same as character'),
+              ),
+            ),
+            if (isSystem)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(tr('语速', 'Rate')),
+                        Text(
+                          '${widget.state.settings.ttsRate.toStringAsFixed(2)}x',
+                        ),
+                      ],
+                    ),
+                    Slider(
+                      value: widget.state.settings.ttsRate,
+                      min: 0.75,
+                      max: 1.75,
+                      divisions: 4,
+                      onChanged: (value) async {
+                        await widget.state.setTtsSettings(rate: value);
+                        setSheetState(() {});
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ListTile(
+              leading: const LucideIcon('circle-pause', size: 20),
+              title: Text(tr('停止朗读', 'Stop reading')),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                unawaited(TtsSpeaker.stop());
+              },
+            ),
+            ListTile(
+              leading: const LucideIcon('bell-off', size: 20),
+              title: Text(tr('本次关闭自动朗读', 'Mute auto-read for this chat')),
+              subtitle: Text(
+                tr(
+                  '再打开这个聊天时，会恢复自动朗读。',
+                  'Auto-read resumes next time you open this chat.',
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                setState(() => _ttsMutedThisChat = true);
+                unawaited(TtsSpeaker.stop());
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   ButtonStyle _circleButton(BuildContext context) =>
       IconButton.styleFrom(
         fixedSize: const Size.square(MobileSizes.iconButton),

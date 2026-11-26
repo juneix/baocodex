@@ -95,6 +95,9 @@ class AppSettings {
   String ttsProvider = 'system';
   String? ttsCloudModel;
   double ttsRate = 1.0;
+  double ttsPitch = 1.0;
+  double ttsStability = 0.5;
+  String? ttsMimoStyle;
   Map<(String, String), BotTtsConfig> botTts = {};
   String name = '';
   String gender = '';
@@ -159,6 +162,13 @@ class AppSettings {
     settings.ttsRate = ((json['ttsRate'] as num?)?.toDouble() ?? 1.0)
         .clamp(0.5, 2.0)
         .toDouble();
+    settings.ttsPitch = ((json['ttsPitch'] as num?)?.toDouble() ?? 1.0)
+        .clamp(0.5, 1.5)
+        .toDouble();
+    settings.ttsStability = ((json['ttsStability'] as num?)?.toDouble() ?? 0.5)
+        .clamp(0.0, 1.0)
+        .toDouble();
+    settings.ttsMimoStyle = json['ttsMimoStyle'] as String?;
     if (json['botTts'] case final List<Object?> entries) {
       for (final entry in entries) {
         if (entry is Map &&
@@ -203,6 +213,9 @@ class AppSettings {
     'ttsProvider': ttsProvider,
     'ttsCloudModel': ttsCloudModel,
     'ttsRate': ttsRate,
+    'ttsPitch': ttsPitch,
+    'ttsStability': ttsStability,
+    if (ttsMimoStyle != null) 'ttsMimoStyle': ttsMimoStyle,
     'botTts': [
       for (final entry in botTts.entries)
         {

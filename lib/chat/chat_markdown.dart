@@ -21,10 +21,12 @@ class ChatMarkdown extends StatefulWidget {
     required this.text,
     this.projectId,
     this.botId,
+    this.selectable = true,
   });
   final AppState state;
   final String desktopId, text;
   final String? projectId, botId;
+  final bool selectable;
 
   @override
   State<ChatMarkdown> createState() => _ChatMarkdownState();
@@ -132,17 +134,16 @@ class _ChatMarkdownState extends State<ChatMarkdown> {
         .firstOrNull
         ?.project
         .path;
+    final markdown = MarkdownView(
+      widget.text,
+      style: MobileTheme.messageStyleOf(context),
+      options: _options,
+    );
     return CodeCitationScope(
       root: root,
       onOpen: _hasFiles ? _openCitation : null,
       colorizeBlock: _colorizeBlock,
-      child: SelectionArea(
-        child: MarkdownView(
-          widget.text,
-          style: MobileTheme.messageStyleOf(context),
-          options: _options,
-        ),
-      ),
+      child: widget.selectable ? SelectionArea(child: markdown) : markdown,
     );
   }
 }

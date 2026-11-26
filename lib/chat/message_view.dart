@@ -302,12 +302,13 @@ class MessageView extends StatelessWidget {
     );
   }
 
-  Widget _prose(String text) => ChatMarkdown(
+  Widget _prose(String text, {bool selectable = true}) => ChatMarkdown(
     state: state,
     desktopId: desktopId,
     projectId: projectId,
     botId: bot?.bot.id,
     text: text,
+    selectable: selectable,
   );
 
   Widget _fold(

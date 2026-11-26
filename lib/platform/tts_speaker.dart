@@ -2,9 +2,24 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../state/app_state.dart';
+
+enum TtsPlaybackPhase { idle, loading, playing }
+
+class TtsPlayState {
+  const TtsPlayState({
+    this.phase = TtsPlaybackPhase.idle,
+    this.activeId,
+  });
+
+  final TtsPlaybackPhase phase;
+  final String? activeId;
+
+  bool get isActive => phase != TtsPlaybackPhase.idle;
+}
 
 /// 语音朗读音色条目（本地系统音色或云端音色）。
 class TtsVoice {
@@ -13,6 +28,7 @@ class TtsVoice {
     required this.locale,
     this.id,
     this.description,
+    this.previewUrl,
   });
 
   /// 展示名称（系统音色即其唯一名；云端音色为可读名称）。
@@ -22,6 +38,7 @@ class TtsVoice {
   /// 云端音色 ID；系统音色为 null（直接用 [name]）。
   final String? id;
   final String? description;
+  final String? previewUrl;
 
   String get effectiveId => id ?? name;
 }
@@ -39,6 +56,9 @@ abstract final class TtsSpeaker {
   static const _channel = MethodChannel('local.baocode.mobile/platform');
   static const _timeout = Duration(seconds: 20);
   static int _playEpoch = 0;
+
+  /// 当前全局朗读状态：供播放按钮切换「加载/暂停」及聊天页右上角频谱指示使用。
+  static final status = ValueNotifier<TtsPlayState>(const TtsPlayState());
 
   static const elevenLabsModels = [
     ('eleven_multilingual_v2', 'Eleven Multilingual v2'),
@@ -82,15 +102,22 @@ abstract final class TtsSpeaker {
     AppState state,
     String rawText, {
     required String voiceId,
-  }) {
+  }) async {
     final epoch = ++_playEpoch;
-    return _speakSegment(
-      state,
-      rawText,
-      provider: state.settings.ttsProvider,
-      voiceId: voiceId,
-      epoch: epoch,
-    );
+    try {
+      return await _speakSegment(
+        state,
+        rawText,
+        provider: state.settings.ttsProvider,
+        voiceId: voiceId,
+        activeId: voiceId,
+        epoch: epoch,
+      );
+    } finally {
+      if (_playEpoch == epoch) {
+        status.value = const TtsPlayState();
+      }
+    }
   }
 
   /// 按指定 Bot 的角色/旁白音色配置分角色队列朗读。
@@ -106,22 +133,29 @@ abstract final class TtsSpeaker {
     final segments = splitBotTtsSegments(rawText);
     if (segments.isEmpty) return false;
     var playedAny = false;
-    for (final segment in segments) {
-      if (_playEpoch != epoch) return playedAny;
-      final voiceId = segment.isNarrator
-          ? (config.narratorVoiceId ?? config.voiceId)
-          : config.voiceId;
-      final ok = await _speakSegment(
-        state,
-        segment.text,
-        provider: provider,
-        voiceId: voiceId,
-        epoch: epoch,
-      );
-      if (!ok) return playedAny;
-      playedAny = true;
+    try {
+      for (final segment in segments) {
+        if (_playEpoch != epoch) return playedAny;
+        final voiceId = segment.isNarrator
+            ? (config.narratorVoiceId ?? config.voiceId)
+            : config.voiceId;
+        final ok = await _speakSegment(
+          state,
+          segment.text,
+          provider: provider,
+          voiceId: voiceId,
+          activeId: 'bot:$botId',
+          epoch: epoch,
+        );
+        if (!ok) return playedAny;
+        playedAny = true;
+      }
+      return playedAny;
+    } finally {
+      if (_playEpoch == epoch) {
+        status.value = const TtsPlayState();
+      }
     }
-    return playedAny;
   }
 
   /// 按当前全局配置拉取可用音色列表。
@@ -139,19 +173,29 @@ abstract final class TtsSpeaker {
     String rawText, {
     required String provider,
     required String? voiceId,
+    required String activeId,
     required int epoch,
   }) async {
     if (_playEpoch != epoch) return false;
     final settings = state.settings;
     if (provider == 'system') {
+      status.value = TtsPlayState(
+        phase: TtsPlaybackPhase.playing,
+        activeId: activeId,
+      );
       return speak(
         rawText,
         voice: voiceId,
         rate: settings.ttsRate,
+        pitch: settings.ttsPitch,
       );
     }
     final text = cleanTextForTts(rawText);
     if (text.isEmpty) return false;
+    status.value = TtsPlayState(
+      phase: TtsPlaybackPhase.loading,
+      activeId: activeId,
+    );
     final apiKey = await state.ttsApiKey(provider);
     if (_playEpoch != epoch) return false;
     if (apiKey == null || apiKey.trim().isEmpty) return false;
@@ -163,8 +207,14 @@ abstract final class TtsSpeaker {
         voiceId: voiceId,
         modelId: modelId,
         text: text,
+        speed: settings.ttsRate.clamp(0.7, 1.2).toDouble(),
+        stability: settings.ttsStability,
       );
       if (_playEpoch != epoch) return false;
+      status.value = TtsPlayState(
+        phase: TtsPlaybackPhase.playing,
+        activeId: activeId,
+      );
       return playAudio(bytes, ext: 'mp3');
     }
     if (provider == 'mimo') {
@@ -175,17 +225,57 @@ abstract final class TtsSpeaker {
         voiceId: effectiveVoice,
         modelId: modelId,
         text: text,
+        stylePrompt: settings.ttsMimoStyle,
       );
       if (_playEpoch != epoch) return false;
+      status.value = TtsPlayState(
+        phase: TtsPlaybackPhase.playing,
+        activeId: activeId,
+      );
       return playAudio(bytes, ext: 'wav');
     }
     return false;
+  }
+
+  /// 播放官方提供的免费样音 URL（不消耗合成额度）。
+  static Future<bool> playSampleUrl(String url, {required String activeId}) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.scheme != 'https') return false;
+    final epoch = ++_playEpoch;
+    status.value = TtsPlayState(
+      phase: TtsPlaybackPhase.loading,
+      activeId: activeId,
+    );
+    final client = HttpClient()..connectionTimeout = _timeout;
+    try {
+      final request = await client.getUrl(uri).timeout(_timeout);
+      final response = await request.close().timeout(_timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return false;
+      }
+      final builder = BytesBuilder(copy: false);
+      await for (final chunk in response.timeout(_timeout)) {
+        builder.add(chunk);
+      }
+      if (_playEpoch != epoch) return false;
+      status.value = TtsPlayState(
+        phase: TtsPlaybackPhase.playing,
+        activeId: activeId,
+      );
+      return await playAudio(builder.takeBytes(), ext: 'mp3');
+    } finally {
+      client.close(force: true);
+      if (_playEpoch == epoch) {
+        status.value = const TtsPlayState();
+      }
+    }
   }
 
   static Future<bool> speak(
     String rawText, {
     String? voice,
     double rate = 1.0,
+    double pitch = 1.0,
   }) async {
     final text = cleanTextForTts(rawText);
     if (text.isEmpty) return false;
@@ -194,6 +284,7 @@ abstract final class TtsSpeaker {
         'text': text,
         'voice': voice,
         'rate': rate.clamp(0.5, 2.0).toDouble(),
+        'pitch': pitch.clamp(0.5, 1.5).toDouble(),
       });
       return ok == true;
     } on MissingPluginException {
@@ -220,6 +311,7 @@ abstract final class TtsSpeaker {
 
   static Future<void> stop() async {
     _playEpoch++;
+    status.value = const TtsPlayState();
     try {
       await _channel.invokeMethod<void>('ttsStop');
     } on MissingPluginException {
@@ -239,7 +331,11 @@ abstract final class TtsSpeaker {
             'name': final String name,
             'locale': final String locale,
           } when name.isNotEmpty)
-            TtsVoice(name: name, locale: locale),
+            TtsVoice(
+              name: _friendlySystemVoiceName(name),
+              id: name,
+              locale: entry['network'] == true ? '$locale · 在线' : locale,
+            ),
       ];
     } on MissingPluginException {
       return const [];
@@ -287,11 +383,19 @@ abstract final class TtsSpeaker {
           if (v is String && v.trim().isNotEmpty) tags.add(v.trim());
         }
       }
+      final description = entry['description'] as String?;
+      final previewUrl = entry['preview_url'] as String?;
       result.add(
         TtsVoice(
           name: name,
           id: id,
           locale: tags.isEmpty ? 'ElevenLabs' : tags.join(' · '),
+          description: description?.trim().isNotEmpty == true
+              ? description!.trim()
+              : null,
+          previewUrl: previewUrl?.trim().isNotEmpty == true
+              ? previewUrl!.trim()
+              : null,
         ),
       );
     }
@@ -303,6 +407,8 @@ abstract final class TtsSpeaker {
     required String voiceId,
     required String modelId,
     required String text,
+    double speed = 1.0,
+    double stability = 0.5,
   }) async {
     final client = HttpClient()..connectionTimeout = _timeout;
     try {
@@ -319,6 +425,10 @@ abstract final class TtsSpeaker {
         jsonEncode({
           'text': text,
           'model_id': modelId,
+          'voice_settings': {
+            'stability': stability.clamp(0.0, 1.0).toDouble(),
+            'speed': speed.clamp(0.7, 1.2).toDouble(),
+          },
         }),
       );
       final response = await request.close().timeout(_timeout);
@@ -343,6 +453,7 @@ abstract final class TtsSpeaker {
     required String voiceId,
     required String modelId,
     required String text,
+    String? stylePrompt,
   }) async {
     final client = HttpClient()..connectionTimeout = _timeout;
     try {
@@ -354,10 +465,12 @@ abstract final class TtsSpeaker {
         'Bearer ${apiKey.trim()}',
       );
       request.headers.contentType = ContentType.json;
+      final style = stylePrompt?.trim() ?? '';
       request.write(
         jsonEncode({
           'model': modelId,
           'messages': [
+            if (style.isNotEmpty) {'role': 'user', 'content': style},
             {'role': 'assistant', 'content': text},
           ],
           'audio': {
@@ -462,6 +575,16 @@ String cleanTextForTts(String raw) {
   text = text.replaceAll(_lineMarkdownMarks, ' ');
   text = text.replaceAll(_inlineMarkdownMarks, '');
   return text.replaceAll(_multiSpace, ' ').trim();
+}
+
+String _friendlySystemVoiceName(String raw) {
+  const known = {
+    'XiaoMi_M88': '青葱（小爱男声）',
+    'XiaoMi': '茉莉（小爱温柔女声）',
+    'AiNiRobot': '蜜糖（小爱甜美女声）',
+    'XiaoMi_xinran': '泡芙（小爱童声）',
+  };
+  return known[raw] ?? raw;
 }
 
 String ttsProviderLabel(AppSettings settings, String Function(String, String) tr) =>

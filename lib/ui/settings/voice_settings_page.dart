@@ -337,14 +337,380 @@ class _VoiceSettingsPageState extends State<VoiceSettingsPage> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      trailing: IconButton(
-                        tooltip: state.tr('试听', 'Preview'),
-                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                        onPressed: () => _previewVoice(voice),
+                      onTap: () => Navigator.push<void>(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => VoiceDetailPage(
+                            state: state,
+                            voice: voice,
+                          ),
+                        ),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ValueListenableBuilder<TtsPlayState>(
+                            valueListenable: TtsSpeaker.status,
+                            builder: (context, playState, _) {
+                              final active =
+                                  playState.activeId == voice.effectiveId;
+                              if (active &&
+                                  playState.phase == TtsPlaybackPhase.loading) {
+                                return IconButton(
+                                  tooltip: state.tr('取消', 'Cancel'),
+                                  icon: const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                  onPressed: () => TtsSpeaker.stop(),
+                                );
+                              }
+                              if (active &&
+                                  playState.phase == TtsPlaybackPhase.playing) {
+                                return IconButton(
+                                  tooltip: state.tr('暂停', 'Pause'),
+                                  icon: const Icon(
+                                    Icons.pause_rounded,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => TtsSpeaker.stop(),
+                                );
+                              }
+                              return IconButton(
+                                tooltip: state.tr('试听', 'Preview'),
+                                icon: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  size: 20,
+                                ),
+                                onPressed: () => _previewVoice(voice),
+                              );
+                            },
+                          ),
+                          const LucideIcon('chevron-right', size: 16),
+                        ],
                       ),
                     ),
                 ],
               ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 单个音色的详情与微调页：支持官方免费样音、自定义试读文本、语速/稳定度或 MiMo 风格微调。
+class VoiceDetailPage extends StatefulWidget {
+  const VoiceDetailPage({
+    super.key,
+    required this.state,
+    required this.voice,
+  });
+
+  final AppState state;
+  final TtsVoice voice;
+
+  @override
+  State<VoiceDetailPage> createState() => _VoiceDetailPageState();
+}
+
+class _VoiceDetailPageState extends State<VoiceDetailPage> {
+  late final TextEditingController _sampleText;
+  late final TextEditingController _mimoStyle;
+
+  AppState get state => widget.state;
+
+  @override
+  void initState() {
+    super.initState();
+    _sampleText = TextEditingController(
+      text: state.tr(
+        '你好呀，我在呢。今天想聊点什么？',
+        'Hello there, I am here. What would you like to talk about today?',
+      ),
+    );
+    _mimoStyle = TextEditingController(
+      text: state.settings.ttsMimoStyle ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _sampleText.dispose();
+    _mimoStyle.dispose();
+    super.dispose();
+  }
+
+  Future<void> _editSampleText() async {
+    final controller = TextEditingController(text: _sampleText.text);
+    final updated = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(state.tr('试读文本', 'Sample text')),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(state.tr('取消', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: Text(state.tr('确定', 'OK')),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (updated != null && updated.trim().isNotEmpty && mounted) {
+      setState(() => _sampleText.text = updated.trim());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final voice = widget.voice;
+    final sampleId = 'sample:${voice.effectiveId}';
+    return ListenableBuilder(
+      listenable: state,
+      builder: (context, _) {
+        final provider = state.settings.ttsProvider;
+        final isElevenLabs = provider == 'elevenlabs';
+        final isMimo = provider == 'mimo';
+        final rate = isElevenLabs
+            ? state.settings.ttsRate.clamp(0.7, 1.2).toDouble()
+            : state.settings.ttsRate.clamp(0.75, 1.75).toDouble();
+        return Scaffold(
+          appBar: AppBar(title: Text(voice.name)),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 4, 4, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(voice.locale, style: MobileTheme.hintStyleOf(context)),
+                    if (voice.description != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        voice.description!,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              GroupCard(
+                children: [
+                  if (voice.previewUrl != null)
+                    ValueListenableBuilder<TtsPlayState>(
+                      valueListenable: TtsSpeaker.status,
+                      builder: (context, playState, _) {
+                        final active = playState.activeId == sampleId;
+                        return ListTile(
+                          title: Text(state.tr('播放样音', 'Play sample')),
+                          trailing: active &&
+                                  playState.phase == TtsPlaybackPhase.loading
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Icon(
+                                  active &&
+                                          playState.phase ==
+                                              TtsPlaybackPhase.playing
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded,
+                                  size: 20,
+                                ),
+                          onTap: () {
+                            if (active && playState.isActive) {
+                              TtsSpeaker.stop();
+                            } else {
+                              runUi(
+                                context,
+                                () => TtsSpeaker.playSampleUrl(
+                                  voice.previewUrl!,
+                                  activeId: sampleId,
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  SettingsRow(
+                    state.tr('试读文本', 'Sample text'),
+                    value: _sampleText.text,
+                    onTap: _editSampleText,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ValueListenableBuilder<TtsPlayState>(
+                valueListenable: TtsSpeaker.status,
+                builder: (context, playState, _) {
+                  final active = playState.activeId == voice.effectiveId;
+                  final loading =
+                      active && playState.phase == TtsPlaybackPhase.loading;
+                  final playing =
+                      active && playState.phase == TtsPlaybackPhase.playing;
+                  return FilledButton.icon(
+                    style: MobileSizes.wideButton,
+                    onPressed: () {
+                      if (active && playState.isActive) {
+                        TtsSpeaker.stop();
+                      } else {
+                        runUi(
+                          context,
+                          () => TtsSpeaker.previewForState(
+                            state,
+                            _sampleText.text,
+                            voiceId: voice.effectiveId,
+                          ),
+                        );
+                      }
+                    },
+                    icon: loading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            playing
+                                ? Icons.pause_rounded
+                                : Icons.graphic_eq_rounded,
+                            size: 20,
+                          ),
+                    label: Text(
+                      loading
+                          ? state.tr('生成中…', 'Generating…')
+                          : playing
+                          ? state.tr('停止试读', 'Stop')
+                          : state.tr('试读', 'Test voice'),
+                    ),
+                  );
+                },
+              ),
+              SectionLabel(state.tr('调节', 'Tuning')),
+              GroupCard(
+                children: [
+                  if (!isMimo)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(state.tr('语速', 'Speed')),
+                              Text('${rate.toStringAsFixed(2)}x'),
+                            ],
+                          ),
+                          Slider(
+                            value: rate,
+                            min: isElevenLabs ? 0.7 : 0.75,
+                            max: isElevenLabs ? 1.2 : 1.75,
+                            divisions: isElevenLabs ? 5 : 4,
+                            onChanged: (value) =>
+                                state.setTtsSettings(rate: value),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (!isElevenLabs && !isMimo)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(state.tr('音高', 'Pitch')),
+                              Text(
+                                '${state.settings.ttsPitch.toStringAsFixed(2)}x',
+                              ),
+                            ],
+                          ),
+                          Slider(
+                            value: state.settings.ttsPitch.clamp(0.5, 1.5),
+                            min: 0.5,
+                            max: 1.5,
+                            divisions: 10,
+                            onChanged: (value) =>
+                                state.setTtsSettings(pitch: value),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (isElevenLabs)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(state.tr('稳定度', 'Stability')),
+                              Text(
+                                '${(state.settings.ttsStability * 100).round()}%',
+                              ),
+                            ],
+                          ),
+                          Slider(
+                            value: state.settings.ttsStability,
+                            min: 0.0,
+                            max: 1.0,
+                            divisions: 10,
+                            onChanged: (value) =>
+                                state.setTtsSettings(stability: value),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (isMimo)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: TextField(
+                        controller: _mimoStyle,
+                        decoration: InputDecoration(
+                          labelText: state.tr('风格指令（可选）', 'Style prompt (optional)'),
+                          hintText: state.tr(
+                            '例如：温柔一点，语速稍慢',
+                            'e.g. Warm and slightly slower',
+                          ),
+                        ),
+                        onSubmitted: (value) =>
+                            state.setTtsSettings(mimoStyle: value),
+                        onTapOutside: (_) =>
+                            state.setTtsSettings(mimoStyle: _mimoStyle.text),
+                      ),
+                    ),
+                ],
+              ),
+              if (isElevenLabs)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 10, 4, 4),
+                  child: Text(
+                    state.tr(
+                      '稳定度越低越有感情，每次读得越不一样；越高越平稳。',
+                      'Lower stability adds expressiveness; higher values keep delivery more consistent.',
+                    ),
+                    style: MobileTheme.hintStyleOf(context),
+                  ),
+                ),
             ],
           ),
         );

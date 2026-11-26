@@ -1045,6 +1045,9 @@ class AppState extends ChangeNotifier {
     String? provider,
     String? cloudModel,
     double? rate,
+    double? pitch,
+    double? stability,
+    String? mimoStyle,
   }) async {
     if (provider != null) settings.ttsProvider = provider;
     if (cloudModel != null) {
@@ -1052,6 +1055,16 @@ class AppState extends ChangeNotifier {
     }
     if (rate != null) {
       settings.ttsRate = rate.clamp(0.5, 2.0).toDouble();
+    }
+    if (pitch != null) {
+      settings.ttsPitch = pitch.clamp(0.5, 1.5).toDouble();
+    }
+    if (stability != null) {
+      settings.ttsStability = stability.clamp(0.0, 1.0).toDouble();
+    }
+    if (mimoStyle != null) {
+      final trimmed = mimoStyle.trim();
+      settings.ttsMimoStyle = trimmed.isEmpty ? null : trimmed;
     }
     await saveSettings();
   }

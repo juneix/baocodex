@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.5
+
+Fixes Bot auto-read and bubble long-press interactions, adds voice tuning pages, and optimizes Xiaomi HyperOS system TTS.
+
+- Bot auto-read & bubble menu: attaches the TTS listener directly to `SessionBuffer` so auto-read fires reliably when a Bot turn completes; disables inner `SelectionArea` on Bot bubbles so long-pressing always opens the 3-action bottom sheet (`Copy`, `Read aloud`, `Select text`) with press feedback.
+- Live playback feedback & top-bar spectrum: preview buttons in voice lists show loading/pause states; Bot chat AppBar displays a live spectrum button while reading to adjust rate or stop/mute playback for the current chat.
+- Voice tuning & HyperOS TTS: tapping any voice opens a detail page (official sample preview + stability/speed for ElevenLabs, style prompt for MiMo, speed + pitch for System TTS); waits for `TextToSpeech.onInit` before listing voices and preserves Xiaomi online/hybrid voices.
+
 ## 1.1.4
 
 Adds Voice read-aloud (Beta) with System TTS, ElevenLabs, and Xiaomi MiMo, plus per-bot character/narrator voices and Bot chat polish.
