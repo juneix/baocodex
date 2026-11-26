@@ -73,7 +73,8 @@ final _botOpenOrCloseTag = RegExp(
 final _fencedCodeBlock = RegExp(r'```[\s\S]*?```');
 final _markdownLink = RegExp(r'\[([^\]]+)\]\([^\)]+\)');
 final _urlPattern = RegExp(r'https?://\S+');
-final _markdownMarks = RegExp(r'(^|\s)[#>*~`]+|[*_`]+');
+final _lineMarkdownMarks = RegExp(r'(^|\s)[#>*~`]+');
+final _inlineMarkdownMarks = RegExp(r'[*_`]+');
 final _multiSpace = RegExp(r'\s+');
 
 /// 剥离 Bot XML 标签、代码块与 Markdown 符号，只保留适合朗读的自然语言。
@@ -83,6 +84,7 @@ String cleanTextForTts(String raw) {
   text = text.replaceAll(_fencedCodeBlock, ' ');
   text = text.replaceAllMapped(_markdownLink, (m) => m[1] ?? '');
   text = text.replaceAll(_urlPattern, ' ');
-  text = text.replaceAll(_markdownMarks, ' ');
+  text = text.replaceAll(_lineMarkdownMarks, ' ');
+  text = text.replaceAll(_inlineMarkdownMarks, '');
   return text.replaceAll(_multiSpace, ' ').trim();
 }

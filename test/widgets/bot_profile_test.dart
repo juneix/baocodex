@@ -200,6 +200,8 @@ void main() {
     );
     final toggle = find.byKey(const ValueKey('bot-ability-browser'));
     await tester.scrollUntilVisible(toggle, 160);
+    await tester.ensureVisible(toggle);
+    await tester.pumpAndSettle();
     await tester.tap(toggle);
     await tester.pumpAndSettle();
     final (method, params) = state.calls.single;
