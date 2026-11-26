@@ -401,21 +401,20 @@ class _ChatPageState extends State<ChatPage> {
     if (_ttsMutedThisChat) return;
     final botId = widget.botId!;
     if (!widget.state.botTtsConfig(widget.desktopId, botId).autoRead) return;
-    String? speakText;
-    for (var i = buffer.items.length - 1; i >= start; i--) {
+    final parts = <String>[];
+    for (var i = start; i < buffer.items.length; i++) {
       final decoded = ChatCodec.decode(buffer.items[i]);
       if (decoded is AssistantTextItem && decoded.text.trim().isNotEmpty) {
-        speakText = decoded.text;
-        break;
+        parts.add(decoded.text);
       }
     }
-    if (speakText != null) {
+    if (parts.isNotEmpty) {
       unawaited(
         TtsSpeaker.speakForBot(
           widget.state,
           desktopId: widget.desktopId,
           botId: botId,
-          rawText: speakText,
+          rawText: parts.join('\n'),
         ),
       );
     }

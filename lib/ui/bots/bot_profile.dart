@@ -112,6 +112,7 @@ class _BotProfileViewState extends State<_BotProfileView> {
         'proactive': current.proactive.toJson(),
       }, chatOnly: nextChatOnly, writesFirst: writesFirst ?? current.writesFirst);
       if (mounted) setState(() => _saved = saved);
+      state.refreshDesktopState(desktopId).ignore();
     } on BotModeUnconfirmed {
       if (!mounted) return;
       setState(() => _saved = saver.saved);

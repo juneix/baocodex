@@ -85,9 +85,10 @@ abstract final class ChatCodec {
   /// What a bot suggests the user send next ([botSuggestTag]).
   static List<String> botSuggestions(String text) => {
     for (final match in _botSuggestions.allMatches(text))
-      if (match[1]!.trim() case final said
-          when said.isNotEmpty && said.length <= 120 && !said.contains('\n'))
-        said,
+      for (final line in match[1]!.split('\n'))
+        if (line.trim() case final said
+            when said.isNotEmpty && said.length <= 120)
+          said,
   }.take(3).toList();
 
   static final _botSuggestions = RegExp(

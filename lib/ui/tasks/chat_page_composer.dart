@@ -779,8 +779,8 @@ extension _Composer on _ChatPageState {
           if (item.suggestions.isNotEmpty) return item.suggestions;
         } else {
           if (item.suggestions.isNotEmpty) return item.suggestions;
+          return const [];
         }
-        return const [];
       }
     }
     return const [];

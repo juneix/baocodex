@@ -121,6 +121,7 @@ abstract final class TtsSpeaker {
   }
 
   /// 按指定 Bot 的角色/旁白音色配置分角色队列朗读。
+  /// 云端合成（MiMo / ElevenLabs）在播放当前段时预取下一段，减少段间停顿。
   static Future<bool> speakForBot(
     AppState state, {
     required String desktopId,
@@ -132,21 +133,73 @@ abstract final class TtsSpeaker {
     final config = state.botTtsConfig(desktopId, botId);
     final segments = splitBotTtsSegments(rawText);
     if (segments.isEmpty) return false;
+    final activeId = 'bot:$botId';
     var playedAny = false;
     try {
-      for (final segment in segments) {
+      if (provider == 'system') {
+        for (final segment in segments) {
+          if (_playEpoch != epoch) return playedAny;
+          final voiceId = segment.isNarrator
+              ? (config.narratorVoiceId ?? config.voiceId)
+              : config.voiceId;
+          final ok = await _speakSegment(
+            state,
+            segment.text,
+            provider: provider,
+            voiceId: voiceId,
+            activeId: activeId,
+            epoch: epoch,
+          );
+          if (!ok) return playedAny;
+          playedAny = true;
+        }
+        return playedAny;
+      }
+
+      String? voiceFor(TtsSegment segment) => segment.isNarrator
+          ? (config.narratorVoiceId ?? config.voiceId)
+          : config.voiceId;
+
+      Future<({({Uint8List bytes, String ext})? audio, Object? error})>?
+      nextPrefetch;
+
+      for (var i = 0; i < segments.length; i++) {
         if (_playEpoch != epoch) return playedAny;
-        final voiceId = segment.isNarrator
-            ? (config.narratorVoiceId ?? config.voiceId)
-            : config.voiceId;
-        final ok = await _speakSegment(
-          state,
-          segment.text,
-          provider: provider,
-          voiceId: voiceId,
-          activeId: 'bot:$botId',
-          epoch: epoch,
+        status.value = TtsPlayState(
+          phase: TtsPlaybackPhase.loading,
+          activeId: activeId,
         );
+        final prefetched = nextPrefetch != null
+            ? await nextPrefetch
+            : await _prefetchCloudAudio(
+                state,
+                segments[i].text,
+                provider: provider,
+                voiceId: voiceFor(segments[i]),
+                epoch: epoch,
+              );
+        nextPrefetch = null;
+        if (prefetched.error != null) {
+          Error.throwWithStackTrace(prefetched.error!, StackTrace.current);
+        }
+        final audio = prefetched.audio;
+        if (audio == null || _playEpoch != epoch) return playedAny;
+
+        if (i + 1 < segments.length) {
+          nextPrefetch = _prefetchCloudAudio(
+            state,
+            segments[i + 1].text,
+            provider: provider,
+            voiceId: voiceFor(segments[i + 1]),
+            epoch: epoch,
+          );
+        }
+
+        status.value = TtsPlayState(
+          phase: TtsPlaybackPhase.playing,
+          activeId: activeId,
+        );
+        final ok = await playAudio(audio.bytes, ext: audio.ext);
         if (!ok) return playedAny;
         playedAny = true;
       }
@@ -156,6 +209,72 @@ abstract final class TtsSpeaker {
         status.value = const TtsPlayState();
       }
     }
+  }
+
+  static Future<({({Uint8List bytes, String ext})? audio, Object? error})>
+  _prefetchCloudAudio(
+    AppState state,
+    String rawText, {
+    required String provider,
+    required String? voiceId,
+    required int epoch,
+  }) async {
+    try {
+      final audio = await _synthesizeCloudAudio(
+        state,
+        rawText,
+        provider: provider,
+        voiceId: voiceId,
+        epoch: epoch,
+      );
+      return (audio: audio, error: null);
+    } catch (error) {
+      return (audio: null, error: error);
+    }
+  }
+
+  static Future<({Uint8List bytes, String ext})?> _synthesizeCloudAudio(
+    AppState state,
+    String rawText, {
+    required String provider,
+    required String? voiceId,
+    required int epoch,
+  }) async {
+    if (_playEpoch != epoch) return null;
+    final text = cleanTextForTts(rawText);
+    if (text.isEmpty) return null;
+    final apiKey = await state.ttsApiKey(provider);
+    if (_playEpoch != epoch) return null;
+    if (apiKey == null || apiKey.trim().isEmpty) return null;
+    final settings = state.settings;
+    if (provider == 'elevenlabs') {
+      if (voiceId == null || voiceId.isEmpty) return null;
+      final modelId = settings.ttsCloudModel ?? elevenLabsModels.first.$1;
+      final bytes = await synthesizeElevenLabs(
+        apiKey: apiKey,
+        voiceId: voiceId,
+        modelId: modelId,
+        text: text,
+        speed: settings.ttsRate.clamp(0.7, 1.2).toDouble(),
+        stability: settings.ttsStability,
+      );
+      if (_playEpoch != epoch) return null;
+      return (bytes: bytes, ext: 'mp3');
+    }
+    if (provider == 'mimo') {
+      final effectiveVoice = voiceId ?? 'mimo_default';
+      final modelId = settings.ttsCloudModel ?? mimoModels.first.$1;
+      final bytes = await synthesizeMimo(
+        apiKey: apiKey,
+        voiceId: effectiveVoice,
+        modelId: modelId,
+        text: text,
+        stylePrompt: settings.ttsMimoStyle,
+      );
+      if (_playEpoch != epoch) return null;
+      return (bytes: bytes, ext: 'wav');
+    }
+    return null;
   }
 
   /// 按当前全局配置拉取可用音色列表。
@@ -518,6 +637,11 @@ final _botSuggestBlock = RegExp(
 final _botOpenOrCloseTag = RegExp(
   r'</?(?:bot_say|bot_narrate|bot_show_chat)(?:\s+[^>]*)?>',
 );
+final _htmlHeavyBlock = RegExp(
+  r'<(?:details|script|style|head|svg)\b[\s\S]*?</(?:details|script|style|head|svg)>',
+  caseSensitive: false,
+);
+final _htmlTag = RegExp(r'<[^>]+>');
 final _fencedCodeBlock = RegExp(r'```[\s\S]*?```');
 final _markdownLink = RegExp(r'\[([^\]]+)\]\([^\)]+\)');
 final _urlPattern = RegExp(r'https?://\S+');
@@ -531,16 +655,17 @@ final _botTagSegment = RegExp(
 );
 
 /// 按 `<bot_say>` 与 `<bot_narrate>` 顺序拆成可分角色朗读的片段。
+/// 含有 Bot 标记时，严格只提取标签内部可见对白/旁白，忽略标签外的工具或网页原文。
 List<TtsSegment> splitBotTtsSegments(String raw) {
+  final matches = _botTagSegment.allMatches(raw).toList();
+  if (matches.isEmpty) {
+    final plain = cleanTextForTts(raw);
+    return plain.isEmpty
+        ? const []
+        : [TtsSegment(isNarrator: false, text: plain)];
+  }
   final segments = <TtsSegment>[];
-  var cursor = 0;
-  for (final match in _botTagSegment.allMatches(raw)) {
-    if (match.start > cursor) {
-      final plain = cleanTextForTts(raw.substring(cursor, match.start));
-      if (plain.isNotEmpty) {
-        segments.add(TtsSegment(isNarrator: false, text: plain));
-      }
-    }
+  for (final match in matches) {
     final tag = match[1];
     final body = match[2] ?? '';
     if (tag == 'bot_narrate') {
@@ -554,21 +679,23 @@ List<TtsSegment> splitBotTtsSegments(String raw) {
         segments.add(TtsSegment(isNarrator: false, text: cleaned));
       }
     }
-    cursor = match.end;
-  }
-  if (cursor < raw.length) {
-    final tail = cleanTextForTts(raw.substring(cursor));
-    if (tail.isNotEmpty) {
-      segments.add(TtsSegment(isNarrator: false, text: tail));
-    }
   }
   return segments;
 }
 
-/// 剥离 Bot XML 标签、代码块与 Markdown 符号，只保留适合朗读的自然语言。
+/// 剥离 Bot XML 标签、HTML 标签、代码块与 Markdown 符号，只保留适合朗读的自然语言。
 String cleanTextForTts(String raw) {
   var text = raw.replaceAll(_botSuggestBlock, ' ');
   text = text.replaceAll(_botOpenOrCloseTag, ' ');
+  text = text.replaceAll(_htmlHeavyBlock, ' ');
+  text = text.replaceAll(_htmlTag, ' ');
+  text = text
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&amp;', '&')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', "'");
   text = text.replaceAll(_fencedCodeBlock, ' ');
   text = text.replaceAllMapped(_markdownLink, (m) => m[1] ?? '');
   text = text.replaceAll(_urlPattern, ' ');
