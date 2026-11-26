@@ -300,4 +300,46 @@ void main() {
       expect((result.items[1] as PlanItem).status, PlanStatus.expired);
     });
   });
+
+  test('折叠行与统计尾栏同时存在时两者都在', () {
+    final rows = foldRows(
+      [
+        const UserMessageItem(
+          text: '跑一下',
+          worked: Duration(seconds: 42),
+          usage: TurnUsage(inputTokens: 1200, outputTokens: 340),
+        ),
+        _read('a.dart'),
+        _read('b.dart'),
+        const AssistantTextItem('好了'),
+      ],
+      live: false,
+      isOpen: (_) => false,
+    );
+    final fold = rows.where((row) => row.work != null).toList();
+    expect(fold, hasLength(1), reason: '回合的活收成一行');
+    expect(fold.single.work!.worked, const Duration(seconds: 42));
+    final withFooter = rows.where((row) => row.footer != null).toList();
+    expect(withFooter, hasLength(1), reason: '统计尾栏不能被折叠吞掉');
+    expect(withFooter.single.footer!.worked, const Duration(seconds: 42));
+    expect(withFooter.single.footer!.usage!.totalTokens, 1540);
+  });
+
+  test('用户停止的回合能够被折叠识别并标记 stopped', () {
+    final rows = foldRows(
+      [
+        const UserMessageItem(
+          text: '处理中停止',
+          worked: Duration(seconds: 5),
+          stopped: true,
+        ),
+        _read('a.dart'),
+        _read('b.dart'),
+        const NoticeItem(NoticeKind.error, 'Turn stopped'),
+      ],
+      live: false,
+      isOpen: (_) => false,
+    );
+    expect(rows.any((r) => r.work?.stopped == true), isTrue);
+  });
 }

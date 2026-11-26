@@ -28,6 +28,7 @@ class ChatItemView extends StatelessWidget {
     this.onOpen,
     this.onSetGoal,
     this.onOpenFile,
+    this.modelMenu = const [],
   });
 
   final ChatItem item;
@@ -46,6 +47,8 @@ class ChatItemView extends StatelessWidget {
 
   /// Reads a file off the paired desktop.
   final void Function(String path)? onOpenFile;
+
+  final List<ListedModel> modelMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -104,6 +107,7 @@ class ChatItemView extends StatelessWidget {
         item: agent,
         onOpen: onOpen,
         strings: AgentStrings(zh),
+        modelMenu: modelMenu,
       ),
       final NoticeItem notice => NoticeRow(item: notice),
       final PlanItem plan => PlanCard(

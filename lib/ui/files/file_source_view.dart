@@ -461,35 +461,33 @@ class _FileSourceViewState extends State<FileSourceView> {
     child: PageZoom(
       vertical: _vertical,
       horizontal: _horizontal,
-      builder: (context, physics, _) => SelectionArea(
-        child: LayoutBuilder(
-          builder: (context, box) {
-            _layout(box.maxWidth);
-            final list = Scrollbar(
+      builder: (context, physics, _) => LayoutBuilder(
+        builder: (context, box) {
+          _layout(box.maxWidth);
+          final list = Scrollbar(
+            controller: _vertical,
+            child: ListView.builder(
+              key: PageStorageKey(('file-source', widget.path)),
               controller: _vertical,
-              child: ListView.builder(
-                key: PageStorageKey(('file-source', widget.path)),
-                controller: _vertical,
-                physics: physics,
-                padding: const EdgeInsets.symmetric(vertical: _padding),
-                itemCount: _lines.length,
-                itemExtentBuilder: (index, _) => _heights[index],
-                itemBuilder: _row,
-              ),
-            );
-            if (_wrap) return list;
-            return SingleChildScrollView(
-              controller: _horizontal,
               physics: physics,
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: _contentWidth,
-                height: box.maxHeight,
-                child: list,
-              ),
-            );
-          },
-        ),
+              padding: const EdgeInsets.symmetric(vertical: _padding),
+              itemCount: _lines.length,
+              itemExtentBuilder: (index, _) => _heights[index],
+              itemBuilder: _row,
+            ),
+          );
+          if (_wrap) return list;
+          return SingleChildScrollView(
+            controller: _horizontal,
+            physics: physics,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: _contentWidth,
+              height: box.maxHeight,
+              child: list,
+            ),
+          );
+        },
       ),
     ),
   );

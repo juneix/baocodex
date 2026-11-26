@@ -66,4 +66,11 @@ void main() {
     expect(side(diff, LineChange.added), before);
     expect(side(diff, LineChange.removed), after);
   });
+
+  test('CRLF 换行符正常去除，不产生整篇换行差异', () {
+    const before = 'hello\r\nworld\r\n';
+    const after = 'hello\nworld\n';
+    final diff = lineDiff(before, after);
+    expect(diff.where((l) => l.kind != LineChange.context), isEmpty);
+  });
 }

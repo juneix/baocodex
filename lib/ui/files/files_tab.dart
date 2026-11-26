@@ -7,6 +7,7 @@ import 'package:markdown/markdown.dart' as md;
 
 import '../../link/phone_link.dart' show KeptDesktop;
 import '../../state/app_state.dart';
+import '../../state/upload_file.dart';
 import '../../platform/file_export.dart';
 import '../../chat/markdown/markdown_view.dart';
 import '../../theme/material_file_icons.dart' as material_icons;
@@ -117,6 +118,7 @@ class FilesPage extends StatefulWidget {
     this.prefix = '',
     this.listing,
     this.picking = false,
+    this.rootRoute,
   });
   final AppState state;
   final ProjectRef project;
@@ -125,6 +127,7 @@ class FilesPage extends StatefulWidget {
 
   /// 对话里 @ 文件时用：点文件不打开，而是把它的路径带回去（一层层退回）。
   final bool picking;
+  final Route<dynamic>? rootRoute;
   @override
   State<FilesPage> createState() => _FilesPageState();
 }
@@ -133,6 +136,62 @@ class _FilesPageState extends State<FilesPage> {
   late Future<Map<String, Object?>> _listing;
   String _query = '';
   bool _grid = false;
+  bool _uploading = false;
+  Route<dynamic>? _rootRoute;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _rootRoute ??= widget.rootRoute ?? ModalRoute.of(context);
+  }
+
+  void _closeBrowser() {
+    final root = _rootRoute;
+    if (root != null) {
+      Navigator.of(context).popUntil((route) => route == root);
+      if (mounted && root.isCurrent) {
+        Navigator.of(context).pop();
+      }
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _pickAndUpload() async {
+    if (_uploading) return;
+    setState(() => _uploading = true);
+    try {
+      final picked = await pickUploadFile(widget.state);
+      if (picked == null || !mounted) return;
+      final path = await uploadFile(
+        widget.state,
+        desktop: widget.project.desktopId,
+        project: widget.project.project.id,
+        file: picked,
+      );
+      if (!mounted) return;
+      if (widget.picking) {
+        Navigator.pop(context, path);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.state.tr('已上传 $path', 'Uploaded $path'),
+            ),
+          ),
+        );
+        setState(_load);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userMessage(widget.state, error))),
+      );
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -217,9 +276,20 @@ class _FilesPageState extends State<FilesPage> {
     final state = widget.state;
     return Scaffold(
       appBar: AppBar(
+        leadingWidth: widget.prefix.isEmpty ? null : 92,
         leading: widget.prefix.isEmpty
             ? null
-            : BackButton(onPressed: () => Navigator.maybePop(context)),
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  BackButton(onPressed: () => Navigator.maybePop(context)),
+                  IconButton(
+                    tooltip: state.tr('关闭', 'Close'),
+                    icon: const LucideIcon('x', size: 20),
+                    onPressed: _closeBrowser,
+                  ),
+                ],
+              ),
         title: Text(
           widget.picking && widget.prefix.isEmpty
               ? state.tr('选择要引用的文件', 'Pick a file to mention')
@@ -229,12 +299,6 @@ class _FilesPageState extends State<FilesPage> {
         ),
         actions: [
           _viewSwitch(),
-          if (widget.prefix.isEmpty)
-            IconButton(
-              tooltip: state.tr('刷新', 'Refresh'),
-              icon: const LucideIcon('refresh-cw', size: 20),
-              onPressed: () => setState(_load),
-            ),
         ],
       ),
       body: Column(
@@ -244,6 +308,27 @@ class _FilesPageState extends State<FilesPage> {
             hint: state.tr('转到文件', 'Go to file'),
             onChanged: (text) => setState(() => _query = text),
           ),
+          if (_query.isEmpty)
+            ListTile(
+              dense: true,
+              leading: const LucideIcon('circle-arrow-up', size: 20),
+              title: Text(state.tr('从手机选择文件', 'Choose file from phone')),
+              subtitle: Text(
+                widget.picking
+                    ? state.tr('上传并引用到输入框', 'Upload and mention in input')
+                    : state.tr('上传到当前项目', 'Upload to current project'),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).hintColor,
+                    ),
+              ),
+              trailing: _uploading
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: _uploading ? null : _pickAndUpload,
+            ),
           if (widget.prefix.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 12, 8),
@@ -476,6 +561,7 @@ class _FilesPageState extends State<FilesPage> {
               prefix: '$path/',
               listing: listing,
               picking: widget.picking,
+              rootRoute: _rootRoute,
             )
           : FileViewerPage(state: state, project: widget.project, path: path),
     );

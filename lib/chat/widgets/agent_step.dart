@@ -38,7 +38,14 @@ class AgentStrings {
   String get done => zh ? '已完成' : 'done';
   String get failed => zh ? '失败' : 'failed';
   String get opensItsConversation => zh ? '打开其对话' : 'Opens its conversation';
+  String get agentMessageSent => zh ? '发来消息' : 'sent';
+  String agentMessageSemantics(String agent) =>
+      zh ? '来自子智能体 $agent 的消息' : 'Message from subagent $agent';
 }
+
+/// A model as the desktop's model menu lists it: its option [id] (an
+/// upstream's is `@upstream/id`), its name, and its upstream's name.
+typedef ListedModel = ({String id, String label, String? upstream});
 
 /// A subagent as a card, a line: what it was given to do, then what it did
 /// last, flipping up to the next as it goes on, and once done to how it
@@ -49,12 +56,22 @@ class AgentStrings {
 /// tap arbitrates with selection by duration, as [StepHeader] does), and
 /// the desktop's `IdeHover` tooltips become nothing.
 class AgentStep extends StatefulWidget {
-  const AgentStep({super.key, required this.item, this.onOpen, this.strings});
+  const AgentStep({
+    super.key,
+    required this.item,
+    this.onOpen,
+    this.strings,
+    this.modelMenu = const [],
+  });
 
   final AgentItem item;
   final VoidCallback? onOpen;
 
   final AgentStrings? strings;
+
+  /// The desktop's model menu, to name [AgentItem.model] by (see
+  /// [modelName]).
+  final List<ListedModel> modelMenu;
 
   /// Its kind and progress, e.g. "Explore · 69s · 12 tools · 8.2k tokens".
   static String meta(AgentItem item, {DateTime? now, AgentStrings? strings}) {
@@ -70,13 +87,19 @@ class AgentStep extends StatefulWidget {
   }
 
   /// How long it ran, or has been running.
-  static Duration? elapsed(AgentItem item, {DateTime? now}) =>
-      item.duration ??
-      switch ((item.status, item.startedAt)) {
-        (CommandStatus.running, final start?) =>
-          (now ?? DateTime.now()).difference(start),
-        _ => null,
-      };
+  static Duration? elapsed(AgentItem item, {DateTime? now}) {
+    final ran =
+        item.duration ??
+        switch ((item.status, item.startedAt)) {
+          (CommandStatus.running, final start?) =>
+            (now ?? DateTime.now()).difference(start),
+          _ => null,
+        };
+    return switch ((item.ranBefore, ran)) {
+      (final before?, final current?) => before + current,
+      (final before, final current) => before ?? current,
+    };
+  }
 
   /// "46s", "2m 14s", "1h 5m".
   static String formatDuration(Duration time, {AgentStrings? strings}) {
@@ -128,6 +151,49 @@ class AgentStep extends StatefulWidget {
           final meta => meta,
         },
       };
+
+  /// [model], a subagent's as its upstream answered, as people read it:
+  /// an upstream's model by the name the desktop's model menu gives it
+  /// ([listed], where it is `@upstream/id`), and that upstream (unless more
+  /// than one has a model of that id); Claude's as "Opus 5.5"; else as it
+  /// is.
+  static ({String label, String? upstream}) modelName(
+    String model, {
+    Iterable<ListedModel> listed = const [],
+  }) {
+    final ref = _modelRef.firstMatch(model);
+    final id = ref?[2] ?? model;
+    final found = [
+      for (final option in listed)
+        if (_modelRef.firstMatch(option.id) case final listedRef?
+            when listedRef[2] == id && (ref == null || listedRef[1] == ref[1]))
+          option,
+    ];
+    if (found.isNotEmpty) {
+      return (
+        label: found.first.label,
+        upstream: found.length == 1 ? found.first.upstream : null,
+      );
+    }
+    final claude = RegExp(r'^claude-(?:[\d-]+-)?(opus|sonnet|haiku|fable)\b')
+        .firstMatch(id);
+    if (claude == null) return (label: id, upstream: null);
+    final family = claude[1]!;
+    final version = [
+      for (final part in id.replaceFirst(RegExp(r'\[.*\]$'), '').split('-'))
+        if (RegExp(r'^\d{1,2}$').hasMatch(part)) part,
+    ].join('.');
+    return (
+      label: [
+        '${family[0].toUpperCase()}${family.substring(1)}',
+        if (version.isNotEmpty) version,
+      ].join(' '),
+      upstream: null,
+    );
+  }
+
+  /// A model of an upstream, `@upstream/id`, as the desktop's menus name it.
+  static final _modelRef = RegExp(r'^@([^/]+)/(.+)$');
 
   /// The first line of [text] with anything in it, out of its markdown's
   /// heading and emphasis marks.
@@ -248,6 +314,25 @@ class _AgentStepState extends State<AgentStep> {
               ),
             ),
           ),
+          if (item.model case final model?)
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 110),
+                child: Text(
+                  AgentStep.modelName(model, listed: widget.modelMenu).label,
+                  strutStyle: _lineStrut,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant.withValues(
+                      alpha: MobileTheme.asideAlpha,
+                    ),
+                    fontSize: MobileType.aside,
+                  ),
+                ),
+              ),
+            ),
           if (open != null)
             const Padding(
               padding: EdgeInsets.only(left: 4),

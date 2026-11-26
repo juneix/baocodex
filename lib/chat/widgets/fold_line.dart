@@ -52,6 +52,8 @@ class FoldStrings {
       zh ? '思考 $duration' : 'thought $duration';
   String turnWorked(String duration) =>
       zh ? '已处理 $duration' : 'Worked for $duration';
+  String turnStopped(String duration) =>
+      zh ? '处理 $duration 后停止' : 'Stopped after $duration';
   String turnEdited(int count) =>
       zh ? '编辑 $count 次' : (count == 1 ? 'edited once' : 'edited $count times');
 }
@@ -176,22 +178,29 @@ class WorkFoldLine extends StatelessWidget {
     required this.edits,
     required this.expanded,
     required this.onToggle,
+    this.stopped = false,
     this.strings,
   });
 
   final Duration worked;
+
+  /// The user stopped the turn: "Stopped after 4m 32s".
+  final bool stopped;
   final TurnEdits edits;
   final bool expanded;
   final VoidCallback onToggle;
   final FoldStrings? strings;
 
   /// The line as text, e.g. for copying.
-  static String text(Duration worked, TurnEdits edits, {FoldStrings? strings}) {
+  static String text(
+    Duration worked,
+    TurnEdits edits, {
+    FoldStrings? strings,
+    bool stopped = false,
+  }) {
     final s = strings ?? FoldStrings.standard();
     return [
-      s.turnWorked(
-        AgentStep.formatDuration(worked, strings: AgentStrings(s.zh)),
-      ),
+      _worked(s, worked, stopped: stopped),
       if (edits.count > 0)
         [
           s.turnEdited(edits.count),
@@ -199,6 +208,18 @@ class WorkFoldLine extends StatelessWidget {
           if (edits.removed > 0) '-${edits.removed}',
         ].join(' '),
     ].join(' · ');
+  }
+
+  static String _worked(
+    FoldStrings s,
+    Duration worked, {
+    required bool stopped,
+  }) {
+    final duration = AgentStep.formatDuration(
+      worked,
+      strings: AgentStrings(s.zh),
+    );
+    return stopped ? s.turnStopped(duration) : s.turnWorked(duration);
   }
 
   @override
@@ -214,16 +235,12 @@ class WorkFoldLine extends StatelessWidget {
       fontSize: MobileType.aside,
     );
     final header = StepHeader(
-      verb: text(worked, edits, strings: s),
+      verb: text(worked, edits, strings: s, stopped: stopped),
       expanded: expanded,
       onToggle: onToggle,
       trailingGap: 0,
       spans: [
-        TextSpan(
-          text: s.turnWorked(
-            AgentStep.formatDuration(worked, strings: AgentStrings(s.zh)),
-          ),
-        ),
+        TextSpan(text: _worked(s, worked, stopped: stopped)),
         if (edits.count > 0) ...[
           TextSpan(text: ' · ${s.turnEdited(edits.count)}', style: faint),
           if (edits.added > 0)

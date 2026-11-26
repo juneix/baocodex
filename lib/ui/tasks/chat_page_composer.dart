@@ -521,15 +521,28 @@ extension _Composer on _ChatPageState {
 
   static const _maxProjectCommands = 50;
 
-  /// 输入框的底：白底、一圈细边、圆角。上面那排摘要单独一块，不在这块里。
-  BoxDecoration get _composerDecoration => BoxDecoration(
-    color: Theme.of(context).colorScheme.surfaceContainerLowest,
-    border: Border.all(
-      color: Theme.of(context).colorScheme.onSurfaceVariant
-          .withValues(alpha: .18),
-    ),
-    borderRadius: BorderRadius.circular(22),
-  );
+  bool get _isBypassPermission {
+    final choice = _buffer.choices
+        .where((item) => item.kind == 'permission')
+        .firstOrNull;
+    return choice?.selected == 'bypassPermissions';
+  }
+
+  /// 输入框的底：白底、一圈细边、圆角。完全访问权限时描边显示警示橙色。
+  BoxDecoration get _composerDecoration {
+    final warningColor = MobileTheme.statusColorsOf(context).warning;
+    return BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerLowest,
+      border: Border.all(
+        color: _isBypassPermission
+            ? warningColor
+            : Theme.of(context).colorScheme.onSurfaceVariant
+                .withValues(alpha: .18),
+        width: _isBypassPermission ? 1.5 : 1.0,
+      ),
+      borderRadius: BorderRadius.circular(22),
+    );
+  }
 
   Widget _draftImages() {
     // 待发附件共用一个画廊；移除某张后组随之重建。
@@ -748,6 +761,80 @@ extension _Composer on _ChatPageState {
     );
   }
 
+  List<String> _currentSuggestions(SessionBuffer buffer) {
+    if (buffer.live) return const [];
+    final bot = widget.botId != null;
+    for (var i = buffer.items.length - 1; i >= 0; i--) {
+      final raw = buffer.items[i];
+      final item = ChatCodec.decode(raw);
+      if (item is UserMessageItem) return const [];
+      if (item is AssistantTextItem) {
+        if (bot) {
+          final botSuggs = ChatCodec.botSuggestions(item.raw);
+          if (botSuggs.isNotEmpty) return botSuggs;
+          if (item.suggestions.isNotEmpty) return item.suggestions;
+        } else {
+          if (item.suggestions.isNotEmpty) return item.suggestions;
+        }
+        return const [];
+      }
+    }
+    return const [];
+  }
+
+  Widget _suggestionChips(SessionBuffer buffer) {
+    if (_composer.text.isNotEmpty || _images.isNotEmpty) {
+      return const SizedBox.shrink();
+    }
+    final suggestions = _currentSuggestions(buffer);
+    if (suggestions.isEmpty) return const SizedBox.shrink();
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      alignment: Alignment.centerLeft,
+      margin: const EdgeInsets.only(bottom: 6),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final suggestion in suggestions)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ActionChip(
+                  label: Text(
+                    suggestion,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colors.primary,
+                    ),
+                  ),
+                  backgroundColor: colors.primaryContainer.withValues(alpha: .35),
+                  side: BorderSide(
+                    color: colors.primary.withValues(alpha: .25),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                  onPressed: () {
+                    _composer.text = suggestion;
+                    _composer.selection = TextSelection.collapsed(
+                      offset: suggestion.length,
+                    );
+                    _draftChanged();
+                    _composerFocus.requestFocus();
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _composerView(SessionBuffer buffer, bool ready) {
     if (_composerFocus.hasFocus) {
       final inset = MediaQuery.viewInsetsOf(context).bottom;
@@ -780,6 +867,7 @@ extension _Composer on _ChatPageState {
                   foldSignal: _trayFold,
                 ),
               if (!bot) _slashMenu(),
+              _suggestionChips(buffer),
               DecoratedBox(
                 key: const ValueKey('composer-input-surface'),
                 decoration: _composerDecoration,
@@ -1096,8 +1184,19 @@ extension _Composer on _ChatPageState {
             Text(_choiceLabel(choice.kind)),
             const SizedBox(width: 16),
             Expanded(
-              child: Text(_chipValue(choice), textAlign: TextAlign.right,
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: Text(
+                _chipValue(choice),
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: choice.kind == 'permission' &&
+                        choice.selected == 'bypassPermissions'
+                    ? TextStyle(
+                        color: MobileTheme.statusColorsOf(context).warning,
+                        fontWeight: FontWeight.w500,
+                      )
+                    : null,
+              ),
             ),
             const SizedBox(width: 8),
             const LucideIcon('chevron-right', size: 18),

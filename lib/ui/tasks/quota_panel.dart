@@ -16,6 +16,7 @@ class QuotaController extends ChangeNotifier {
       _providers = [...cached];
       _schedule();
     }
+    _readBufferQuota();
     state.addListener(_changed);
     _minute = Timer.periodic(const Duration(minutes: 1), (_) {
       if (!_disposed) notifyListeners();
@@ -76,6 +77,62 @@ class QuotaController extends ChangeNotifier {
       load();
     }
     _online = online;
+    _readBufferQuota();
+  }
+
+  void _readBufferQuota() {
+    final quotaData = state.peekBuffer(desktopId, sessionId)?.quota;
+    if (quotaData != null) {
+      final normalized = _normalizeQuota(quotaData);
+      if (normalized.isNotEmpty) {
+        _providers = normalized;
+        (_cache[state] ??= {})[desktopId] = [..._providers];
+        _schedule();
+        if (!_disposed) notifyListeners();
+      }
+    }
+  }
+
+  static List<Map> _normalizeQuota(Object? raw) {
+    if (raw is! Map) return const [];
+    if (raw['providers'] is List) {
+      return (raw['providers'] as List)
+          .whereType<Map>()
+          .map(_normalizeProvider)
+          .toList();
+    }
+    if (raw['accounts'] is List) {
+      return [_normalizeProvider(raw)];
+    }
+    return const [];
+  }
+
+  static Map _normalizeProvider(Map raw) {
+    final providerId =
+        raw['id'] as String? ?? raw['provider'] as String? ?? 'anthropic';
+    final accountsList = (raw['accounts'] as List? ?? []).whereType<Map>();
+    return {
+      'id': providerId,
+      'accounts': accountsList.map((acc) {
+        final name = acc['displayName'] ?? acc['name'] ?? acc['id'] ?? '';
+        final windows = (acc['windows'] as List? ?? []).whereType<Map>().map((w) => {
+          'minutes': w['minutes'] ?? 300,
+          'leftPercent': w['leftPercent'] ?? w['left'] ?? 0,
+          'resetsAt': w['resetsAt'] ?? w['resets'],
+        }).toList();
+        return {
+          'id': acc['id'] ?? name,
+          'displayName': name,
+          if (acc['plan'] != null) 'plan': acc['plan'],
+          'current': acc['current'] == true,
+          'enabled': acc['enabled'] ?? (acc['off'] != true),
+          if (acc['limitedUntil'] != null || acc['until'] != null)
+            'limitedUntil': acc['limitedUntil'] ?? acc['until'],
+          if (acc['at'] != null) 'at': acc['at'],
+          'windows': windows,
+        };
+      }).toList(),
+    };
   }
 
   Future<void> load({String? provider, bool refresh = false}) async {
@@ -92,21 +149,21 @@ class QuotaController extends ChangeNotifier {
           })
           .timeout(const Duration(seconds: 25));
       if (_disposed) return;
-      final incoming =
-          (result is Map ? result['providers'] as List? : null)
-              ?.whereType<Map>()
-              .toList() ??
-          <Map>[];
-      if (provider == null) {
-        _providers = incoming;
+      final incoming = _normalizeQuota(result);
+      if (incoming.isNotEmpty) {
+        if (provider == null) {
+          _providers = incoming;
+        } else {
+          _providers = [
+            ..._providers.where((entry) => entry['id'] != provider),
+            ...incoming,
+          ];
+        }
+        (_cache[state] ??= {})[desktopId] = [..._providers];
+        _schedule();
       } else {
-        _providers = [
-          ..._providers.where((entry) => entry['id'] != provider),
-          ...incoming,
-        ];
+        _readBufferQuota();
       }
-      (_cache[state] ??= {})[desktopId] = [..._providers];
-      _schedule();
     } catch (error) {
       _unsupported =
           error is LinkRemoteException &&

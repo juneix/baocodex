@@ -109,7 +109,16 @@ extension _Choices on _ChatPageState {
                       selectedTileColor: Theme.of(context)
                           .colorScheme
                           .surfaceContainerHighest,
-                      title: Text(_choicePresentation(choice.kind, option).$1),
+                      title: Text(
+                        _choicePresentation(choice.kind, option).$1,
+                        style: choice.kind == 'permission' &&
+                                option.id == 'bypassPermissions'
+                            ? TextStyle(
+                                color: MobileTheme.statusColorsOf(context).warning,
+                                fontWeight: FontWeight.w500,
+                              )
+                            : null,
+                      ),
                       subtitle:
                           choice.kind == 'permission' ||
                               _choicePresentation(choice.kind, option).$2.isEmpty
@@ -216,7 +225,7 @@ extension _Choices on _ChatPageState {
       'ban',
     ),
     ('permission', 'bypassPermissions') => (
-      tr('完全访问', option.label),
+      tr('⚠️完全访问', '⚠️Full access'),
       tr('不做任何检查，编辑和命令直接执行', option.description),
       'shield-alert',
     ),

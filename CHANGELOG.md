@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.0
+
+The message area, the link layer and the files page catch up with desktop 2.0.x, and file upload plus reply suggestions arrive.
+
+- Message area: a subagent's message is a card of its own instead of passing for the user's bubble; a turn the user stopped folds into "Stopped after X"; ordinary conversations no longer interpret Bot tags or strip voice cues.
+- Statistics: the fold line no longer swallows the footer with the time, speed and cost, so they are back in both ordinary and Bot chats.
+- Compaction: the divider says why the context was compacted and how far it came down.
+- Reply suggestions: with the composer empty, the desktop's few "what next" lines sit above it; a tap fills the box.
+- Connection: a reconnect resumes from the last session digest instead of resending the history, and a first update that does not fit the baseline resyncs once.
+- Quota: read in desktop 2.0.x's shape, so the panel that was blank there now has data.
+- Files: inside a subdirectory the bar has back and close side by side, and close leaves the browser in one go; the refresh button is gone, the error panel already retries.
+- File upload: the files page can take a file from the phone, up to 8 MiB; in mention mode the uploaded path goes straight into the composer.
+- Full access permission: the option and the composer's outline turn warning-orange, and back once changed.
+- Small fixes: a CRLF file no longer reads as wholly changed, and a zoomed preview no longer selects text by accident.
+
 ## 1.0.10
 
 The status bar and notification use the app's own logo, and the wording is layered again.

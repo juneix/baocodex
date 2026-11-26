@@ -146,6 +146,13 @@ class LinkPeer {
     if (LinkMethods.bulk.contains(method)) {
       return _callOnStream(method, params, timeout);
     }
+    if (method == LinkMethods.open && params['have'] == null) {
+      if ((mirror, params['session']) case (final mirror?, final String id)) {
+        if (mirror.have(id) case final have?) {
+          params = {...params, 'have': have};
+        }
+      }
+    }
     final id = _nextId++;
     final pending = _pending[id] = _Pending(method, params);
     if (method == LinkMethods.close && params['session'] is String) {
@@ -285,9 +292,16 @@ class LinkPeer {
     Object? result,
   ) {
     switch ((pending.method, result)) {
-      case (LinkMethods.open, final Map<String, Object?> update):
-        mirror.opened(update);
-        return LinkEvent(LinkEvents.session, update);
+      case (LinkMethods.open, _):
+        final session = pending.params['session'];
+        final update =
+            result is Map<String, Object?> && result['session'] == session
+            ? result
+            : <String, Object?>{'session': session};
+        return switch (mirror.opened(update)) {
+          final whole? => LinkEvent(LinkEvents.session, whole),
+          null => LinkEvent(LinkEvents.resync, {'session': session}),
+        };
       case (LinkMethods.earlier, {'items': final List<Object?> items}):
         if (pending.params['session'] case final String session) {
           mirror.earlier(session, items);

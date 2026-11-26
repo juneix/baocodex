@@ -19,6 +19,8 @@ import 'chat_links.dart';
 import 'chat_markdown.dart';
 import 'widgets/message_pictures.dart';
 import 'stickers.dart';
+import 'widgets/agent_message_card.dart';
+import 'widgets/agent_step.dart' show AgentStrings, ListedModel;
 import 'widgets/chat_item_view.dart';
 import 'widgets/notice_row.dart';
 import '../theme/app_theme.dart';
@@ -192,26 +194,31 @@ class MessageView extends StatelessWidget {
     final value = decoded;
     if (bot != null && value is AssistantTextItem) {
       final parts = ChatCodec.botParts(value.text);
-      if (parts.isNotEmpty) return _botParts(context, parts);
+      // 只有推荐标签的回复不进正文：那些去输入框上面的胶囊。
+      if (parts.any((part) => part.$1 != ChatCodec.botSuggestTag)) {
+        return _botParts(context, parts);
+      }
+      if (parts.isNotEmpty) return const SizedBox.shrink();
+      if (ChatCodec.botVisibleText(value.text).isEmpty) {
+        return const SizedBox.shrink();
+      }
     }
     if (bot != null &&
         (value is UserMessageItem || value is AssistantTextItem)) {
       return _botBubble(context, value!);
     }
     final Widget content;
-    if (value is UserMessageItem) {
+    if (value case UserMessageItem(fromAgent: final agent?)) {
+      content = AgentMessageCard(
+        agent: agent,
+        body: _prose(value.text),
+        strings: AgentStrings(state.tr('中', 'en') == '中'),
+      );
+    } else if (value is UserMessageItem) {
       content = _userMessage(context, value);
     } else if (value is AssistantTextItem) {
-      final parts = ChatCodec.botParts(value.text);
-      content = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (parts.isEmpty)
-            _prose(value.text)
-          else
-            for (final (tag, text) in parts) _botPart(context, tag, text),
-        ],
-      );
+      // 普通智能体不解释 Bot 标签，也不删除语气或内部标记。
+      content = _prose(value.text);
     } else if (value is ToolCallItem && value.input['sticker'] is String) {
       // A bot's sticker arrives as a tool item carrying the sticker id.
       // Align gives the sticker loose constraints; the message row's tight
@@ -248,6 +255,7 @@ class MessageView extends StatelessWidget {
       content = _StepRow(
         item: value,
         zh: state.tr('中', 'en') == '中',
+        modelMenu: value is AgentItem ? state.modelMenu(desktopId) : const [],
         onOpen: value is AgentItem
             ? () => openSubagentPage(
                 context,
@@ -473,12 +481,14 @@ class _StepRow extends StatefulWidget {
     required this.zh,
     this.onOpen,
     this.onOpenFile,
+    this.modelMenu = const [],
   });
 
   final ChatItem item;
   final bool zh;
   final VoidCallback? onOpen;
   final Future<void> Function(BuildContext context, String path)? onOpenFile;
+  final List<ListedModel> modelMenu;
 
   @override
   State<_StepRow> createState() => _StepRowState();
@@ -498,6 +508,7 @@ class _StepRowState extends State<_StepRow> {
       expanded: expanded,
       onToggle: () => setState(() => _manual = !expanded),
       onOpen: widget.onOpen,
+      modelMenu: widget.modelMenu,
       onOpenFile: widget.onOpenFile == null
           ? null
           : (path) => widget.onOpenFile!(context, path),

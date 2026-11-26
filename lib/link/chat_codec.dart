@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../chat/chat_models.dart';
+import '../chat/reply_suggestions.dart';
 
 /// The history's items as JSON, for the phones paired with the desktop
 /// (see `package:bao_link`). The phone has this file as it is (its
@@ -34,6 +35,14 @@ abstract final class ChatCodec {
   /// its chat as a card that opens it.
   static const botCardTag = 'bot_show_chat';
 
+  /// What a bot suggests the user send next, one tag per suggestion.
+  static const botSuggestTag = 'bot_suggest';
+
+  /// What a bot sends as a direct message using tool.
+  static const botSendTool = 'bot_send';
+
+  static const botToUser = 'user';
+
   /// What the app told a bot in [item], if it is such a note.
   static String? botEvent(UserMessageItem item) {
     // The pictures that came with it referred to after it, if they are.
@@ -63,9 +72,44 @@ abstract final class ChatCodec {
   ];
 
   static final _botParts = RegExp(
-    '<($botSayTag|$botNarrateTag|$botCardTag)>(.*?)</\\1>',
+    '<($botSayTag|$botNarrateTag|$botCardTag|$botSuggestTag)>(.*?)</\\1>',
     dotAll: true,
   );
+
+  /// What a bot sent directly to the user with a tool call.
+  static String? botSentToUser(ToolCallItem item) =>
+      item.tool == botSendTool && item.input['to'] == botToUser
+          ? item.input['text'] as String?
+          : null;
+
+  /// What a bot suggests the user send next ([botSuggestTag]).
+  static List<String> botSuggestions(String text) => {
+    for (final match in _botSuggestions.allMatches(text))
+      if (match[1]!.trim() case final said
+          when said.isNotEmpty && said.length <= 120 && !said.contains('\n'))
+        said,
+  }.take(3).toList();
+
+  static final _botSuggestions = RegExp(
+    '<$botSuggestTag>(.*?)</$botSuggestTag>',
+    dotAll: true,
+  );
+
+  static bool hasBotMarkup(String text) => _botMarkup.hasMatch(text);
+  static final _botMarkup = RegExp(
+    r'<\/?(?:bot_say|bot_narrate|bot_show_chat|bot_next|bot_suggest|bao-event)(?=[\s>])',
+  );
+
+  static String withoutVoiceCues(String text) =>
+      text.replaceAll(_voiceCue, '').trim();
+  static final _voiceCue = RegExp(r'\[[a-zA-Z0-9_\s-]+\]');
+
+  static String botVisibleText(String text) => hasBotMarkup(text)
+      ? [
+          for (final (tag, part) in botParts(text))
+            if (tag != botCardTag && tag != botSuggestTag) withoutVoiceCues(part),
+        ].where((s) => s.isNotEmpty).join('\n')
+      : withoutVoiceCues(text);
 
   /// The picture on the web [item] sent, if it is the bot's tool that did.
   static String? botImageUrl(ToolCallItem item) =>
@@ -102,7 +146,10 @@ abstract final class ChatCodec {
       if (item.queued) 'queued': true,
       if (item.images.isNotEmpty) 'images': _images(item.images),
       'worked': ?item.worked?.inMilliseconds,
+      if (item.stopped) 'stopped': true,
       'at': ?item.sentAt?.millisecondsSinceEpoch,
+      'agent': ?item.fromAgent,
+      'agentSession': ?item.fromSession,
       if (item.usage case final usage?)
         'usage': {
           'in': ?usage.inputTokens,
@@ -111,7 +158,11 @@ abstract final class ChatCodec {
           'cost': ?usage.costUsd,
         },
     },
-    AssistantTextItem() => {'t': 'text', 'text': item.text},
+    AssistantTextItem(:final text, :final suggestions) => {
+      't': 'text',
+      'text': text,
+      if (suggestions.isNotEmpty) 'suggest': suggestions,
+    },
     ThinkingItem() => {
       't': 'thinking',
       'text': item.text,
@@ -130,7 +181,16 @@ abstract final class ChatCodec {
       'status': item.status.name,
       'output': ?_head(item.output),
       'tool': ?item.tool,
+      // 会话协作的步骤：它牵涉的对话与交过去的内容，行上要能打开它们。
+      if (item.input['sessionIds'] case final List ids when ids.isNotEmpty) ...{
+        'sessions': [for (final id in ids) if (id is String) id],
+        'handed': ?switch (item.input['text']) {
+          final String text when text.trim().isNotEmpty => _head(text.trim()),
+          _ => null,
+        },
+      },
       'url': ?botImageUrl(item),
+      'sent': ?botSentToUser(item),
       // What a browser's call does, for its line to say.
       if (item.kind == ToolKind.browser)
         'browse': {
@@ -166,13 +226,26 @@ abstract final class ChatCodec {
       'activity': ?item.activity,
       'startedAt': ?item.startedAt?.millisecondsSinceEpoch,
       'duration': ?item.duration?.inMilliseconds,
+      'ranBefore': ?item.ranBefore?.inMilliseconds,
       'model': ?item.model,
       if (item.children.isNotEmpty)
         'children': [for (final child in item.children) encode(child)],
       'result': ?item.result,
       if (item.background) 'background': true,
     },
-    NoticeItem() => {'t': 'notice', 'kind': item.kind.name, 'text': item.text},
+    NoticeItem(:final compaction) => {
+      't': 'notice',
+      'kind': item.kind.name,
+      'text': item.text,
+      if (compaction != null)
+        'compaction': {
+          if (compaction.auto) 'auto': true,
+          if (compaction.tooLong) 'tooLong': true,
+          'before': ?compaction.before,
+          'after': ?compaction.after,
+          'window': ?compaction.window,
+        },
+    },
     PlanItem() => {
       't': 'plan',
       'path': item.path,
@@ -238,7 +311,10 @@ abstract final class ChatCodec {
         queued: json['queued'] == true,
         images: _decodeImages(json['images']),
         worked: duration('worked'),
+        stopped: json['stopped'] == true,
         sentAt: time('at'),
+        fromAgent: json['agent'] as String?,
+        fromSession: json['agentSession'] as String?,
         usage: switch (json['usage']) {
           final Map<String, Object?> usage => TurnUsage(
             inputTokens: (usage['in'] as num?)?.toInt(),
@@ -249,7 +325,12 @@ abstract final class ChatCodec {
           _ => null,
         },
       ),
-      'text' => AssistantTextItem(text('text')),
+      'text' => AssistantTextItem(
+        ReplySuggestions.write(text('text'), [
+          for (final said in json['suggest'] as List? ?? const [])
+            if (said is String) said,
+        ]),
+      ),
       'thinking' => ThinkingItem(
         text: text('text'),
         tokens: number('tokens') ?? 0,
@@ -268,6 +349,10 @@ abstract final class ChatCodec {
         tool: optional('tool'),
         images: _decodeImages(json['images']),
         input: switch ((json['making'], json['browse'])) {
+          _ when json['sent'] is String => {
+            'to': botToUser,
+            'text': json['sent'],
+          },
           _ when json['sticker'] is String => {'sticker': json['sticker']},
           _ when json['url'] is String => {'url': json['url']},
           (final Map<String, Object?> making, _) => {
@@ -279,6 +364,14 @@ abstract final class ChatCodec {
           (_, final Map<String, Object?> browse) => {
             'action': ?browse['action'],
             if (browse['url'] == true) 'url': '',
+          },
+          _ when json['sessions'] is List || json['handed'] is String => {
+            if (json['sessions'] is List)
+              'sessionIds': [
+                for (final id in json['sessions'] as List)
+                  if (id is String) id,
+              ],
+            if (json['handed'] is String) 'text': json['handed'],
           },
           _ => const {},
         },
@@ -295,6 +388,7 @@ abstract final class ChatCodec {
         activity: optional('activity'),
         startedAt: time('startedAt'),
         duration: duration('duration'),
+        ranBefore: duration('ranBefore'),
         model: optional('model'),
         children: [
           for (final child in (json['children'] as List?) ?? const [])
@@ -306,6 +400,16 @@ abstract final class ChatCodec {
       'notice' => NoticeItem(
         named(NoticeKind.values, 'kind', NoticeKind.info),
         text('text'),
+        compaction: switch (json['compaction']) {
+          final Map<String, Object?> note => CompactionNote(
+            auto: note['auto'] == true,
+            tooLong: note['tooLong'] == true,
+            before: (note['before'] as num?)?.toInt(),
+            after: (note['after'] as num?)?.toInt(),
+            window: (note['window'] as num?)?.toInt(),
+          ),
+          _ => null,
+        },
       ),
       'plan' => PlanItem(
         path: text('path'),

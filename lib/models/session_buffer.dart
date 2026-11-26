@@ -15,6 +15,7 @@ class SessionBuffer {
   Map<String, Object?>? interaction;
   Map<String, Object?>? goal;
   Map<String, Object?>? context;
+  Map<String, Object?>? quota;
   List<LinkChoice> choices = [];
   List<LinkTask> tasks = [];
   List<Map<String, Object?>> changes = [];
@@ -44,6 +45,7 @@ class SessionBuffer {
     changes = update.changes;
     goal = update.goal;
     context = update.context;
+    if (update.quota != null) quota = update.quota;
     error = null;
     revision++;
   }

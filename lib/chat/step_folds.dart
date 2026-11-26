@@ -12,7 +12,13 @@ enum StepFoldKind {
 /// Items [start] to [end] (exclusive) of a history, shown as one line that
 /// opens to them.
 class StepFold {
-  const StepFold(this.kind, this.start, this.end, {this.worked});
+  const StepFold(
+    this.kind,
+    this.start,
+    this.end, {
+    this.worked,
+    this.stopped = false,
+  });
 
   final StepFoldKind kind;
   final int start;
@@ -20,6 +26,9 @@ class StepFold {
 
   /// How long the turn worked, for [StepFoldKind.work].
   final Duration? worked;
+
+  /// The user stopped the turn, for [StepFoldKind.work].
+  final bool stopped;
 
   /// The same for as long as the fold stands: a run of steps grows at its
   /// end, never its start.
@@ -119,7 +128,8 @@ class StepFolds {
       if (live && t == prompts.length - 1) break;
       final prompt = prompts[t];
       if (keepOpenFrom != null && prompt >= keepOpenFrom) break;
-      final worked = (items[prompt] as UserMessageItem).worked;
+      final message = items[prompt] as UserMessageItem;
+      final worked = message.worked;
       if (worked == null) continue;
       var last = t + 1 < prompts.length ? prompts[t + 1] - 1 : count - 1;
       while (last > prompt && items[last] is UserMessageItem) {
@@ -127,15 +137,25 @@ class StepFolds {
       }
       // Ending in thoughts, it ends at the row they show in.
       if (last > prompt) turnEnds[thoughtOf[last] ?? last] = prompt;
-      if (last <= prompt || items[last] is! AssistantTextItem) continue;
+      if (last <= prompt) continue;
       // The answer: the words after its last step, thoughts among them.
-      var answer = last;
-      for (var i = last; i > prompt; i--) {
-        if (items[i] is AssistantTextItem) {
-          answer = i;
-        } else if (items[i] is! ThinkingItem) {
-          break;
+      // Stopped with none, all of it folds but what was said of why (an
+      // error); ended so on its own, it shows as it is.
+      var answer = last + 1;
+      if (items[last] is AssistantTextItem) {
+        for (var i = last; i > prompt; i--) {
+          if (items[i] is AssistantTextItem) {
+            answer = i;
+          } else if (items[i] is! ThinkingItem) {
+            break;
+          }
         }
+      } else if (message.stopped) {
+        while (answer - 1 > prompt && items[answer - 1] is NoticeItem) {
+          answer--;
+        }
+      } else {
+        continue;
       }
       // A plan's card stands out of it: the work folded is what came
       // after the last (carrying it out, once approved); the planning
@@ -152,7 +172,13 @@ class StepFolds {
           .where((item) => item is! ThinkingItem)
           .length;
       if (shown < 2) continue;
-      final fold = StepFold(StepFoldKind.work, start, answer, worked: worked);
+      final fold = StepFold(
+        StepFoldKind.work,
+        start,
+        answer,
+        worked: worked,
+        stopped: message.stopped,
+      );
       work.fillRange(start, answer, fold);
     }
 

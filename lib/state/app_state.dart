@@ -752,16 +752,30 @@ class AppState extends ChangeNotifier {
   /// Model [id] as [desktopId] lists it in its model menus ([choices], else
   /// those of its conversations the phone follows): its name and upstream.
   /// The list only sends the id; one not listed keeps it as its name.
+  Iterable<LinkChoice> _modelChoices(String desktopId) => [
+    for (final ref in sessions)
+      if (ref.desktopId == desktopId)
+        ...?peekBuffer(desktopId, ref.session.id)?.choices,
+  ];
+
+  /// What [desktopId]'s model menus list (of the conversations the phone
+  /// follows), each by its name and upstream: what a subagent's model is
+  /// named by.
+  List<({String id, String label, String? upstream})> modelMenu(
+    String desktopId,
+  ) => [
+    for (final choice in _modelChoices(desktopId))
+      if (choice.kind == 'model')
+        for (final option in choice.options)
+          (id: option.id, label: option.label, upstream: option.groupLabel),
+  ];
+
   SessionModel _modelOption(
     String desktopId,
     String id, [
     Iterable<LinkChoice>? choices,
   ]) {
-    choices ??= [
-      for (final ref in sessions)
-        if (ref.desktopId == desktopId)
-          ...?peekBuffer(desktopId, ref.session.id)?.choices,
-    ];
+    choices ??= _modelChoices(desktopId);
     for (final choice in choices) {
       if (choice.kind != 'model') continue;
       for (final option in choice.options) {

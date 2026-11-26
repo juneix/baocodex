@@ -14,7 +14,10 @@ extension _BotMessage on MessageView {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final (tag, text) in parts)
-          if (tag == ChatCodec.botCardTag)
+          if (tag == ChatCodec.botSuggestTag)
+            // 推荐只给输入框的胶囊，不进对话正文。
+            const SizedBox.shrink()
+          else if (tag == ChatCodec.botCardTag)
             _BotAgentCard(
               state: state,
               desktopId: desktopId,
@@ -27,13 +30,17 @@ extension _BotMessage on MessageView {
               padding: botContentInsets.add(
                 const EdgeInsets.symmetric(vertical: 4),
               ),
-              child: _botPart(context, tag, text),
+              child: _botPart(
+                context,
+                tag,
+                ChatCodec.withoutVoiceCues(text),
+              ),
             )
           else
             MessageView(
               state: state,
               desktopId: desktopId,
-              item: AssistantTextItem(text),
+              item: AssistantTextItem(ChatCodec.withoutVoiceCues(text)),
               bot: bot,
               projectId: projectId,
               sessionId: sessionId,

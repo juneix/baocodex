@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'reply_suggestions.dart';
+
 /// UI-only view models for the conversation history.
 sealed class ChatItem {
   const ChatItem();
@@ -14,10 +16,20 @@ class UserMessageItem extends ChatItem {
     this.images = const [],
     this.worked,
     this.usage,
+    this.stopped = false,
     this.sentAt,
+    this.fromAgent,
+    this.fromSession,
   });
 
   final String text;
+
+  /// Sent by a subagent (SendMessage), not typed: what it was given to do,
+  /// else its id. Shown as its, and not to be edited.
+  final String? fromAgent;
+
+  /// The conversation it was sent from, for an agent coordinating others.
+  final String? fromSession;
 
   /// Pictures sent with it (screenshots, mockups…).
   final List<ImageAttachment> images;
@@ -29,22 +41,32 @@ class UserMessageItem extends ChatItem {
   /// back until then.
   final bool queued;
 
-  /// How long the agent worked on it, once its turn ended as it should
-  /// (not stopped): the work before its answer folds into that.
+  /// How long the agent worked on it, once its turn ended: the work before
+  /// its answer folds into that.
   final Duration? worked;
 
   /// What its turn spent, kept with [worked], when the kernel said.
   final TurnUsage? usage;
 
-  UserMessageItem copyWith({Duration? worked, TurnUsage? usage}) =>
-      UserMessageItem(
-        text: text,
-        queued: queued,
-        images: images,
-        worked: worked ?? this.worked,
-        usage: usage ?? this.usage,
-        sentAt: sentAt,
-      );
+  /// The user stopped its turn, [worked] in: all its work folds, an answer
+  /// or not.
+  final bool stopped;
+
+  UserMessageItem copyWith({
+    Duration? worked,
+    TurnUsage? usage,
+    bool? stopped,
+  }) => UserMessageItem(
+    text: text,
+    queued: queued,
+    images: images,
+    worked: worked ?? this.worked,
+    usage: usage ?? this.usage,
+    stopped: stopped ?? this.stopped,
+    sentAt: sentAt,
+    fromAgent: fromAgent,
+    fromSession: fromSession,
+  );
 }
 
 /// What a turn spent, as its kernel reported at its end.
@@ -128,9 +150,17 @@ final imageReferencePattern = RegExp(r'\[Image #(\d+)\]');
 
 /// Plain assistant prose. Supports `inline code` and `- ` bullet lines.
 class AssistantTextItem extends ChatItem {
-  const AssistantTextItem(this.text);
+  const AssistantTextItem(this.raw);
 
-  final String text;
+  /// All of it, as the agent wrote it.
+  final String raw;
+
+  /// What it said: without what it suggests the user send next, at its end
+  /// ([suggestions]).
+  String get text => ReplySuggestions.strip(raw);
+
+  /// What it suggests the user send next (see [ReplySuggestions]).
+  List<String> get suggestions => ReplySuggestions.of(raw);
 }
 
 /// [text] (what an agent said, or asks) on one line, its markup's marks
@@ -265,6 +295,7 @@ class AgentItem extends ChatItem {
     this.children = const [],
     this.result,
     this.background = false,
+    this.ranBefore,
   });
 
   final String description;
@@ -288,6 +319,9 @@ class AgentItem extends ChatItem {
 
   /// How long it took, once done.
   final Duration? duration;
+
+  /// 之前各次运行的累计时长；本次运行时长仍在 duration/startedAt。
+  final Duration? ranBefore;
   final String? model;
   final List<ChatItem> children;
 
@@ -307,6 +341,7 @@ class AgentItem extends ChatItem {
     String? lastTool,
     String? activity,
     Duration? duration,
+    Duration? ranBefore,
     String? model,
     List<ChatItem>? children,
     String? result,
@@ -323,6 +358,7 @@ class AgentItem extends ChatItem {
     activity: activity ?? this.activity,
     startedAt: startedAt,
     duration: duration ?? this.duration,
+    ranBefore: ranBefore ?? this.ranBefore,
     model: model ?? this.model,
     children: children ?? this.children,
     result: result ?? this.result,
@@ -427,12 +463,61 @@ class PlanItem extends ChatItem {
   }
 }
 
+class CompactionNote {
+  const CompactionNote({
+    this.auto = false,
+    this.tooLong = false,
+    this.before,
+    this.after,
+    this.window,
+  });
+
+  /// Done by the agent, not asked for.
+  final bool auto;
+
+  /// Forced by the API refusing the conversation as longer than the model
+  /// takes, before [window] was full.
+  final bool tooLong;
+
+  /// The tokens before and after it, as known.
+  final int? before;
+  final int? after;
+
+  /// The context set when it happened.
+  final int? window;
+
+  String describe({bool zh = true}) {
+    final w = window;
+    final b = before;
+    final a = after;
+    final reason = tooLong
+        ? (w == null
+            ? (zh ? '对话过长，已压缩上下文' : 'Conversation too long, compacted context')
+            : (zh
+                ? '对话超出 ${compactTokens(w)} 上下文，已压缩'
+                : 'Conversation exceeded ${compactTokens(w)} context, compacted'))
+        : auto
+        ? (zh ? '已自动压缩上下文' : 'Automatically compacted context')
+        : (zh ? '已压缩上下文' : 'Compacted context');
+    final tokens = b != null
+        ? (a == null
+            ? (zh ? '从 ${compactTokens(b)} 压缩' : 'compacted from ${compactTokens(b)}')
+            : '${compactTokens(b)} → ${compactTokens(a)}')
+        : null;
+    return [reason, if (tokens != null) tokens].join(' · ');
+  }
+
+  static String compactTokens(int tokens) =>
+      tokens >= 1000 ? '${(tokens / 1000).toStringAsFixed(1)}k' : '$tokens';
+}
+
 /// A line from the runtime, not the agent: shown apart from its messages.
 class NoticeItem extends ChatItem {
-  const NoticeItem(this.kind, this.text);
+  const NoticeItem(this.kind, this.text, {this.compaction});
 
   final NoticeKind kind;
   final String text;
+  final CompactionNote? compaction;
 }
 
 enum CommandStatus { running, succeeded, failed }

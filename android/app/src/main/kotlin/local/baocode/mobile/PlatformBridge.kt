@@ -18,6 +18,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.view.HapticFeedbackConstants
+import android.webkit.MimeTypeMap
 import android.view.ContextThemeWrapper
 import android.view.View
 import android.view.ViewGroup
@@ -63,6 +64,7 @@ class PlatformBridge(
     private val localDiscovery = LocalDiscovery(activity.applicationContext, main)
     private val chatClipboard = ChatClipboard(activity.applicationContext)
     private val updates = AndroidUpdates(activity)
+    private val uploadPicker = UploadDocumentPicker(activity.applicationContext, main) { activity }
 
     init {
         methods.setMethodCallHandler(this)
@@ -113,6 +115,7 @@ class PlatformBridge(
         }
         try {
             if (updates.handle(call, result)) return
+            if (uploadPicker.handle(call, result)) return
             when (call.method) {
                 "secureRead" -> {
                     val key = requiredString(call, "key")
@@ -348,9 +351,13 @@ class PlatformBridge(
         exportResult = result
         exportBytes = bytes
         try {
+            val ext = MimeTypeMap.getFileExtensionFromUrl(name).takeIf { it.isNotBlank() }
+                ?: name.substringAfterLast('.', "")
+            val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.lowercase())
+                ?: "application/octet-stream"
             activity.startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
-                type = "application/octet-stream"
+                type = mimeType
                 putExtra(Intent.EXTRA_TITLE, name)
             }, SAVE_DOCUMENT)
         } catch (_: Exception) {
@@ -361,6 +368,7 @@ class PlatformBridge(
     }
 
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (uploadPicker.onActivityResult(requestCode, resultCode, data)) return true
         if (requestCode == SAVE_DOCUMENT) {
             val result = exportResult ?: return true
             val bytes = exportBytes
@@ -515,6 +523,7 @@ class PlatformBridge(
         localDiscovery.close()
         chatClipboard.close()
         updates.close()
+        uploadPicker.close()
         exportResult?.error("disposed", "文件保存窗口已关闭，保存结果未确认", null)
         exportResult = null
         exportBytes = null

@@ -22,9 +22,16 @@ List<int> changeStarts(List<ChangedLine> lines) => [
 /// 对齐的花费却随它的平方涨。
 const _maxEdits = 1000;
 
+List<String> _linesOf(String text) => text.isEmpty
+    ? <String>[]
+    : [
+        for (final line in text.split('\n'))
+          line.endsWith('\r') ? line.substring(0, line.length - 1) : line,
+      ];
+
 List<ChangedLine> lineDiff(String before, String after) {
-  final a = before.isEmpty ? <String>[] : before.split('\n');
-  final b = after.isEmpty ? <String>[] : after.split('\n');
+  final a = _linesOf(before);
+  final b = _linesOf(after);
   var prefix = 0;
   while (prefix < a.length && prefix < b.length && a[prefix] == b[prefix]) {
     prefix++;

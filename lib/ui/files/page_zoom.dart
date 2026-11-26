@@ -2,8 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../widgets/scrolling_selection_area.dart';
+
 /// 双指缩放整页：内容按 1/倍率 排版再整体绘制，缩小时看得到更多行，
 /// 虚拟列表和横向滚动照常工作。手势走 Listener，不和内层滚动抢手势。
+/// 只在 100% 时可选字：缩放变换下 Flutter 换算滚动选区的坐标会算错，
+/// 单击就让列表自己往一头滚。
 class PageZoom extends StatefulWidget {
   const PageZoom({
     super.key,
@@ -30,6 +34,7 @@ class _PageZoomState extends State<PageZoom> {
   static const _minScale = .5, _maxScale = 3.0;
 
   final _pointers = <int, Offset>{};
+  final _area = GlobalKey<SelectionAreaState>();
   var _scale = 1.0;
   var _size = Size.zero;
   // content 是两指中点下的内容坐标，缩放时让它一直跟着手指。
@@ -42,15 +47,19 @@ class _PageZoomState extends State<PageZoom> {
   double _offset(ScrollController controller) =>
       controller.hasClients ? controller.offset : 0;
 
-  void _beginPinch() => setState(
-    () => _pinch = (
-      distance: math.max(_distance, 1),
-      scale: _scale,
-      content:
-          Offset(_offset(widget.horizontal), _offset(widget.vertical)) +
-          _focal / _scale,
-    ),
-  );
+  void _beginPinch() {
+    // 缩放后不能选字，已有的选区连同工具条一起清掉。
+    _area.currentState?.selectableRegion.clearSelection();
+    setState(
+      () => _pinch = (
+        distance: math.max(_distance, 1),
+        scale: _scale,
+        content:
+            Offset(_offset(widget.horizontal), _offset(widget.vertical)) +
+            _focal / _scale,
+      ),
+    );
+  }
 
   void _down(PointerDownEvent event) {
     _pointers[event.pointer] = event.localPosition;
@@ -97,6 +106,7 @@ class _PageZoomState extends State<PageZoom> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       _size = box.biggest;
+      final zoomed = _scale != 1;
       return Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: _down,
@@ -113,10 +123,20 @@ class _PageZoomState extends State<PageZoom> {
               key: const ValueKey('page-zoom-content'),
               width: _size.width / _scale,
               height: _size.height / _scale,
-              child: widget.builder(
-                context,
-                _pinch == null ? null : const NeverScrollableScrollPhysics(),
-                _scale,
+              child: ScrollingSelectionArea(
+                areaKey: _area,
+                // 缩放时单击、长按到这里为止，不进选字；结构不变，列表不重建。
+                child: GestureDetector(
+                  onTap: zoomed ? () {} : null,
+                  onLongPress: zoomed ? () {} : null,
+                  child: widget.builder(
+                    context,
+                    _pinch == null
+                        ? null
+                        : const NeverScrollableScrollPhysics(),
+                    _scale,
+                  ),
+                ),
               ),
             ),
           ),

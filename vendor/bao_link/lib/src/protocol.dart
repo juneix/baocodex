@@ -224,9 +224,24 @@ abstract final class LinkMethods {
   /// none). Sent when it changes, and on connecting.
   static const setMe = 'setMe';
 
+  /// `{"project"? or "bot"?, "name", "data"}`: raw file bytes as base64,
+  /// at most [LinkLimits.upload], put on the target host outside its project.
+  /// Returns `{"path"}` (the host's absolute path) or `{"tooLarge": true}`.
+  static const upload = 'upload';
+
   /// Those whose answers can be large: each goes on a stream of its own
   /// (see [LinkPeer]), holding up nothing else.
-  static const bulk = {read, image, icon, files, folder, botAvatar, extensions};
+  static const bulk = {
+    read,
+    image,
+    icon,
+    files,
+    folder,
+    botAvatar,
+    extensions,
+    setMe,
+    saveBot,
+  };
 }
 
 /// How much of what a phone asks for it gets, at most.
@@ -249,6 +264,9 @@ abstract final class LinkLimits {
   /// A file's bytes, opened in another app: base64, under the relay's
   /// burst (16 MiB).
   static const download = 8 * 1024 * 1024;
+
+  /// A file's raw bytes, uploaded from the phone.
+  static const upload = 8 * 1024 * 1024;
 }
 
 /// A task an agent left running beside the conversation: a command, a
@@ -588,6 +606,7 @@ class SessionSummary {
     this.model,
     this.mode,
     this.permission,
+    this.alias,
   });
 
   factory SessionSummary.fromJson(Map<String, Object?> json) => SessionSummary(
@@ -605,6 +624,7 @@ class SessionSummary {
     model: json['model'] as String?,
     mode: json['mode'] as String?,
     permission: json['permission'] as String?,
+    alias: json['alias'] as String?,
   );
 
   final String id;
@@ -619,6 +639,7 @@ class SessionSummary {
   final String? model;
   final String? mode;
   final String? permission;
+  final String? alias;
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -631,6 +652,7 @@ class SessionSummary {
     'model': ?model,
     'mode': ?mode,
     'permission': ?permission,
+    'alias': ?alias,
   };
 }
 
@@ -757,6 +779,7 @@ class LinkSessionUpdate {
     this.earlier,
     this.goal,
     this.context,
+    this.quota,
   });
 
   factory LinkSessionUpdate.fromJson(Map<String, Object?> json) =>
@@ -788,6 +811,10 @@ class LinkSessionUpdate {
           _ => null,
         },
         context: switch (json['context']) {
+          final Map<String, Object?> map => map,
+          _ => null,
+        },
+        quota: switch (json['quota']) {
           final Map<String, Object?> map => map,
           _ => null,
         },
@@ -833,6 +860,15 @@ class LinkSessionUpdate {
   /// compacted, in tokens.
   final Map<String, Object?>? context;
 
+  /// How much quota is left, on a model of ChatGPT accounts: `{"provider",
+  /// "back"?, "accounts": [{"name", "plan"?, "current"?, "off"?, "until"?,
+  /// "error"?, "at"?, "windows": [{"minutes"?, "left", "resets"?}]}]}`.
+  /// Percentages are 0–100; times, epoch milliseconds. `off` is whether it is
+  /// turned off; an account with a quota is one of `windows` available
+  /// now; an account's `until`, when it can; `at`, when its quota was
+  /// checked.
+  final Map<String, Object?>? quota;
+
   Map<String, Object?> toJson() => {
     'session': session,
     'start': start,
@@ -846,6 +882,7 @@ class LinkSessionUpdate {
     'earlier': ?earlier,
     'goal': ?goal,
     'context': ?context,
+    'quota': ?quota,
   };
 }
 

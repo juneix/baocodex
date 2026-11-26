@@ -637,6 +637,7 @@ extension _History on _ChatPageState {
                     WorkFoldLine(
                       key: ValueKey('work-${row.index}'),
                       worked: work.worked ?? Duration.zero,
+                      stopped: work.stopped,
                       edits: turnEdits(row.foldItems),
                       expanded: expanded,
                       onToggle: toggle,

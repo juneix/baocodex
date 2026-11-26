@@ -25,6 +25,7 @@ abstract final class LinkSessionWire {
     'earlier',
     'goal',
     'context',
+    'quota',
   ];
 }
 
@@ -73,24 +74,95 @@ class LinkSessionSlimmer {
   }
 }
 
-/// The phone's copy of each session it follows, as the desktop told it, to
-/// make whole updates of slim ones (see [LinkSessionWire]).
+/// A short digest of [json], the same on either end for the same raw
+/// session item: two independent 32-bit hashes of its JSON text, in hex.
+String linkDigest(Object? json) {
+  final text = jsonEncode(json);
+  var a = 0x811c9dc5;
+  var b = 5381;
+  for (var i = 0; i < text.length; i++) {
+    final unit = text.codeUnitAt(i);
+    a = _times((a ^ unit) & 0xffffffff, 0x01000193);
+    b = (_times(b, 33) ^ unit) & 0xffffffff;
+  }
+  return a.toRadixString(16).padLeft(8, '0') +
+      b.toRadixString(16).padLeft(8, '0');
+}
+
+/// 32-bit multiplication without exceeding the web's exact integer range.
+int _times(int a, int b) {
+  final low = (a & 0xffff) * b;
+  final high = ((a >>> 16) * b) & 0xffff;
+  return (low + (high << 16)) & 0xffffffff;
+}
+
+/// The phone's copy of each session, kept for one desktop across connections.
+/// Chat items remain the raw JSON objects, not decoded presentation models.
 class LinkSessionMirror {
   final Map<String, _Mirrored> _sessions = {};
+  final Map<String, List<Object?>> _kept = {};
+  static const _keptMost = 32;
+  final Map<String, List<Object?>> _offered = {};
 
-  /// Those closed since they were last opened: what still comes of them
-  /// was sent before the desktop heard, and is let go.
+  /// The app's raw items from before, unless the session is followed already.
+  void keep(String session, List<Object?> items) {
+    if (_sessions.containsKey(session) || items.isEmpty) return;
+    _keepAside(session, items);
+  }
+
+  void _keepAside(String session, List<Object?> items) {
+    _kept
+      ..remove(session)
+      ..[session] = [...items];
+    while (_kept.length > _keptMost) {
+      _kept.remove(_kept.keys.first);
+    }
+  }
+
+  /// What was offered for this particular open, before any later updates.
+  List<String>? have(String session) {
+    final items = _sessions[session]?.items ?? _kept[session];
+    if (items == null || items.isEmpty) {
+      _offered.remove(session);
+      return null;
+    }
+    final offered = _offered[session] = [...items];
+    return [for (final item in offered) linkDigest(item)];
+  }
+
+  /// Those closed since they were last opened: in-flight updates are stale.
   final Set<String> _closed = {};
 
-  /// The whole update an `open` answered with.
-  void opened(Map<String, Object?> update) {
+  /// Discard an unusable baseline so the next open requests a full snapshot.
+  void _forget(String session) {
+    _sessions.remove(session);
+    _kept.remove(session);
+    _offered.remove(session);
+  }
+
+  /// An open answer with its offered prefix restored; null on a mismatch.
+  Map<String, Object?>? opened(Map<String, Object?> update) {
     final session = update['session'];
-    if (session is! String) return;
+    if (session is! String) return null;
     _closed.remove(session);
+    final offered = _offered.remove(session) ?? const [];
+    final start = update['start'];
+    final count = update['count'];
+    final items = update['items'];
+    if (start is! int || count is! int || items is! List ||
+        start < 0 || start > offered.length ||
+        count != start + items.length ||
+        update['partial'] == true || update['append'] != null) {
+      _forget(session);
+      return null;
+    }
+    final all = [...offered.take(start), ...items];
+    _kept.remove(session);
     _sessions[session] = _Mirrored(
-      [...?(update['items'] as List?)],
+      [...all],
       {for (final key in LinkSessionWire.rest) key: update[key]},
     );
+    return {...update, 'start': 0, 'items': all};
   }
 
   /// [items] put before the first (an `earlier` answer).
@@ -100,7 +172,10 @@ class LinkSessionMirror {
   }
 
   void closed(String session) {
-    _sessions.remove(session);
+    if (_sessions.remove(session) case final mirrored?) {
+      _keepAside(session, mirrored.items);
+    }
+    _offered.remove(session);
     _closed.add(session);
   }
 
@@ -114,6 +189,14 @@ class LinkSessionMirror {
   /// copy kept (some update was missed): the session should be opened
   /// again.
   Map<String, Object?>? apply(Map<String, Object?> update) {
+    final whole = _apply(update);
+    if (whole == null && update['session'] is String) {
+      _forget(update['session']! as String);
+    }
+    return whole;
+  }
+
+  Map<String, Object?>? _apply(Map<String, Object?> update) {
     final session = update['session'];
     if (session is! String) return null;
     final partial = update['partial'] == true;

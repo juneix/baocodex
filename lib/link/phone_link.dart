@@ -246,6 +246,7 @@ class PhoneLink extends ChangeNotifier {
   final _paths = <String, LinkPath>{};
   final _pathSubscriptions = <String, StreamSubscription<LinkPath>>{};
   final _opening = <LinkPeer>{};
+  final _mirrors = <String, LinkSessionMirror>{};
   final _states = <String, Map<String, Object?>>{};
   final _attempts = <PairingAttempt>{};
   final _timers = <String, Timer>{};
@@ -544,7 +545,8 @@ class PhoneLink extends ChangeNotifier {
     }
     final LinkPeer peer;
     try {
-      peer = await LinkPeer.connect(connection, mirror: LinkSessionMirror());
+      final mirror = _mirrors.putIfAbsent(address.id, LinkSessionMirror.new);
+      peer = await LinkPeer.connect(connection, mirror: mirror);
     } catch (_) {
       connection.close();
       rethrow;
@@ -1111,6 +1113,7 @@ class PhoneLink extends ChangeNotifier {
     _desktops.remove(id);
     _states.remove(id);
     _unsavedAddresses.remove(id);
+    _mirrors.remove(id);
     final peer = _peers.remove(id);
     _dropPath(id);
     for (final attempt in _attempts.toList()) {
@@ -1231,6 +1234,7 @@ class PhoneLink extends ChangeNotifier {
     final identity = LinkIdentity.generate();
     await _store.write('identity', jsonEncode(identity.toJson()));
     _identity = identity;
+    _mirrors.clear();
     await _serialized(_dropNode);
     _changed();
   }
@@ -1267,6 +1271,7 @@ class PhoneLink extends ChangeNotifier {
       unawaited(peer.close());
     }
     _peers.clear();
+    _mirrors.clear();
     _replies.clear();
     _verifying.clear();
     for (final subscription in _pathSubscriptions.values) {

@@ -24,7 +24,11 @@ class NoticeRow extends StatelessWidget {
     const warningLight = Color(0xFFB26A00);
     final warning = dark ? const Color(0xFFFFB74D) : warningLight;
     final muted = scheme.onSurfaceVariant;
-    final text = item.text;
+    final isZh = zh ?? Localizations.localeOf(context).languageCode == 'zh';
+    final text = switch (item.compaction) {
+      final note? => note.describe(zh: isZh),
+      null => item.text,
+    };
     switch (item.kind) {
       case NoticeKind.compaction:
         return Padding(
