@@ -32,7 +32,6 @@ import '../../state/local_message_queue.dart';
 import '../files/files_tab.dart';
 import '../bots/bots_tab.dart';
 import '../widgets/image_gallery.dart';
-import '../widgets/bottom_sheet_panel.dart';
 import '../widgets/lucide_icon.dart';
 import '../widgets/dropdown_panel.dart';
 import '../widgets/fold_row.dart';
@@ -375,12 +374,10 @@ class _ChatPageState extends State<ChatPage> {
       _maybeAutoReadTts();
       return;
     }
-    _ttsBuffer?.removeListener(_maybeAutoReadTts);
     _ttsBuffer = next;
     _ttsBaselineReady = false;
     _ttsSeenItems = 0;
     if (next != null) {
-      next.addListener(_maybeAutoReadTts);
       _maybeAutoReadTts();
     }
   }
@@ -457,6 +454,7 @@ class _ChatPageState extends State<ChatPage> {
     if (_hasSession) {
       widget.state.localQueue.drain(widget.desktopId, _sessionId);
     }
+    _syncTtsBuffer();
   }
 
   Future<void> _open() => _binding.refresh();
@@ -588,7 +586,6 @@ class _ChatPageState extends State<ChatPage> {
     _away.dispose();
     _trayFold.dispose();
     widget.state.removeListener(_workspaceChanged);
-    _ttsBuffer?.removeListener(_maybeAutoReadTts);
     _ttsBuffer = null;
     _binding.removeListener(_bindingChanged);
     _binding.dispose();
