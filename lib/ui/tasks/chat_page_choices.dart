@@ -225,7 +225,7 @@ extension _Choices on _ChatPageState {
       'ban',
     ),
     ('permission', 'bypassPermissions') => (
-      tr('⚠️完全访问', '⚠️Full access'),
+      tr('完全访问', option.label),
       tr('不做任何检查，编辑和命令直接执行', option.description),
       'shield-alert',
     ),

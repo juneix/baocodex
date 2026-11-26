@@ -159,10 +159,15 @@ void main() {
       live: false,
       isOpen: (fold) => fold.kind == StepFoldKind.steps,
     );
-    expect(rows.length, 3);
+    // 折叠行和它带的第一项各占一行：展开后第一步也有自己的行。
+    expect(rows.length, 4);
     expect(rows[0].isFold, isTrue, reason: 'the fold line still leads');
-    expect(rows[1].shown, isA<ToolCallItem>());
+    expect(
+      [for (final row in rows.skip(1).take(2)) (row.shown as ToolCallItem).target],
+      ['a.dart', 'b.dart'],
+    );
     expect(rows[1].isFold, isFalse);
+    expect(rows[1].index, 0);
   });
 
   test('a live run shows its under-way step while folded', () {

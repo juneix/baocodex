@@ -41,7 +41,7 @@ void main() {
     });
 
     test('引号里可以有空格', () {
-      const text = '@/tmp/my file.txt';
+      const text = '@"/tmp/my file.txt"';
       expect(parseFileMention(text, 0)?.path, '/tmp/my file.txt');
     });
   });

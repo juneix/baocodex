@@ -806,7 +806,7 @@ extension _Composer on _ChatPageState {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: MobileType.secondary,
                       color: colors.primary,
                     ),
                   ),

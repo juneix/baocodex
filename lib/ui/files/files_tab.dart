@@ -276,7 +276,7 @@ class _FilesPageState extends State<FilesPage> {
     final state = widget.state;
     return Scaffold(
       appBar: AppBar(
-        leadingWidth: widget.prefix.isEmpty ? null : 92,
+        leadingWidth: widget.prefix.isEmpty ? null : 104,
         leading: widget.prefix.isEmpty
             ? null
             : Row(
@@ -285,6 +285,8 @@ class _FilesPageState extends State<FilesPage> {
                   BackButton(onPressed: () => Navigator.maybePop(context)),
                   IconButton(
                     tooltip: state.tr('关闭', 'Close'),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
                     icon: const LucideIcon('x', size: 20),
                     onPressed: _closeBrowser,
                   ),

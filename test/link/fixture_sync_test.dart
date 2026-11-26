@@ -159,6 +159,8 @@ void main() {
         'identity': 'Synthetic bot only',
         'abilities': ['agents'],
       }) as Map;
+      // saveBot 走独立流：应答先到，状态随控制流随后。
+      await pumpEventQueue();
       final bot = (created['bot'] as Map)['id'] as String;
       expect(state.bots.any((ref) => ref.bot.id == bot), isTrue);
       final sent = await state.sendMessage(desktop, bot: bot, text: 'bot-live');
@@ -174,6 +176,7 @@ void main() {
         'bot': bot,
         'name': 'Renamed test bot',
       });
+      await pumpEventQueue();
       expect(
         state.bots.firstWhere((ref) => ref.bot.id == bot).bot.name,
         'Renamed test bot',
