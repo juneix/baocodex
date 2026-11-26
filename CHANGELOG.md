@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1
+
+Fixes a false alarm on reconnect: the desktop was fine, but the app said it sent something unreadable.
+
+- Cause: on reconnect the phone offers the last session digest so the desktop sends only what changed. The phone skipped a step and checked that partial answer as if it were a whole snapshot, failed, and reported an error. Nothing was broken, which is why the conversation kept working.
+- Now the offered prefix is restored before the check, and a digest that no longer fits fetches a full snapshot once, without showing the error.
+
 ## 1.1.0
 
 The message area, the link layer and the files page catch up with desktop 2.0.x, and file upload plus reply suggestions arrive.
