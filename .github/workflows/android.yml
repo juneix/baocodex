@@ -1,4 +1,4 @@
-name: Android preview
+name: Android release
 
 on:
   push:
@@ -25,6 +25,11 @@ on:
         description: 'Flutter 精确版本（3.47.x）；留空使用仓库变量 FLUTTER_VERSION'
         required: false
         type: string
+      prerelease:
+        description: '作为预发布版（Preview）发布，不更新 latest'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -219,7 +224,7 @@ jobs:
           retention-days: 14
 
   publish_preview:
-    name: Publish preview pre-release
+    name: Publish release
     needs: build_preview
     runs-on: ubuntu-latest
     permissions:
@@ -308,7 +313,7 @@ jobs:
             printf 'manifest=%s\n' "$manifest"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Create or update draft pre-release
+      - name: Create or update draft release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -316,20 +321,32 @@ jobs:
           VERSION: ${{ steps.release.outputs.version }}
           APK: ${{ steps.release.outputs.apk }}
           MANIFEST: ${{ steps.release.outputs.manifest }}
+          IS_PRERELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease == true && 'true' || 'false' }}
         run: |
           request="$RUNNER_TEMP/ycode-release-request.json"
+          if [[ "$IS_PRERELEASE" == true ]]; then
+            release_name="BaoCodeX $VERSION Preview"
+            make_latest="false"
+            prerelease_json=true
+          else
+            release_name="BaoCodeX $VERSION"
+            make_latest="true"
+            prerelease_json=false
+          fi
           jq -n \
             --arg tag_name "$TAG" \
             --arg target_commitish "$GITHUB_SHA" \
-            --arg name "BaoCodeX $VERSION Preview" \
+            --arg name "$release_name" \
             --arg body "$(jq -er '.body' "$MANIFEST")" \
+            --arg make_latest "$make_latest" \
+            --argjson prerelease "$prerelease_json" \
             '{tag_name: $tag_name, target_commitish: $target_commitish,
-              name: $name, body: $body, draft: true, prerelease: true,
-              make_latest: "false"}' > "$request"
+              name: $name, body: $body, draft: true, prerelease: $prerelease,
+              make_latest: $make_latest}' > "$request"
           existing="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
             --jq "first(.[] | select(.tag_name == \"$TAG\")) // empty")"
-          if [[ -n "$existing" ]] && [[ "$(jq -r .prerelease <<< "$existing")" != true ]]; then
-            echo "::error::同名正式 Release 已存在，拒绝将其改成预览版。"
+          if [[ -n "$existing" ]] && [[ "$(jq -r .prerelease <<< "$existing")" != "$IS_PRERELEASE" ]]; then
+            echo "::error::同名 Release 的正式版/预览版类型与本次不一致，拒绝覆盖。"
             exit 1
           fi
           release_id=""

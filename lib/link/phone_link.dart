@@ -835,14 +835,36 @@ class PhoneLink extends ChangeNotifier {
     String desktopId,
     String method, [
     Map<String, Object?> params = const {},
-  ]) async {
+  ]) => _runOnPeer(desktopId, (peer) => peer.call(method, params));
+
+  Future<Object?> fetch(
+    String desktopId,
+    String method, [
+    Map<String, Object?> params = const {},
+  ]) => _runOnPeer(desktopId, (peer) => peer.fetch(method, params));
+
+  Future<Object?> callWithPieces(
+    String desktopId,
+    String method,
+    Map<String, Object?> params,
+    int size,
+    Stream<Uint8List> pieces,
+  ) => _runOnPeer(
+    desktopId,
+    (peer) => peer.callWithPieces(method, params, size, pieces),
+  );
+
+  Future<Object?> _runOnPeer(
+    String desktopId,
+    Future<Object?> Function(LinkPeer peer) action,
+  ) async {
     _checkAlive();
     final peer = _peers[desktopId];
     if (peer == null) throw const LinkClosedException();
     // Never replay RPCs: a lost answer does not mean a write did not happen.
     final request = ++_requestSerial;
     try {
-      final result = await peer.call(method, params);
+      final result = await action(peer);
       _replied(desktopId, peer, request);
       return result;
     } on LinkRemoteException {

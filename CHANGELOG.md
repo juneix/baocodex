@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.2
+
+Syncs the BaoCode 2.0.8 chunked file-transfer protocol and switches CI builds to publish stable releases so in-app update checks work out of the box.
+
+- Protocol: adds `LinkPieces`, `LinkPeer.fetch`, `LinkPeer.callWithPieces`, `uploadPieces`, `download` piece streaming, and the 1 MiB `LinkLimits.piece` limit in `bao_link`, while keeping `quota` and reconnect fixes; exposes `fetch` and `callWithPieces` on `PhoneLink` and `AppState`.
+- Release workflow: `push` to `main` now publishes a standard latest release (`BaoCodeX <version>`), while `workflow_dispatch` keeps an optional `prerelease` toggle for temporary preview builds.
+
 ## 1.1.1
 
 Fixes a false alarm on reconnect: the desktop was fine, but the app said it sent something unreadable.

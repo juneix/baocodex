@@ -615,6 +615,44 @@ class AppState extends ChangeNotifier {
     return link.call(desktopId, method, params);
   }
 
+  Future<Object?> fetch(
+    String desktopId,
+    String method, [
+    Map<String, Object?> params = const {},
+  ]) async {
+    if (demo) {
+      final result = await _demo!.call(desktopId, method, params);
+      _notify();
+      return result;
+    }
+    if (!isOnline(desktopId)) {
+      throw StateError(
+        tr('电脑不在线；操作未发送。', 'Desktop is offline; the operation was not sent.'),
+      );
+    }
+    return link.fetch(desktopId, method, params);
+  }
+
+  Future<Object?> callWithPieces(
+    String desktopId,
+    String method,
+    Map<String, Object?> params,
+    int size,
+    Stream<Uint8List> pieces,
+  ) async {
+    if (demo) {
+      final result = await _demo!.call(desktopId, method, params);
+      _notify();
+      return result;
+    }
+    if (!isOnline(desktopId)) {
+      throw StateError(
+        tr('电脑不在线；操作未发送。', 'Desktop is offline; the operation was not sent.'),
+      );
+    }
+    return link.callWithPieces(desktopId, method, params, size, pieces);
+  }
+
   BotProfileSaver botProfileSaver(String desktopId, {LinkBot? bot}) {
     if (bot != null) {
       return BotProfileSaver(request: request, desktopId: desktopId, bot: bot);

@@ -1,5 +1,12 @@
 # 更新日志
 
+## 1.1.2
+
+同步 BaoCode 桌面端 2.0.8 的分片文件传输协议，并将云端构建调整为默认发布正式版以打通应用内检查更新。
+
+- 协议层：`bao_link` 同步 `LinkPieces`、`LinkPeer.fetch`、`LinkPeer.callWithPieces`、`uploadPieces`、`download` 分片参数及 1 MiB 分片上限 `LinkLimits.piece`，保留本地 `quota` 与断线恢复修补；并在 `PhoneLink` 和 `AppState` 暴露 `fetch` 与 `callWithPieces` 接口。
+- 发布流程：推送 `main` 默认发布正式版（`BaoCodeX <版本>`）并标记 `latest`，手动触发 `workflow_dispatch` 保留 `prerelease` 开关用于临时调试版。
+
 ## 1.1.1
 
 修一个重连时的误报：电脑其实一切正常，界面却说「电脑返回的内容无法识别」。

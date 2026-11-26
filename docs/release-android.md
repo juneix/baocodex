@@ -1,6 +1,6 @@
 # BaoCodeX：Android 云构建、签名与发布
 
-应用显示名 **BaoCodeX**，安装包名固定为 `juneix.baocodex`。当前源码版本为 `1.0.10`，只发布 arm64 APK。
+应用显示名 **BaoCodeX**，安装包名固定为 `juneix.baocodex`。当前源码版本为 `1.1.2`，只发布 arm64 APK。
 
 这是独立安装，不覆盖原 YCode 或 YCode Preview，也不自动迁移它们的配对与草稿。保留旧应用，在 BaoCodeX 中重新配对；之后 BaoCodeX 的覆盖更新必须保持同一包名、同一签名和更高版本号。
 
@@ -10,9 +10,9 @@ APK 的静态分析、Flutter 测试、构建、签名与签名校验全部在 G
 
 唯一的本机 Android 调试入口是已有 adb 连接真机，检查云端生成的产物。排障先看构建或设备日志，不为验证而自动启动测试服务。
 
-## GitHub Actions 预览版
+## GitHub Actions 发布
 
-`.github/workflows/android.yml` 在 main 的相关文件推送或手动运行时执行：恢复锁定依赖，运行 `flutter analyze --no-pub` 和 `flutter test --no-pub`，再构建、签名、发布 arm64 pre-release。
+`.github/workflows/android.yml` 在 main 的相关文件推送或手动运行时执行：恢复锁定依赖，运行 `flutter analyze --no-pub` 和 `flutter test --no-pub`，再构建、签名、发布 arm64 APK。推送 `main` 默认发布正式版（`latest`）；手动触发时可勾选 `prerelease` 仅作为临时预览版发布。
 
 **整条工作流包含发布，不是仅检查。**它会创建版本标签和公开附件；只有确实准备发布时才触发，不把代码修改或本地提交当作推送/发布授权。
 

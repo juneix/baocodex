@@ -173,14 +173,17 @@ abstract final class LinkMethods {
 
   /// `{"project", "path"}`: a picture of the project (PNG, JPEG, GIF,
   /// WebP), as a reply names it: `{"type", "data"}` (its media type, and
-  /// base64), or `{"tooLarge": true, "size"}` past [LinkLimits.image].
-  /// `bad` for a file that is not a picture.
+  /// base64), or `{"tooLarge": true, "size"}` past [LinkLimits.image]
+  /// (then had in pieces, by [download]). `bad` for a file that is not a
+  /// picture.
   static const image = 'image';
 
-  /// `{"project", "path"}`: any file of the machine, its bytes, for the
-  /// phone to open in an app of its own (a video, a PDF, an archive):
-  /// `{"data"}` (base64), or `{"tooLarge": true, "size"}` past
-  /// [LinkLimits.download].
+  /// `{"project", "path", "pieces"?}`: any file of the machine, its bytes,
+  /// for the phone to open in an app of its own (a video, a PDF, an
+  /// archive). With `pieces`, however large: `{"size", "pieces": true}`,
+  /// then the bytes on the stream, [LinkPieces]. Without (a phone before
+  /// those), `{"data"}` (base64), or `{"tooLarge": true, "size"}` past
+  /// [LinkLimits.download]; as a desktop before pieces answers either.
   static const download = 'download';
 
   /// `{"bot"?, "name", "avatar"?, "avatarImage"?, "identity", "abilities",
@@ -224,16 +227,27 @@ abstract final class LinkMethods {
   /// none). Sent when it changes, and on connecting.
   static const setMe = 'setMe';
 
-  /// `{"project"? or "bot"?, "name", "data"}`: raw file bytes as base64,
-  /// at most [LinkLimits.upload], put on the target host outside its project.
-  /// Returns `{"path"}` (the host's absolute path) or `{"tooLarge": true}`.
+  /// `{"project"?, "bot"?, "name", "data"}` (base64): a file of the
+  /// phone's (one the user picked there, one another app shared) put where
+  /// the project's agent, or the bot's, reads it without asking: on its
+  /// host, apart from the project. Answered with `{"path"}`, full, for a
+  /// message to name (`@path`, in its mentions); with `{"tooLarge": true}`
+  /// past [LinkLimits.upload]. For a desktop before [uploadPieces].
   static const upload = 'upload';
+
+  /// `{"project"?, "bot"?, "name", "size"}`, the bytes after it on the
+  /// stream ([LinkPeer.callWithPieces]): [upload], of any size. `unknown`
+  /// from a desktop before it.
+  static const uploadPieces = 'uploadPieces';
 
   /// Those whose answers can be large: each goes on a stream of its own
   /// (see [LinkPeer]), holding up nothing else.
   static const bulk = {
     read,
     image,
+    download,
+    upload,
+    uploadPieces,
     icon,
     files,
     folder,
@@ -255,18 +269,26 @@ abstract final class LinkLimits {
   /// A project's files listed.
   static const files = 20000;
 
-  /// A picture's bytes.
+  /// A picture's bytes, in one answer; one larger comes in pieces
+  /// ([LinkMethods.download]).
   static const image = 8 * 1024 * 1024;
 
   /// A bot's picture's bytes.
   static const avatar = 1024 * 1024;
 
-  /// A file's bytes, opened in another app: base64, under the relay's
-  /// burst (16 MiB).
+  /// A file's bytes, opened in another app, in one answer of base64: what
+  /// a phone or desktop before pieces sends. In pieces ([LinkPieces]) any
+  /// size goes; the relay, when the way is through one, slows what it
+  /// carries to its rate.
   static const download = 8 * 1024 * 1024;
 
-  /// A file's raw bytes, uploaded from the phone.
+  /// A file's bytes, from the phone ([LinkMethods.upload]), to a desktop
+  /// before [LinkMethods.uploadPieces]: as [download].
   static const upload = 8 * 1024 * 1024;
+
+  /// A piece's bytes ([LinkPieces]): one message each, well under a
+  /// message's most.
+  static const piece = 1024 * 1024;
 }
 
 /// A task an agent left running beside the conversation: a command, a
