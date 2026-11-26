@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.6
+
+Improves cloud TTS playback fluency, filters non-bubble HTML from read-aloud, syncs Bot chat-only mode, and completes Bot reply suggestions.
+
+- Cloud TTS look-ahead pre-fetch: pre-synthesizes the next segment while the current segment is playing for MiMo / ElevenLabs, eliminating multi-second gaps between split Bot bubbles; auto-read now collects all new assistant messages in order.
+- Clean read-aloud content: when Bot markup (`<bot_say>` / `<bot_narrate>`) is present, TTS strictly reads visible bubble text and ignores raw HTML/search snippets outside tags, with HTML tag stripping as fallback.
+- Bot settings & suggestions: refreshes the desktop state snapshot after saving "Chat only" so the toggle persists across screen transitions; supports multi-line `<bot_suggest>` blocks and scans earlier bubbles in the same turn for suggested replies.
+
 ## 1.1.5
 
 Fixes Bot auto-read and bubble long-press interactions, adds voice tuning pages, and optimizes Xiaomi HyperOS system TTS.
