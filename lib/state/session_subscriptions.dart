@@ -88,12 +88,23 @@ class SessionSubscriptions {
     onChanged();
     _complete(operation, () async {
       try {
-        final result = await request(desktop, LinkMethods.open, {
+        var result = await request(desktop, LinkMethods.open, {
           'session': session,
           // 已经翻出来的不缩回去：序号和正在看的位置都靠它。
           'window': math.max(60, target.items.length),
         });
+        // 摘要对不上基线时 peer 会给出 null 并推一次 resync：直接再来一次，
+        // 这次没有摘要，拿到的一定是全量快照，不是给用户看的错误。
+        if (result == null) {
+          result = await request(desktop, LinkMethods.open, {
+            'session': session,
+            'window': math.max(60, target.items.length),
+          });
+        }
         if (!_current(key, operation)) return;
+        if (result == null) {
+          throw const FormatException('The desktop sent no session snapshot');
+        }
         target.apply(
           LinkSessionUpdate.fromJson(objectMap(result)),
           snapshot: true,

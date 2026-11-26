@@ -275,12 +275,17 @@ class LinkPeer {
         // caller gets to the answer; and told the app in that order too,
         // among the updates (which it would otherwise get to first, or
         // after, as it happens).
+        var result = message['r'];
         if (mirror case final mirror?) {
-          if (_mirrorAnswer(mirror, pending, message['r']) case final event?) {
+          if (_mirrorAnswer(mirror, pending, result) case final event?) {
             _events.add(event);
+            if (pending.method == LinkMethods.open) {
+              // Never return the unnormalised start>0 answer to the app.
+              result = event.name == LinkEvents.session ? event.data : null;
+            }
           }
         }
-        pending.completer.complete(message['r']);
+        pending.completer.complete(result);
     }
   }
 
