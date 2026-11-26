@@ -484,60 +484,61 @@ class _BotProfileViewState extends State<_BotProfileView> {
     final voices = await TtsSpeaker.voices();
     if (!context.mounted) return;
     await showBottomSheetPanel<void>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
+      context,
+      title: state.tr('系统音色', 'System voice'),
+      closeLabel: state.tr('关闭', 'Close'),
+      size: SheetSize.medium,
+      builder: (sheetContext) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+        children: [
+          ListTile(
+            title: Text(state.tr('跟随系统', 'System default')),
+            trailing: state.settings.ttsVoice == null
+                ? const LucideIcon('check', size: 18)
+                : null,
+            onTap: () async {
+              Navigator.pop(sheetContext);
+              await state.setTtsSettings(clearVoice: true);
+            },
+          ),
+          if (voices.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Text(
+                state.tr(
+                  '未获取到可用离线音色，将使用系统默认音色。',
+                  'No offline voices reported; system default will be used.',
+                ),
+                style: MobileTheme.hintStyleOf(sheetContext),
+              ),
+            ),
+          for (final voice in voices)
             ListTile(
-              title: Text(state.tr('跟随系统', 'System default')),
-              trailing: state.settings.ttsVoice == null
-                  ? const LucideIcon('check', size: 18)
-                  : null,
+              title: Text(voice.name),
+              subtitle: Text(voice.locale),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: state.tr('试听', 'Preview'),
+                    icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                    onPressed: () => TtsSpeaker.speak(
+                      state.tr('你好，我是 ${bot.name}。', 'Hello, I am ${bot.name}.'),
+                      voice: voice.name,
+                      rate: state.settings.ttsRate,
+                    ),
+                  ),
+                  if (state.settings.ttsVoice == voice.name)
+                    const LucideIcon('check', size: 18),
+                ],
+              ),
               onTap: () async {
                 Navigator.pop(sheetContext);
-                await state.setTtsSettings(clearVoice: true);
+                await state.setTtsSettings(voice: voice.name);
               },
             ),
-            if (voices.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Text(
-                  state.tr(
-                    '未获取到可用离线音色，将使用系统默认音色。',
-                    'No offline voices reported; system default will be used.',
-                  ),
-                  style: MobileTheme.hintStyleOf(sheetContext),
-                ),
-              ),
-            for (final voice in voices)
-              ListTile(
-                title: Text(voice.name),
-                subtitle: Text(voice.locale),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      tooltip: state.tr('试听', 'Preview'),
-                      icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                      onPressed: () => TtsSpeaker.speak(
-                        state.tr('你好，我是 ${bot.name}。', 'Hello, I am ${bot.name}.'),
-                        voice: voice.name,
-                        rate: state.settings.ttsRate,
-                      ),
-                    ),
-                    if (state.settings.ttsVoice == voice.name)
-                      const LucideIcon('check', size: 18),
-                  ],
-                ),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await state.setTtsSettings(voice: voice.name);
-                },
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -545,24 +546,26 @@ class _BotProfileViewState extends State<_BotProfileView> {
   Future<void> _pickTtsRate(BuildContext context) async {
     const rates = [0.75, 1.0, 1.25, 1.5, 1.75];
     await showBottomSheetPanel<void>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final rate in rates)
-              ListTile(
-                title: Text('${rate.toStringAsFixed(2)}x'),
-                trailing: (state.settings.ttsRate - rate).abs() < 0.01
-                    ? const LucideIcon('check', size: 18)
-                    : null,
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  await state.setTtsSettings(rate: rate);
-                },
-              ),
-          ],
-        ),
+      context,
+      title: state.tr('朗读语速', 'Speech rate'),
+      closeLabel: state.tr('关闭', 'Close'),
+      size: SheetSize.small,
+      builder: (sheetContext) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        children: [
+          for (final rate in rates)
+            ListTile(
+              title: Text('${rate.toStringAsFixed(2)}x'),
+              trailing: (state.settings.ttsRate - rate).abs() < 0.01
+                  ? const LucideIcon('check', size: 18)
+                  : null,
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                await state.setTtsSettings(rate: rate);
+              },
+            ),
+        ],
       ),
     );
   }
