@@ -504,7 +504,7 @@ class CompactionNote {
             ? (zh ? '从 ${compactTokens(b)} 压缩' : 'compacted from ${compactTokens(b)}')
             : '${compactTokens(b)} → ${compactTokens(a)}')
         : null;
-    return [reason, if (tokens != null) tokens].join(' · ');
+    return [reason, ?tokens].join(' · ');
   }
 
   static String compactTokens(int tokens) =>

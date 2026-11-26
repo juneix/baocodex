@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:bao_link/bao_link.dart';
 import 'package:flutter/services.dart';
