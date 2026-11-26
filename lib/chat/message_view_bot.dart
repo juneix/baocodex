@@ -211,15 +211,13 @@ extension _BotMessage on MessageView {
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
-                  child: Builder(
-                    builder: (anchor) => ImageDeck(
-                      key: const ValueKey('bot-user-images'),
-                      images: value.images
-                          .map(GalleryImage.fromAttachment)
-                          .toList(),
-                      tr: state.tr,
-                      onLongPress: () => press(anchor),
-                    ),
+                  child: ImageDeck(
+                    key: const ValueKey('bot-user-images'),
+                    images: value.images
+                        .map(GalleryImage.fromAttachment)
+                        .toList(),
+                    tr: state.tr,
+                    onLongPress: press,
                   ),
                 ),
               ),

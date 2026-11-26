@@ -6,7 +6,7 @@ import '../../theme/app_theme.dart';
 import '../user_message.dart';
 import '../widgets/bottom_sheet_panel.dart';
 import '../widgets/lucide_icon.dart';
-import 'settings_page.dart';
+import '../widgets/mobile_widgets.dart';
 
 /// 全局「语音朗读 Beta」设置页：配置服务商、API Key、模型并试听音色。
 class VoiceSettingsPage extends StatefulWidget {
