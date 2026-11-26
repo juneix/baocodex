@@ -522,6 +522,7 @@ extension _Composer on _ChatPageState {
   static const _maxProjectCommands = 50;
 
   bool get _isBypassPermission {
+    if (widget.botId != null) return false;
     final choice = _buffer.choices
         .where((item) => item.kind == 'permission')
         .firstOrNull;

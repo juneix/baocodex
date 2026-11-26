@@ -1345,7 +1345,7 @@ class _UpdateCheckRowState extends State<UpdateCheckRow> {
     widget.state.tr('检查更新', 'Check for updates'),
     value: _checking
         ? null
-        : widget.state.tr('看看有没有新版本', 'Look for a new version'),
+        : widget.state.tr('立即检查', 'Check now'),
     trailing: _checking ? const ConnectingSpinner(size: 18) : null,
     onTap: _checking ? null : _check,
   );
@@ -1408,7 +1408,7 @@ class AboutPage extends StatelessWidget {
           const SizedBox(height: MobileSpace.xl),
           // 功能说明和官网卡片之间：微信、支付宝两张打赏码并排。
           _DonateCard(state: state),
-          const SizedBox(height: MobileSpace.lg),
+          const SizedBox(height: MobileSpace.xl),
           GroupCard(
             children: [
               SettingsRow(
@@ -1462,10 +1462,8 @@ class _DonateCard extends StatelessWidget {
       key: const ValueKey('about-donate'),
       children: [
         Text(
-          state.tr('请我喝杯咖啡', 'Buy me a coffee'),
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          state.tr('请我喝快乐水🥤', 'Buy me a coffee ☕️'),
+          style: MobileTheme.hintStyleOf(context),
         ),
         const SizedBox(height: MobileSpace.sm),
         Row(

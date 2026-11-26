@@ -2,6 +2,7 @@ package local.baocode.mobile
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
+import android.util.Log
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
@@ -31,6 +32,7 @@ class TtsSpeaker(private val context: Context) : TextToSpeech.OnInitListener, Au
 
     override fun onInit(status: Int) {
         if (status != TextToSpeech.SUCCESS) {
+            Log.w("TtsSpeaker", "TextToSpeech init failed with status=$status")
             initFailed = true
             ready = false
             pending?.result?.success(false)

@@ -77,49 +77,89 @@ extension _BotMessage on MessageView {
           )
         // 气泡是白的，里面的代码块要用白底上的浅灰。
         : MobileTheme.reading(context, child: _prose(text));
-    void press(BuildContext anchor) => showBubbleMenu(anchor, [
-      BubbleMenuAction(
-        icon: 'copy',
-        label: state.tr('复制', 'Copy'),
-        onTap: () =>
-            _copy(context, text, images: user ? value.images : const []),
-      ),
-      if (!user && sticker == null && text.trim().isNotEmpty) ...[
-        BubbleMenuAction(
-          icon: 'bell-ring',
-          label: state.tr('朗读', 'Read aloud'),
-          onTap: () => TtsSpeaker.speak(
-            text,
-            voice: state.settings.ttsVoice,
-            rate: state.settings.ttsRate,
+    void press() => showBottomSheetPanel<void>(
+      context,
+      title: state.tr('消息操作', 'Message'),
+      closeLabel: state.tr('关闭', 'Close'),
+      size: SheetSize.small,
+      builder: (sheetContext) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(8, 4, 8, 16),
+        children: [
+          ListTile(
+            leading: const LucideIcon('copy', size: 20),
+            title: Text(state.tr('复制', 'Copy')),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              _copy(context, text, images: user ? value.images : const []);
+            },
           ),
-        ),
-        BubbleMenuAction(
-          icon: 'circle-pause',
-          label: state.tr('停止朗读', 'Stop reading'),
-          onTap: () => TtsSpeaker.stop(),
-        ),
-      ],
-      if (user && onEdit != null)
-        BubbleMenuAction(
-          icon: 'pencil',
-          label: state.tr('编辑重发', 'Edit'),
-          onTap: () => onEdit!(value),
-        ),
-    ]);
-    final bubble = Flexible(
-      child: Builder(
-        builder: (anchor) => GestureDetector(
-          onLongPress: () => press(anchor),
-          child: Container(
-            key: ValueKey(user ? 'bot-user-bubble' : 'bot-answer-bubble'),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(8),
+          if (!user && sticker == null && text.trim().isNotEmpty) ...[
+            ListTile(
+              leading: const LucideIcon('bell-ring', size: 20),
+              title: Text(state.tr('朗读', 'Read aloud')),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                TtsSpeaker.speak(
+                  text,
+                  voice: state.settings.ttsVoice,
+                  rate: state.settings.ttsRate,
+                );
+              },
             ),
-            child: body,
+            ListTile(
+              leading: const LucideIcon('circle-pause', size: 20),
+              title: Text(state.tr('停止朗读', 'Stop reading')),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                TtsSpeaker.stop();
+              },
+            ),
+          ],
+          if (sticker == null && text.trim().isNotEmpty)
+            ListTile(
+              leading: const LucideIcon('file-text', size: 20),
+              title: Text(state.tr('选择文本', 'Select text')),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                showBottomSheetPanel<void>(
+                  context,
+                  title: state.tr('选择文本', 'Select text'),
+                  closeLabel: state.tr('关闭', 'Close'),
+                  size: SheetSize.medium,
+                  builder: (_) => SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                    child: SelectableText(
+                      text,
+                      style: MobileTheme.messageStyleOf(context),
+                    ),
+                  ),
+                );
+              },
+            ),
+          if (user && onEdit != null)
+            ListTile(
+              leading: const LucideIcon('pencil', size: 20),
+              title: Text(state.tr('编辑重发', 'Edit')),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                onEdit!(value);
+              },
+            ),
+        ],
+      ),
+    );
+    final bubble = Flexible(
+      child: GestureDetector(
+        onLongPress: press,
+        child: Container(
+          key: ValueKey(user ? 'bot-user-bubble' : 'bot-answer-bubble'),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(8),
           ),
+          child: SelectionContainer.disabled(child: body),
         ),
       ),
     );

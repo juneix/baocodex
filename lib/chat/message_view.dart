@@ -13,7 +13,7 @@ import '../state/app_state.dart';
 import '../link/chat_codec.dart';
 import '../platform/tts_speaker.dart';
 import '../ui/tasks/subagent_page.dart';
-import '../ui/widgets/bubble_menu.dart';
+import '../ui/widgets/bottom_sheet_panel.dart';
 import '../ui/widgets/image_gallery.dart';
 import '../ui/widgets/mobile_widgets.dart';
 import 'chat_links.dart';
